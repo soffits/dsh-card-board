@@ -28,23 +28,6 @@
     "summary.latestName": "dernière valeur",
     "summary.goal": "objectif : {value}",
     "summary.progress": "progression : {done}/{total}",
-    "action.chat": "Demander",
-    "action.chatAbout": "En discuter",
-    "action.done": "Fait",
-    "action.snooze": "Reporter",
-    "action.event": "Lancer",
-    "action.link": "Ouvrir",
-    "action.in3h": "Dans 3 heures",
-    "action.tomorrow": "Demain à 9 h",
-    "action.pick": "Choisir une heure…",
-    "action.set": "Reporter",
-    "action.cancel": "Annuler",
-    "action.sending": "Envoi…",
-    "action.pending": "En attente de prise en charge",
-    "action.handled": "Fait",
-    "action.unhandled": "Personne ne s’en est encore occupé",
-    "action.failed": "Échec : {message}",
-    "action.noWorkspace": "Ouvrez d’abord une conversation, puis réessayez.",
     "action.chatNamed": "Demander à {name}"
   }
 }

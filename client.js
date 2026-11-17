@@ -17,6 +17,7 @@ window.__ModuleLoader__.load({
     const { useState, useEffect, useLayoutEffect, useRef, useMemo, useCallback } = React
 
     const NS = 'dsh-card-board'
+    const OWNER = '@soffits/dsh-card-board'
     const PANEL = 'dsh-card-board'
     const STYLE_ID = 'dsh-card-board-style'
     const STORE_KEY = 'dsh-card-board:board'
@@ -24,8 +25,8 @@ window.__ModuleLoader__.load({
 
     // ---- the page's own words -------------------------------------------------------
     // One file per language in the package's locale folder (`ui` in locale/<tag>.json), served by the
-    // Host for the active language; the action buttons (client.actions.js) take theirs from the same
-    // files under `action.`. The code names no language. A test fails when a component renders a
+    // Host for the active language. The buttons come from @soffits/dsh-ui-actions, which has its own words.
+    // The code names no language. A test fails when a component renders a
     // literal string instead of one of these.
 
     const messageRequests = new Map()
@@ -80,7 +81,7 @@ window.__ModuleLoader__.load({
       return params ? fill(text, params) : text
     }
 
-    /** The client context: the locale service and the Web UI services the actions reach (set in apply). */
+    /** The client context, for the locale service (set in apply). */
     let clientCtx = null
 
     /**
@@ -103,15 +104,20 @@ window.__ModuleLoader__.load({
       return useMemo(() => ({ active: loaded?.active ?? active, ready: loaded !== null, intl: intlTag(loaded?.active ?? active), t: translator(loaded?.messages ?? {}) }), [loaded, active])
     }
 
-    /** The shared action buttons (client.actions.js), loaded with the page. */
-    let actionsModule
-    const loadActions = () => {
-      actionsModule ??= require.async('./client.actions.js').catch(error => {
-        actionsModule = undefined
-        throw error
-      })
-      return actionsModule
-    }
+    /**
+     * The shared buttons (`ctx.uiActions` from @soffits/dsh-ui-actions), once that plugin is there; the page
+     * shows cards without buttons until then, or when it isn't installed.
+     */
+    const buttonsStore = (() => {
+      let value = null
+      const listeners = new Set()
+      return {
+        get: () => value,
+        set: next => { value = next; for (const listener of listeners) listener() },
+        subscribe: listener => { listeners.add(listener); return () => { listeners.delete(listener) } },
+      }
+    })()
+    const useButtons = () => React.useSyncExternalStore(buttonsStore.subscribe, buttonsStore.get)
 
     // ---- numbers, dates, tones -------------------------------------------------
 
@@ -685,7 +691,7 @@ window.__ModuleLoader__.load({
         h('path', { d: 'M6 3.5H3.5v9h9V10M9 3h4v4M13 3 7.5 8.5' }))
     }
 
-    function Card({ entry, boardId, assistant, columns, now, active, locale, t, actions }) {
+    function Card({ entry, boardId, assistant, columns, now, active, locale, t, actions, press }) {
       const size = { w: Math.min(entry.w ?? 1, columns), h: entry.h ?? 1 }
       const style = { gridColumn: `span ${size.w}`, gridRow: size.h > 1 && columns > 1 ? `span ${size.h}` : undefined }
       if (!entry.card) {
@@ -699,40 +705,36 @@ window.__ModuleLoader__.load({
       const age = Math.max(0, (now - updated) / 1000)
       const stale = typeof card.staleAfter === 'number' && age > card.staleAfter
       const external = card.link && /^https?:/i.test(card.link)
-      const context = row => ({ board: boardId, card: entry.id, ...(row === undefined ? {} : { row }), type: card.type, updatedAt: card.updatedAt })
-      // A chat opens a new conversation whose draft quotes the card (or the row) and names it.
-      const chat = (action, row, rowLine) => actions.startChat({
-        text: actions.chatText({
-          prompt: action.payload?.prompt ?? '',
-          title: card.title,
-          lines: row === undefined ? summaryLines(card, locale, t) : [rowLine],
-          context: action.payload?.context ?? context(row),
-        }),
-        session: action.payload?.session,
+      // What a chat is about: the card as a few lines, or one row of it.
+      const about = (row, rowLine) => ({
+        source: OWNER,
+        title: card.title,
+        lines: row === undefined ? summaryLines(card, locale, t).slice(0, 15) : [rowLine],
+        context: { board: boardId, card: entry.id, ...(row === undefined ? {} : { row }), type: card.type, updatedAt: card.updatedAt },
       })
       // A chat button without its own label says "Ask <assistant>" when the board names one.
-      const named = list => (assistant ? list?.map(action => (action.kind === 'chat' && action.label === undefined ? { ...action, label: t('action.chatNamed', { name: assistant }) } : action)) : list)
-      const defaultChat = { kind: 'chat', id: '_chat', label: assistant ? t('action.chatNamed', { name: assistant }) : t('action.chatAbout') }
+      const askName = assistant ? t('action.chatNamed', { name: assistant }) : undefined
+      const named = list => (assistant ? list?.map(action => (action.kind === 'chat' && action.label === undefined ? { ...action, label: askName } : action)) : list)
       const rowActions = actions && ((row, list, line) => h(actions.ActionBar, {
         actions: named(list),
         states: statesOf(entry.presses, row),
         compact: true,
-        chat: action => chat(action, row, line),
-        onPress: (action, extra) => actions.press(action, extra, { card: entry.id, row }),
+        about: about(row, line),
+        onPress: (action, extra) => press(action, extra, { card: entry.id, row }),
       }))
       return h('section', { className: `cb-card${stale ? ' cb-cardStale' : ''}`, style, 'data-type': card.type },
         h('header', { className: 'cb-cardHead' },
           h(Trunc, { as: 'h3', text: card.title }),
           stale && h('span', { className: 'cb-staleChip', title: new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(updated) }, t('stale', { age: formatAge(age, locale) })),
           card.link && h('a', { className: 'cb-cardLink', href: card.link, title: t('open'), 'aria-label': t('open'), ...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {}) }, h(LinkIcon)),
-          actions && h('span', { className: 'cb-cardChat' }, h(actions.ActionButton, { action: defaultChat, compact: true, chat: action => chat(action) }))),
+          actions && h('span', { className: 'cb-cardChat' }, h(actions.ActionButton, { action: { kind: 'chat', id: '_chat', label: askName }, compact: true, about: about() }))),
         card.stat && h(StatBlock, { data: card.stat, locale, compact: true }),
         h('div', { className: 'cb-cardBody' }, h(CardBody, { card, size, narrow: columns === 1, locale, t, rowActions })),
         actions && card.actions && h('footer', { className: 'cb-cardActions' }, h(actions.ActionBar, {
           actions: named(card.actions),
           states: statesOf(entry.presses, undefined),
-          chat: action => chat(action),
-          onPress: (action, extra) => actions.press(action, extra, { card: entry.id }),
+          about: about(),
+          onPress: (action, extra) => press(action, extra, { card: entry.id }),
         })))
     }
 
@@ -774,7 +776,7 @@ window.__ModuleLoader__.load({
       const [now, setNow] = useState(() => Date.now())
       const etag = useRef(null)
       const [gridRef, columns] = useColumns()
-      const [actions, setActions] = useState(null)
+      const actions = useButtons()
       const currentRef = useRef(null)
       // The buttons ask for words at render time, so a language switch reaches them without rebuilding them.
       const translateRef = useRef(t)
@@ -810,27 +812,18 @@ window.__ModuleLoader__.load({
 
       useEffect(() => { loadList() }, [loadList])
 
-      // The action buttons load with the page; until then (or if they fail) cards show without them.
-      useEffect(() => {
-        let live = true
-        loadActions().then(({ createActions }) => {
-          if (!live) return
-          const press = async (action, extra, target) => {
-            const response = await fetch(api('action'), {
-              method: 'POST',
-              credentials: 'same-origin',
-              headers: { 'content-type': 'application/json' },
-              body: JSON.stringify({ board: currentRef.current, ...target, id: action.id, ...extra }),
-            })
-            const body = await response.json().catch(() => null)
-            if (!response.ok) throw new Error(errorText(requestError(response.status, body), translateRef.current))
-            loadBoard(currentRef.current, false)
-            return body
-          }
-          const ui = createActions({ React, ctx: clientCtx, t: (key, params) => translateRef.current(`action.${key}`, params) })
-          setActions({ ...ui, press })
-        }, error => console.warn('card-board: action buttons not loaded:', error))
-        return () => { live = false }
+      // A press of done, snooze or event goes to this plugin's server, which checks it and records it.
+      const press = useCallback(async (action, extra, target) => {
+        const response = await fetch(api('action'), {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ board: currentRef.current, ...target, id: action.id, ...extra }),
+        })
+        const body = await response.json().catch(() => null)
+        if (!response.ok) throw new Error(errorText(requestError(response.status, body), translateRef.current))
+        loadBoard(currentRef.current, false)
+        return body
       }, [loadBoard])
 
       useEffect(() => {
@@ -878,7 +871,7 @@ window.__ModuleLoader__.load({
         board.problems?.length > 0 && h('div', { className: 'cb-notice' }, t('boardProblems'), h('ul', { className: 'cb-problems' }, board.problems.map((p, i) => h('li', { key: i }, p)))),
         board.cards.length === 0 && h('p', { className: 'cb-muted' }, t('noCards')),
         h('div', { className: 'cb-grid', style: { gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` } },
-          board.cards.map(entry => h(Card, { key: entry.id, entry, boardId: board.id, assistant: board.assistant, columns, now, active, locale, t, actions }))))
+          board.cards.map(entry => h(Card, { key: entry.id, entry, boardId: board.id, assistant: board.assistant, columns, now, active, locale, t, actions, press }))))
 
       return h('div', { className: 'cb-page' },
         h('div', { className: 'cb-content', ref: gridRef },
@@ -1019,15 +1012,25 @@ h3.cb-truncOpen{overflow:visible}
 .cb-list li .cb-listMeta{grid-column:2/-1;grid-row:2;margin-top:2px}
 }
 @container (width<380px){
-.cb-status,.cb-statusSparks,.cb-statusActions,.cb-statusSparks.cb-statusActions{grid-template-columns:8px minmax(0,1fr) auto}
-.cb-statusValue{display:contents}
+.cb-status,.cb-statusSparks{grid-template-columns:8px minmax(0,1fr) auto}
+.cb-status .cb-statusValue{display:contents}
+.cb-status .cb-statusLabel{grid-column:2;grid-row:1}
+.cb-status .cb-statusNum{grid-column:3;grid-row:1;justify-self:end}
+.cb-status .cb-statusSub{grid-column:2/-1;grid-row:2}
 .cb-status li>.cb-dot{grid-column:1;grid-row:1}
-.cb-statusLabel{grid-column:2;grid-row:1}
-.cb-statusNum{grid-column:3;grid-row:1;justify-self:end}
-.cb-statusSub{grid-column:2/-1;grid-row:2}
 .cb-status li>.cb-spark{grid-column:2/-1;grid-row:3}
 .cb-spark:empty{display:none}
+}
+@container (width<520px){
+.cb-statusActions,.cb-statusSparks.cb-statusActions{grid-template-columns:8px minmax(0,1fr) auto}
+.cb-statusActions .cb-statusValue{display:contents}
+.cb-statusActions .cb-statusLabel{grid-column:2;grid-row:1}
+.cb-statusActions .cb-statusNum{grid-column:3;grid-row:1;justify-self:end}
+.cb-statusActions .cb-statusSub{grid-column:2/-1;grid-row:2}
+.cb-statusActions li>.cb-dot{grid-column:1;grid-row:1}
+.cb-statusActions li>.cb-spark{grid-column:2/-1;grid-row:3}
 .cb-statusActions li .cb-rowActions{grid-column:2/-1;grid-row:4;justify-content:flex-start}
+}
 }
 @media (width<=640px){.cb-heading{padding-top:18px}.cb-heading h1{font-size:20px}.cb-card{padding:14px 14px 16px;border-radius:14px}.cb-statValue{font-size:24px;line-height:30px}}
 @media (width<=768px),(pointer:coarse){
@@ -1068,11 +1071,21 @@ h3.cb-truncOpen{overflow:visible}
         }, 'card-board: sidebar words')
         const sidebarT = ctx.locale.bind(NS)
 
+        // The shared buttons, once @soffits/dsh-ui-actions is there; the board also names itself there, so a chat
+        // started from a card shows the board's icon and name.
+        ctx.inject(['uiActions'], scope => {
+          scope.effect(() => {
+            buttonsStore.set(scope.uiActions)
+            const unregister = scope.uiActions.registerSource({ id: OWNER, name: () => sidebarT('panel'), icon: SidebarIcon })
+            return () => { unregister(); buttonsStore.set(null) }
+          }, 'card-board: shared buttons')
+        })
+
         ctx.effect(() => {
           if (typeof document === 'undefined' || document.getElementById(STYLE_ID)) return () => {}
           const tag = document.createElement('style')
           tag.id = STYLE_ID
-          tag.dataset.plugin = '@soffits/dsh-card-board'
+          tag.dataset.plugin = OWNER
           tag.textContent = CSS
           document.head.appendChild(tag)
           return () => tag.remove()

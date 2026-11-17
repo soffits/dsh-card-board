@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.0
+
+- The action buttons come from the shared [`@soffits/dsh-ui-actions`](https://github.com/soffits/dsh-ui-actions) plugin (`ctx.uiActions`) instead of a copy of `client.actions.js` in this package, which is gone. Install that plugin to get buttons; the page works without it, just without buttons. A chat button opens a conversation with the card or row attached to the message box as a small card, and the sent message shows it with the board's icon and name. The board names itself to it once, so cards from other pages read the same.
+- Status rows with buttons stack (label and value above, sub-line and buttons beneath) on cards narrower than 520 px, so the value no longer gets squeezed in a two-column board.
+- The buttons' own words (ask, done, snooze, pick a time, errors) now live in that plugin's language files; this package keeps only "Ask <name>".
+
 ## 0.4.2
 
 - List rows on narrow cards (a phone) keep their buttons beside the title, with the date and chip underneath, instead of putting the buttons on a line of their own: a long list takes about a third less height.
