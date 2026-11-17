@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.0
+
+- Suggested next steps: cards and rows can carry `step` actions, concrete next steps whoever writes the card knows ("Renew the books online"). A tap records the press like done and snooze (the event `ui.action.step`, with who pressed it), then the step is sent with the card or row to the assistant as the person, and the button links to the conversation. At most 3 per card or row, a label of up to 80 characters is required. Needs @soffits/dsh-ui-actions 0.2.0.
+- A row's steps sit on their own line under it; its other buttons stay beside the title.
+
 ## 0.5.0
 
 - The action buttons come from the shared [`@soffits/dsh-ui-actions`](https://github.com/soffits/dsh-ui-actions) plugin (`ctx.uiActions`) instead of a copy of `client.actions.js` in this package, which is gone. Install that plugin to get buttons; the page works without it, just without buttons. A chat button opens a conversation with the card or row attached to the message box as a small card, and the sent message shows it with the board's icon and name. The board names itself to it once, so cards from other pages read the same.

@@ -219,6 +219,7 @@ A card, a list row or a status row can carry up to six buttons:
 "actions": [
   { "kind": "done", "id": "library-books:done" },
   { "kind": "snooze", "id": "library-books:snooze" },
+  { "kind": "step", "id": "library-books:renew", "label": { "en": "Renew the books online", "fr": "Renouveler les livres en ligne" } },
   { "kind": "chat", "id": "landlord:ask", "label": "Draft a message", "payload": { "prompt": "Help me write a short follow-up to the landlord." } },
   { "kind": "event", "id": "front-door:lock", "label": "Lock" },
   { "kind": "link", "id": "panel", "label": "Home panel", "payload": { "url": "https://example.com/home" } }
@@ -226,10 +227,11 @@ A card, a list row or a status row can carry up to six buttons:
 ```
 
 - `chat` opens a new conversation (or the session named in `payload.session`) with a draft that quotes the card or row and carries its ids as JSON, after `payload.prompt` if you gave one. Nothing is sent until the person sends it, so the message comes from them like any other. Every card also has a chat button in its corner without declaring one ("Chat about this"); when the board names an `assistant` the buttons say who they ask ("Ask Robin"). A `label` and `payload.prompt` can be text in several languages.
+- `step` is a suggested next step the assistant starts on one tap: the label says the step plainly ("Renew the books online") and the tap is the person's go-ahead for exactly that. The press is recorded on the server like `done`, then the page sends the step (`payload.prompt` when it needs more words than the label, never more than it authorises; otherwise the label) with the card or row into a new session (or `payload.session`) as the person, with no draft to confirm, and the button links to that session. At most 3 steps per card or row; add one only where the data has a clear next step. The label (up to 80 characters) is required.
 - `done`, `snooze` and `event` are pressed on the server. A snooze without `payload.until` asks: in 3 hours, tomorrow at 9:00, or a time.
 - `link` opens `payload.url`.
 
-`id` is yours: letters, digits and `. _ : -`, unique within the card or row. `label` is optional except for `event`. `payload` is any small object (up to 4 KB of JSON).
+`id` is yours: letters, digits and `. _ : -`, unique within the card or row. `label` is optional except for `event` and `step`. `payload` is any small object (up to 4 KB of JSON).
 
 The plugin doesn't act on a press itself. It checks that the person may see the board and that the action is in the card as written, then records an event:
 
