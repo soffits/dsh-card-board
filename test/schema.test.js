@@ -78,6 +78,12 @@ describe('checkCard', () => {
     assert.deepEqual(checkCard(line), [])
   })
 
+  it('takes a chat prompt in several languages', () => {
+    const action = payload => ({ ...base, type: 'list', data: { rows: [{ title: 'x', actions: [{ kind: 'chat', id: 'c', payload }] }] } })
+    assert.deepEqual(checkCard(action({ prompt: { en: 'About this', fr: 'À propos' }, context: { a: 1 } })), [])
+    assert.deepEqual(checkCard(action({ prompt: { fr: 'À propos' } })), ['data.rows[0].actions[0].payload.prompt: needs an "en" text'])
+  })
+
   it('names the path of a bad text map', () => {
     const at = title => checkCard({ ...base, title, type: 'list', data: { rows: [] } })
     assert.deepEqual(at({ fr: 'Aujourd’hui' }), ['title: needs an "en" text'])

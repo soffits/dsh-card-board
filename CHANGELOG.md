@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.1
+
+- A chat button's `payload.prompt` can be text in several languages like any other text; the other payload fields stay as written.
+
 ## 0.4.0
 
 - Languages: any text on a card or board can be a string or a map of language id to text (`{ "en": "Today", "fr": "Aujourd’hui" }`, `en` required), and the page shows the one for DSH's active language, falling back from the exact tag to its primary language to `en`. Numbers, dates, ages and units are formatted with `Intl` in that language.

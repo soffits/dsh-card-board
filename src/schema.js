@@ -168,7 +168,7 @@ function actions(c, list, path) {
     if (action.kind === 'snooze' && payload !== undefined && 'until' in payload) c.dateTime(payload.until, join(join(p, 'payload'), 'until'))
     if (action.kind === 'chat' && payload !== undefined) {
       const pp = join(p, 'payload')
-      if ('prompt' in payload) c.text(payload.prompt, join(pp, 'prompt'), { max: 2000 })
+      if ('prompt' in payload) c.label(payload.prompt, join(pp, 'prompt'), { max: 2000 })
       if ('session' in payload) c.text(payload.session, join(pp, 'session'), { max: 200 })
     }
   })
