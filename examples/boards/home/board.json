@@ -8,6 +8,8 @@
     "sam"
   ],
   "order": [
+    "summary",
+    "countdown",
     "weather",
     "savings",
     "energy",
@@ -22,6 +24,10 @@
       "h": 1
     },
     "next-weeks": {
+      "w": 2,
+      "h": 1
+    },
+    "countdown": {
       "w": 2,
       "h": 1
     }

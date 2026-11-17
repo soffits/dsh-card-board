@@ -13,6 +13,10 @@
       "label": {
         "en": "done",
         "zh": "已完成"
+      },
+      "sub": {
+        "en": "2 left today",
+        "zh": "今天还剩 2 件"
       }
     },
     "rows": [
@@ -21,7 +25,9 @@
           "en": "Water the plants",
           "zh": "给植物浇水"
         },
-        "checked": true
+        "checked": true,
+        "key": "chore-1",
+        "icon": "flower-2"
       },
       {
         "title": {
@@ -59,7 +65,9 @@
             "kind": "snooze",
             "id": "library-books:snooze"
           }
-        ]
+        ],
+        "key": "chore-2",
+        "icon": "book-open"
       },
       {
         "title": {
@@ -90,12 +98,16 @@
               "prompt": "Help me write a short, polite follow-up to the landlord about the heater."
             }
           }
-        ]
+        ],
+        "key": "chore-3",
+        "icon": "trash-2"
       }
     ],
     "empty": {
       "en": "Nothing left for today.",
       "zh": "今天没有待办了。"
     }
-  }
+  },
+  "icon": "list-todo",
+  "tone": "accent"
 }

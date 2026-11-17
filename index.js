@@ -15,6 +15,8 @@ import { createPeople, expandHome } from './src/access.js'
 import { createMessages } from './src/messages.js'
 import { createPresses } from './src/presses.js'
 import { createRoutes } from './src/routes.js'
+import { createSeenStore } from './src/seen.js'
+import { createWatches } from './src/watch.js'
 
 export const name = 'dsh-card-board'
 export const inject = ['connection']
@@ -34,7 +36,7 @@ export const Config = z.object({
   peopleKey: z.string().default('')
     .description('The top-level key in peopleFile that holds the mapping. Empty means the whole file is the mapping.'),
   pollSeconds: z.natural().min(5).max(3600).default(30)
-    .description('How often an open, visible page checks for changes.'),
+    .description('How often an open, visible page checks for changes while its live connection is down.'),
   actionLog: z.string().default('')
     .description('Where presses of done, snooze and event actions are appended (JSON lines). Empty means .actions.jsonl in dataDir.'),
   actionTimeoutSeconds: z.natural().min(10).default(300)
@@ -65,12 +67,16 @@ export function apply(ctx, config) {
     timeoutSeconds: config.actionTimeoutSeconds ?? 300,
     warn: message => logger.warn(message),
   })
+  const watches = createWatches()
+  ctx.on('dispose', () => watches.close())
   const routes = createRoutes({
     dataDir,
     people,
     identity: () => ctx.get('requestIdentity'),
     pollSeconds: config.pollSeconds ?? 30,
     presses,
+    seen: createSeenStore(join(dataDir, '.seen')),
+    watches,
     messages: createMessages(fileURLToPath(new URL('./locale', import.meta.url))),
     version,
   })

@@ -17,7 +17,7 @@ describe('checkCard', () => {
       assert.deepEqual(checkCard(value), [], file)
       types.add(value.type)
     }
-    assert.deepEqual([...types].sort(), ['bar', 'donut', 'line', 'list', 'stat', 'status', 'timeline'])
+    assert.deepEqual([...types].sort(), ['bar', 'countdown', 'donut', 'line', 'list', 'stat', 'status', 'summary', 'timeline'])
   })
 
   it('names the path of each problem', () => {
@@ -29,7 +29,7 @@ describe('checkCard', () => {
     assert.match(checkCard({ ...base, type: 'pie', data: {} })[0], /^type: must be one of/)
     assert.ok(checkCard({ type: 'list', data: { rows: [] } }).some(p => p.startsWith('title: is required')))
     const status = { ...base, type: 'status', data: { rows: [{ label: 'Door', value: 'open', tone: 'red' }] } }
-    assert.deepEqual(checkCard(status), ['data.rows[0].tone: must be one of ok, warn, bad, muted, accent'])
+    assert.deepEqual(checkCard(status), ['data.rows[0].tone: must be one of ok, warn, bad, muted, accent, violet'])
   })
 
   it('wants updatedAt with a zone', () => {
@@ -37,11 +37,39 @@ describe('checkCard', () => {
     assert.match(problems[0], /^updatedAt:/)
   })
 
-  it('takes a headline stat on chart cards only', () => {
-    const line = { ...card('savings') }
-    assert.deepEqual(checkCard(line), [])
-    const stat = { ...card('weather'), stat: card('weather').data }
-    assert.match(checkCard(stat)[0], /^stat: is for chart cards/)
+  it('takes a headline stat above a chart or rows, not on stat, summary or countdown cards', () => {
+    assert.deepEqual(checkCard(card('savings')), [])
+    for (const name of ['weather', 'summary', 'countdown']) {
+      assert.match(checkCard({ ...card(name), stat: card('weather').data })[0], /^stat: doesn't go on a/, name)
+    }
+  })
+
+  it('takes a stat’s change as words with a tone and a direction, and its spark, progress and strip', () => {
+    const item = { label: 'Total', value: 10 }
+    const stat = items => ({ ...base, type: 'stat', data: { items } })
+    assert.deepEqual(checkCard(stat([{ ...item, delta: { text: { en: '9,854 since Nov 1', zh: '11月1日以来 9,854' }, tone: 'muted', dir: 'down' }, spark: [1, null, 3], progress: { value: 3, max: 4, text: 'on pace' } }])), [])
+    assert.deepEqual(checkCard(stat([{ ...item, delta: { value: -2 } }])), ['data.items[0].delta.text: is required', 'data.items[0].delta.value: is not a known field'])
+    assert.deepEqual(checkCard(stat([{ ...item, delta: { text: 'x', dir: 'sideways' } }])), ['data.items[0].delta.dir: must be one of up, down, flat'])
+    assert.deepEqual(checkCard(stat([{ ...item, strip: [{ label: '14', value: 12.8, icon: 'sun', on: true }, { label: '15', value: 'n/a', icon: 'Sun!' }] }])), ['data.items[0].strip[1].icon: must be an icon name like plane-takeoff'])
+  })
+
+  it('takes an icon, a tone, a key and an active window on rows; keys are unique in a card', () => {
+    const list = rows => ({ ...base, type: 'list', icon: 'utensils', tone: 'violet', data: { rows } })
+    const lunch = { title: 'Lunch', icon: 'sandwich', tone: 'accent', key: 'meal:lunch', active: { from: '2026-03-02T12:00:00+01:00', to: '2026-03-02T13:30:00+01:00' } }
+    assert.deepEqual(checkCard(list([lunch, { ...lunch, key: 'meal:dinner' }])), [])
+    assert.deepEqual(checkCard(list([lunch, lunch])), ["data.rows[1].key: repeats another row's key"])
+    assert.deepEqual(checkCard(list([{ ...lunch, active: { from: '2026-03-02T13:00:00Z', to: '2026-03-02T12:00:00Z' } }])), ['data.rows[0].active.to: must be after from'])
+    const status = { ...base, type: 'status', data: { rows: [{ label: 'Door', value: 'locked', tone: 'ok', icon: 'lock', key: 'door' }] } }
+    assert.deepEqual(checkCard(status), [])
+  })
+
+  it('checks summary chips and countdown steps', () => {
+    const summary = { ...card('summary') }
+    assert.deepEqual(checkCard(summary), [])
+    assert.deepEqual(checkCard({ ...summary, data: { text: 'x', chips: [{ text: 'Train', to: 'Thursday' }] } }), ['data.chips[0].to: must be an ISO date-time with a zone, like 2026-03-02T09:30:00Z'])
+    const countdown = card('countdown')
+    assert.deepEqual(checkCard({ ...countdown, data: { ...countdown.data, expiresAt: '2026-03-01T00:00:00Z' } }), ['data.expiresAt: must not be before to'])
+    assert.deepEqual(checkCard({ ...countdown, data: { ...countdown.data, steps: [{ at: '2026-03-04T07:15:00+01:00', label: 'x', zone: 'Mars/Olympus' }] } }), ['data.steps[0].zone: must be an IANA time zone like Europe/Paris'])
   })
 
   it('checks bars have exactly one of value and values', () => {

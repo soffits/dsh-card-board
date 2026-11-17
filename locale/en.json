@@ -6,8 +6,6 @@
   "ui": {
     "panel": "Boards",
     "title": "Boards",
-    "updated": "Updated {time}",
-    "refreshFailed": "Couldn’t refresh; trying again",
     "loading": "Loading…",
     "emptyTitle": "No boards yet.",
     "emptyHint": "A board shows up here once a script writes its board.json into the data folder.",
@@ -28,6 +26,14 @@
     "summary.latestName": "latest",
     "summary.goal": "goal: {value}",
     "summary.progress": "progress: {done}/{total}",
-    "action.chatNamed": "Ask {name}"
+    "action.chatNamed": "Ask {name}",
+    "now": "now",
+    "fromTime": "from {time}",
+    "ofTotal": "of {total}",
+    "dayLine": "{day} {part}",
+    "dayPart.morning": "morning",
+    "dayPart.afternoon": "afternoon",
+    "dayPart.evening": "evening",
+    "dayPart.night": "night"
   }
 }

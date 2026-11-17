@@ -116,6 +116,16 @@ export async function boardTag(root, id, salt = '') {
   return `W/"${hash.digest('base64url').slice(0, 27)}"`
 }
 
+/** A cheap version tag for one card: its file, board.json (the card's size lives there) and `salt`. */
+export async function cardTag(root, board, card, salt = '') {
+  const hash = createHash('sha256').update(salt)
+  for (const path of [join(root, board, 'board.json'), cardPath(root, board, card)]) {
+    const info = await stat(path).catch(() => undefined)
+    hash.update(`${info ? `${info.size}:${info.mtimeMs}` : '-'}\n`)
+  }
+  return `W/"${hash.digest('base64url').slice(0, 27)}"`
+}
+
 /** The path of a card file (ids already checked). */
 export function cardPath(root, board, card) {
   return join(root, board, 'cards', `${card}.json`)
@@ -128,11 +138,15 @@ export async function readCard(root, board, card) {
   return result.problems.length === 0 ? result.value : undefined
 }
 
-/** Every card of a board in order, each with its size on the grid and either the card or its problems. */
-export async function readCards(root, id, board) {
+/**
+ * Every card of a board in order, each with its size on the grid and either the card or its problems; with `only`,
+ * just that card (an empty list when it isn't there).
+ */
+export async function readCards(root, id, board, only) {
   const layout = board?.layout ?? {}
   const cards = []
-  for (const card of await cardFiles(root, id, board?.order)) {
+  const ids = await cardFiles(root, id, board?.order)
+  for (const card of only === undefined ? ids : ids.filter(card => card === only)) {
     const size = { w: layout[card]?.w ?? 1, h: layout[card]?.h ?? 1 }
     const result = await readJson(root, join(root, id, 'cards', `${card}.json`), MAX_CARD_BYTES, checkCard)
     cards.push(result.problems.length > 0 ? { id: card, ...size, problems: result.problems.slice(0, 5) } : { id: card, ...size, card: result.value })

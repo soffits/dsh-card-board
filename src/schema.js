@@ -8,16 +8,22 @@
  * fails at write time instead of quietly not showing.
  */
 
-export const CARD_TYPES = Object.freeze(['stat', 'line', 'bar', 'donut', 'list', 'timeline', 'status'])
-export const TONES = Object.freeze(['ok', 'warn', 'bad', 'muted', 'accent'])
+export const CARD_TYPES = Object.freeze(['summary', 'countdown', 'stat', 'line', 'bar', 'donut', 'list', 'timeline', 'status'])
+export const TONES = Object.freeze(['ok', 'warn', 'bad', 'muted', 'accent', 'violet'])
+/** Icon names: the page draws the ones its icon set has (Lucide names) and nothing for the rest. */
+export const ICON_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/
 export const ACTION_KINDS = Object.freeze(['chat', 'step', 'done', 'snooze', 'event', 'link'])
 /** Kinds the server records as events; chat and link happen in the browser only. */
 export const PRESS_KINDS = Object.freeze(['step', 'done', 'snooze', 'event'])
 /** Suggested steps per card or row: a few clear next moves, not a menu. */
 export const MAX_STEPS = 3
 export const ACTION_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,99}$/
+/** Row keys: stable ids, so the page can tell which row changed. The same shape as action ids. */
+export const KEY_PATTERN = ACTION_ID_PATTERN
 const MAX_ACTIONS = 6
 const MAX_PAYLOAD_BYTES = 4096
+/** Which way a stat's change goes, for its arrow. */
+export const DIRECTIONS = Object.freeze(['up', 'down', 'flat'])
 export const TIMELINE_KINDS = Object.freeze(['travel', 'due', 'event', 'health', 'home', 'money'])
 /** Board and card ids: also folder and file names, so nothing that can climb out of the data folder. */
 export const ID_PATTERN = /^[a-z0-9][a-z0-9_-]{0,63}$/
@@ -144,6 +150,30 @@ function tone(c, value, path) {
   c.optional(value, 'tone', v => c.oneOf(v, join(path, 'tone'), TONES))
 }
 
+function icon(c, value, path) {
+  c.optional(value, 'icon', v => (typeof v === 'string' && v.length <= 48 && ICON_PATTERN.test(v)) || c.fail(join(path, 'icon'), 'must be an icon name like plane-takeoff'))
+}
+
+/** A window of time, `{ from, to }`, both ISO date-times with a zone, `to` after `from`. */
+function timeWindow(c, value, path) {
+  if (!c.object(value, path, ['from', 'to'])) return
+  const fromOk = c.dateTime(value.from, join(path, 'from'))
+  const toOk = c.dateTime(value.to, join(path, 'to'))
+  if (fromOk && toOk && Date.parse(value.to) <= Date.parse(value.from)) c.fail(join(path, 'to'), 'must be after from')
+}
+
+/** The optional icon, tone, key and active window of a list or status row; keys must not repeat within a card. */
+function rowLook(c, row, path, keys, { toneRequired = false } = {}) {
+  icon(c, row, path)
+  if (!toneRequired) tone(c, row, path)
+  c.optional(row, 'key', v => {
+    if (typeof v !== 'string' || !KEY_PATTERN.test(v)) return c.fail(join(path, 'key'), 'must be letters, digits and . _ : - (up to 100), starting with a letter or digit')
+    if (keys.has(v)) return c.fail(join(path, 'key'), 'repeats another row\'s key')
+    keys.add(v)
+  })
+  c.optional(row, 'active', v => timeWindow(c, v, join(path, 'active')))
+}
+
 /** Problems with an `actions` list (on a card, a list row or a status row). */
 function actions(c, list, path) {
   if (!c.array(list, path, { max: MAX_ACTIONS })) return
@@ -182,7 +212,7 @@ function statData(c, data, path) {
   if (!c.array(data.items, join(path, 'items'), { min: 1, max: 6 })) return
   data.items.forEach((item, i) => {
     const p = join(join(path, 'items'), i)
-    if (!c.object(item, p, ['label', 'value'], ['unit', 'delta', 'sub', 'tone'])) return
+    if (!c.object(item, p, ['label', 'value'], ['unit', 'delta', 'sub', 'tone', 'spark', 'progress', 'strip'])) return
     c.label(item.label, join(p, 'label'))
     c.labelOrNumber(item.value, join(p, 'value'))
     c.optional(item, 'unit', v => c.label(v, join(p, 'unit'), { max: 20 }))
@@ -190,10 +220,32 @@ function statData(c, data, path) {
     tone(c, item, p)
     c.optional(item, 'delta', delta => {
       const dp = join(p, 'delta')
-      if (!c.object(delta, dp, ['value'], ['unit', 'tone'])) return
-      c.number(delta.value, join(dp, 'value'))
-      c.optional(delta, 'unit', v => c.label(v, join(dp, 'unit'), { max: 20 }))
+      if (!c.object(delta, dp, ['text'], ['tone', 'dir'])) return
+      c.label(delta.text, join(dp, 'text'), { max: 80 })
       tone(c, delta, dp)
+      c.optional(delta, 'dir', v => c.oneOf(v, join(dp, 'dir'), DIRECTIONS))
+    })
+    c.optional(item, 'spark', spark => {
+      if (!c.array(spark, join(p, 'spark'), { min: 2, max: 400 })) return
+      spark.forEach((v, j) => v === null || c.number(v, join(join(p, 'spark'), j)))
+    })
+    c.optional(item, 'progress', progress => {
+      const pp = join(p, 'progress')
+      if (!c.object(progress, pp, ['value', 'max'], ['text'])) return
+      c.number(progress.value, join(pp, 'value'), { min: 0 })
+      c.number(progress.max, join(pp, 'max'), { min: 0 })
+      c.optional(progress, 'text', v => c.label(v, join(pp, 'text')))
+    })
+    c.optional(item, 'strip', strip => {
+      if (!c.array(strip, join(p, 'strip'), { min: 1, max: 24 })) return
+      strip.forEach((cell, j) => {
+        const sp = join(join(p, 'strip'), j)
+        if (!c.object(cell, sp, ['label', 'value'], ['icon', 'on'])) return
+        c.label(cell.label, join(sp, 'label'), { max: 20 })
+        c.labelOrNumber(cell.value, join(sp, 'value'))
+        icon(c, cell, sp)
+        c.optional(cell, 'on', v => c.boolean(v, join(sp, 'on')))
+      })
     })
   })
 }
@@ -291,10 +343,12 @@ function donutData(c, data, path) {
 
 function listData(c, data, path) {
   if (!c.object(data, path, ['rows'], ['empty', 'progress'])) return
+  const keys = new Set()
   if (c.array(data.rows, join(path, 'rows'), { max: 100 }))
     data.rows.forEach((row, i) => {
       const p = join(join(path, 'rows'), i)
-      if (!c.object(row, p, ['title'], ['sub', 'chip', 'checked', 'date', 'actions'])) return
+      if (!c.object(row, p, ['title'], ['sub', 'chip', 'checked', 'date', 'actions', 'icon', 'tone', 'key', 'active'])) return
+      rowLook(c, row, p, keys)
       c.optional(row, 'actions', v => actions(c, v, join(p, 'actions')))
       c.label(row.title, join(p, 'title'))
       c.optional(row, 'sub', v => c.label(v, join(p, 'sub')))
@@ -310,11 +364,12 @@ function listData(c, data, path) {
   c.optional(data, 'empty', v => c.label(v, join(path, 'empty')))
   c.optional(data, 'progress', progress => {
     const p = join(path, 'progress')
-    if (!c.object(progress, p, ['done', 'total'], ['label'])) return
+    if (!c.object(progress, p, ['done', 'total'], ['label', 'sub'])) return
     const done = c.number(progress.done, join(p, 'done'), { min: 0 })
     const total = c.number(progress.total, join(p, 'total'), { min: 0 })
     if (done && total && progress.done > progress.total) c.fail(join(p, 'done'), 'must not be more than total')
     c.optional(progress, 'label', v => c.label(v, join(p, 'label'), { max: 40 }))
+    c.optional(progress, 'sub', v => c.label(v, join(p, 'sub')))
   })
 }
 
@@ -351,9 +406,11 @@ function timelineData(c, data, path) {
 function statusData(c, data, path) {
   if (!c.object(data, path, ['rows'])) return
   if (!c.array(data.rows, join(path, 'rows'), { min: 1, max: 50 })) return
+  const keys = new Set()
   data.rows.forEach((row, i) => {
     const p = join(join(path, 'rows'), i)
-    if (!c.object(row, p, ['label', 'value', 'tone'], ['sub', 'spark', 'actions'])) return
+    if (!c.object(row, p, ['label', 'value', 'tone'], ['sub', 'spark', 'actions', 'icon', 'key', 'active'])) return
+    rowLook(c, row, p, keys, { toneRequired: true })
     c.optional(row, 'actions', v => actions(c, v, join(p, 'actions')))
     c.label(row.label, join(p, 'label'))
     c.labelOrNumber(row.value, join(p, 'value'))
@@ -366,7 +423,55 @@ function statusData(c, data, path) {
   })
 }
 
-const DATA = { stat: statData, line: lineData, bar: barData, donut: donutData, list: listData, timeline: timelineData, status: statusData }
+function summaryData(c, data, path) {
+  if (!c.object(data, path, ['text'], ['chips'])) return
+  c.label(data.text, join(path, 'text'), { max: 400 })
+  c.optional(data, 'chips', chips => {
+    if (!c.array(chips, join(path, 'chips'), { max: 8 })) return
+    chips.forEach((chip, i) => {
+      const p = join(join(path, 'chips'), i)
+      if (!c.object(chip, p, ['text'], ['icon', 'tone', 'to'])) return
+      c.label(chip.text, join(p, 'text'), { max: 60 })
+      icon(c, chip, p)
+      tone(c, chip, p)
+      c.optional(chip, 'to', v => c.dateTime(v, join(p, 'to')))
+    })
+  })
+}
+
+function countdownData(c, data, path) {
+  if (!c.object(data, path, ['to', 'label'], ['sub', 'steps', 'expiresAt'])) return
+  const toOk = c.dateTime(data.to, join(path, 'to'))
+  c.label(data.label, join(path, 'label'))
+  c.optional(data, 'sub', v => c.label(v, join(path, 'sub')))
+  c.optional(data, 'expiresAt', v => {
+    if (c.dateTime(v, join(path, 'expiresAt')) && toOk && Date.parse(v) < Date.parse(data.to)) c.fail(join(path, 'expiresAt'), 'must not be before to')
+  })
+  c.optional(data, 'steps', steps => {
+    if (!c.array(steps, join(path, 'steps'), { min: 1, max: 8 })) return
+    steps.forEach((step, i) => {
+      const p = join(join(path, 'steps'), i)
+      if (!c.object(step, p, ['at', 'label'], ['sub', 'zone'])) return
+      c.dateTime(step.at, join(p, 'at'))
+      c.label(step.label, join(p, 'label'), { max: 80 })
+      c.optional(step, 'sub', v => c.label(v, join(p, 'sub'), { max: 80 }))
+      c.optional(step, 'zone', v => (typeof v === 'string' && isTimeZone(v)) || c.fail(join(p, 'zone'), 'must be an IANA time zone like Europe/Paris'))
+    })
+  })
+}
+
+/** A time zone name this runtime knows. */
+function isTimeZone(value) {
+  if (value.length > 64) return false
+  try {
+    new Intl.DateTimeFormat('en', { timeZone: value })
+    return true
+  } catch {
+    return false
+  }
+}
+
+const DATA = { summary: summaryData, countdown: countdownData, stat: statData, line: lineData, bar: barData, donut: donutData, list: listData, timeline: timelineData, status: statusData }
 
 /** Links a card may open: web pages and paths on the same site, nothing that runs script. */
 export function isSafeLink(value) {
@@ -383,14 +488,16 @@ export function isSafeLink(value) {
 /** Problems with one card file's parsed content. */
 export function checkCard(card) {
   const c = new Check()
-  if (!c.object(card, '', ['type', 'title', 'updatedAt', 'data'], ['staleAfter', 'link', 'stat', 'actions'])) return c.problems
+  if (!c.object(card, '', ['type', 'title', 'updatedAt', 'data'], ['staleAfter', 'link', 'stat', 'actions', 'icon', 'tone'])) return c.problems
   if (!c.oneOf(card.type, 'type', CARD_TYPES)) return c.problems
   c.label(card.title, 'title', { max: 120 })
   c.dateTime(card.updatedAt, 'updatedAt')
+  icon(c, card, '')
+  tone(c, card, '')
   c.optional(card, 'staleAfter', v => c.number(v, 'staleAfter', { min: 1 }))
   c.optional(card, 'link', v => isSafeLink(v) || c.fail('link', 'must be an http(s) URL or a path starting with /'))
   c.optional(card, 'stat', v => {
-    if (card.type === 'stat') return c.fail('stat', 'is for chart cards; a stat card has its numbers in data')
+    if (['stat', 'summary', 'countdown'].includes(card.type)) return c.fail('stat', `doesn't go on a ${card.type} card; it heads a card's chart or rows`)
     statData(c, v, 'stat')
   })
   c.optional(card, 'actions', v => actions(c, v, 'actions'))

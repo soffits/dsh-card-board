@@ -1,0 +1,57 @@
+{
+  "type": "countdown",
+  "title": {
+    "en": "Trip to the coast",
+    "zh": "去海边"
+  },
+  "updatedAt": "2026-03-02T09:30:00Z",
+  "icon": "train-front",
+  "tone": "accent",
+  "data": {
+    "to": "2026-03-04T07:40:00+01:00",
+    "label": {
+      "en": "until the train leaves",
+      "zh": "距离火车出发"
+    },
+    "sub": {
+      "en": "3 h 10 m, one change",
+      "zh": "3 小时 10 分，换乘一次"
+    },
+    "steps": [
+      {
+        "at": "2026-03-04T07:15:00+01:00",
+        "label": {
+          "en": "At the station",
+          "zh": "到车站"
+        }
+      },
+      {
+        "at": "2026-03-04T07:40:00+01:00",
+        "label": {
+          "en": "Train to Lyon",
+          "zh": "去里昂的火车"
+        }
+      },
+      {
+        "at": "2026-03-04T09:20:00+01:00",
+        "label": {
+          "en": "Change in Lyon",
+          "zh": "里昂换乘"
+        }
+      },
+      {
+        "at": "2026-03-04T10:50:00+01:00",
+        "label": {
+          "en": "Arrive in Marseille",
+          "zh": "到马赛"
+        },
+        "sub": {
+          "en": "14° and sunny",
+          "zh": "14°，晴"
+        },
+        "zone": "Europe/Paris"
+      }
+    ],
+    "expiresAt": "2026-03-04T10:50:00+01:00"
+  }
+}

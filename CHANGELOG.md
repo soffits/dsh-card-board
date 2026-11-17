@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.7.0
+
+- The board is live: changes arrive over a Server-Sent Events route (`/api/card-board/events`), the page fetches only the card that changed, and a card or row that changes in front of you gets a short wash and "just now". Polling stays as the fallback while the stream is down.
+- "New since you last looked": a dot on cards and keyed rows that changed since your last visit, remembered per person on the server, so it holds across devices.
+- New card types: `summary` (a sentence and chips at the top of a board) and `countdown` (a ticking number and the stops on the way, hiding itself after `expiresAt`).
+- Cards may carry an `icon` and a `tone`; list and status rows an `icon`, `tone`, `key` and an `active` window ("now" while it lasts); a row's `date` reads relative to today. Stat items may add a `spark`, a `progress` bar and a `strip` of small values with icons. New tone `violet`.
+- Breaking: a stat item's `delta` is now words, `{ text, tone?, dir? }`, instead of `{ value, unit?, tone? }`.
+- The page is drawn with DSH's own components (tabs, tags, status dots) and @soffits/dsh-ui-kit, which it now needs; it is built from `src/client/` into `client.js`.
+
 ## 0.6.0
 
 - Suggested next steps: cards and rows can carry `step` actions, concrete next steps whoever writes the card knows ("Renew the books online"). A tap records the press like done and snooze (the event `ui.action.step`, with who pressed it), then the step is sent with the card or row to the assistant as the person, and the button links to the conversation. At most 3 per card or row, a label of up to 80 characters is required. Needs @soffits/dsh-ui-actions 0.2.0.

@@ -6,8 +6,6 @@
   "ui": {
     "panel": "面板",
     "title": "面板",
-    "updated": "{time} 更新",
-    "refreshFailed": "刷新失败，稍后重试",
     "loading": "加载中…",
     "emptyTitle": "还没有面板。",
     "emptyHint": "脚本把 board.json 写进数据目录后，面板就会出现在这里。",
@@ -28,6 +26,14 @@
     "summary.latestName": "最新",
     "summary.goal": "目标：{value}",
     "summary.progress": "进度：{done}/{total}",
-    "action.chatNamed": "问问 {name}"
+    "action.chatNamed": "问问 {name}",
+    "now": "现在",
+    "fromTime": "{time} 起",
+    "ofTotal": "共 {total}",
+    "dayLine": "{day}{part}",
+    "dayPart.morning": "上午",
+    "dayPart.afternoon": "下午",
+    "dayPart.evening": "傍晚",
+    "dayPart.night": "夜里"
   }
 }
