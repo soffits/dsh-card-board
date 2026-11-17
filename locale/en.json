@@ -16,7 +16,6 @@
     "open": "Open",
     "listEmpty": "Nothing here.",
     "checked": "Done",
-    "unchecked": "Not done",
     "error.forbidden": "You can’t see this board.",
     "error.notFound": "This board isn’t there any more.",
     "error.gone": "This action isn’t on the card any more.",
@@ -36,6 +35,11 @@
     "dayPart.evening": "evening",
     "dayPart.night": "night",
     "showMore": "{n} more",
-    "showFewer": "Show fewer"
+    "showFewer": "Show fewer",
+    "details": "Details",
+    "close": "Close",
+    "history": "History",
+    "markDone": "Mark done",
+    "rowGone": "This item is no longer on the card."
   }
 }

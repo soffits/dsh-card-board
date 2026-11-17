@@ -59,7 +59,8 @@
             "value": 4.3,
             "icon": "cloud-drizzle"
           }
-        ]
+        ],
+        "link": "https://example.com/forecast"
       },
       {
         "label": {

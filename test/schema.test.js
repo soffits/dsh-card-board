@@ -157,4 +157,21 @@ describe('checkBoard', () => {
     assert.deepEqual(problems, ['order[1]: must be a card id', 'layout.ok.size: must be one of small, medium, large, wide', 'layout.old.w: is not a known field'])
     assert.deepEqual(checkBoard({ title: 'B', layout: { a: { size: 'small' }, b: { size: 'wide' }, c: {} } }), [])
   })
+
+describe('detail and link', () => {
+  const base = { type: 'list', title: 'T', updatedAt: '2026-03-04T10:00:00Z' }
+  it('takes a detail on a card and on keyed rows, and links on rows and stat items', () => {
+    const detail = { text: 'More', facts: [{ label: 'Due', value: 3 }], history: [{ at: '2026-03-01T09:00:00Z', text: 'Opened' }],
+      chart: { type: 'bar', data: { bars: [{ x: '2026-03-01', value: 2 }] } } }
+    assert.deepEqual(checkCard({ ...base, detail, data: { rows: [{ title: 'a', key: 'a', detail, link: '/?messages=1' }] } }), [])
+    assert.deepEqual(checkCard({ type: 'stat', title: 'S', updatedAt: base.updatedAt, data: { items: [{ label: 'Doing', value: 3, link: '/?work=board' }] } }), [])
+  })
+  it('refuses a detail row without a key, unknown parts and unsafe links', () => {
+    assert.deepEqual(checkCard({ ...base, data: { rows: [{ title: 'a', detail: { text: 'x' } }] } }), ['data.rows[0].key: is required on a row with a detail: it is how the row is opened'])
+    assert.deepEqual(checkCard({ ...base, detail: { more: 1 }, data: { rows: [{ title: 'a', link: 'javascript:alert(1)' }] } }),
+      ['detail.more: is not a known field', 'data.rows[0].link: must be an http(s) URL or a path starting with /'])
+    assert.deepEqual(checkCard({ ...base, detail: { chart: { type: 'donut', data: {} } }, data: { rows: [] } }).slice(0, 1), ['detail.chart.type: must be one of line, bar'])
+  })
+})
+
 })

@@ -2,7 +2,7 @@
  * Charts sized to their card: line, bar, donut and timeline, as small SVGs coloured through the data tones (theme
  * tokens), so light and dark follow the app.
  */
-import { createElement as h, useMemo } from 'react'
+import { createElement as h, useMemo, useState } from 'react'
 import { Trunc } from './pieces.js'
 import { fit, formatAxis, formatDay, formatNumber, niceTicks, spread, textWidth, toTime, useWidth } from './format.js'
 import { kitStore, useKit } from './services.js'
@@ -10,6 +10,26 @@ import { kitStore, useKit } from './services.js'
 /** Series without a tone take these in turn. */
 const PALETTE = ['accent', 'ok', 'warn', 'violet', 'bad', 'muted']
 const toneColor = (tone, index = 0) => kitStore.get().toneColor(tone ?? PALETTE[index % PALETTE.length])
+
+/** The point under the pointer (a mouse hovering, or a finger tapping): its value and date in a small bubble. */
+function usePointer(pick) {
+  const [at, setAt] = useState(null)
+  const fromEvent = event => {
+    const box = event.currentTarget.getBoundingClientRect()
+    return pick(event.clientX - box.left)
+  }
+  return [at, {
+    onPointerMove: event => setAt(fromEvent(event)),
+    onPointerDown: event => setAt(fromEvent(event)),
+    onPointerLeave: event => { if (event.pointerType === 'mouse') setAt(null) },
+  }, () => setAt(null)]
+}
+
+function Bubble({ x, width, lines }) {
+  const flip = x > width * 0.6
+  return h('div', { className: 'cb-bubble', role: 'status', style: flip ? { right: Math.max(0, width - x + 10) } : { left: x + 10 } },
+    lines.map((line, i) => h('div', { key: i, className: i === 0 ? 'cb-bubbleHead' : undefined }, line)))
+}
 
 function Legend({ items, locale }) {
   return h('ul', { className: 'cb-legend' }, items.map((item, i) =>
@@ -90,8 +110,19 @@ export function LineChart({ data, locale, height }) {
     return d
   }
   const gradientId = useMemo(() => `cb-g-${Math.random().toString(36).slice(2, 9)}`, [])
+  const xsAll = useMemo(() => [...new Set(data.series.flatMap(s => s.points.filter(p => typeof p.y === 'number').map(p => p.x)))], [data])
+  const [hover, pointer] = usePointer(px => {
+    let best = null
+    for (const x of xsAll) if (best === null || Math.abs(sx(x) - px) < Math.abs(sx(best) - px)) best = x
+    return best
+  })
+  const hoverX = hover === null ? null : sx(hover)
+  const hoverLines = hover === null ? [] : [model.timeAxis ? formatDay(toTime(hover), locale, 0) : xLabel(hover), ...data.series.flatMap(s => {
+    const p = s.points.find(q => q.x === hover && typeof q.y === 'number')
+    return p ? [`${s.name ? `${s.name}: ` : ''}${formatNumber(p.y, locale)}${data.unit ? ` ${data.unit}` : ''}`] : []
+  })]
 
-  return h('div', { ref, className: 'cb-chart', style: { height } }, width > 0 && h('svg', { width, height, role: 'img' },
+  return h('div', { ref, className: 'cb-chart', style: { height } }, width > 0 && hover !== null && h(Bubble, { x: hoverX, width, lines: hoverLines }), width > 0 && h('svg', { width, height, role: 'img', className: 'cb-plot', ...pointer },
     h('defs', null, data.series.map((s, i) => h('linearGradient', { key: i, id: `${gradientId}-${i}`, x1: 0, y1: 0, x2: 0, y2: 1 },
       h('stop', { offset: '0%', stopColor: toneColor(s.tone, i), stopOpacity: 0.22 }),
       h('stop', { offset: '100%', stopColor: toneColor(s.tone, i), stopOpacity: 0 })))),
@@ -125,7 +156,13 @@ export function LineChart({ data, locale, height }) {
         valid.length <= 16 && valid.map((p, j) => h('circle', { key: j, cx: sx(p.x), cy: sy(p.y), r: 2.6, fill: 'var(--dsw-alias-bg-base)', stroke: color, strokeWidth: 1.6 },
           h('title', null, `${s.name ? `${s.name} · ` : ''}${xLabel(p.x)}: ${formatNumber(p.y, locale)}${data.unit ? ` ${data.unit}` : ''}`))),
         valid.length > 16 && last && h('circle', { cx: sx(last.x), cy: sy(last.y), r: 3, fill: color }))
-    })))
+    }),
+    hover !== null && h('g', { className: 'cb-hover' },
+      h('line', { x1: hoverX, x2: hoverX, y1: top, y2: top + plotH, className: 'cb-hoverRule' }),
+      data.series.map((s, i) => {
+        const p = s.points.find(q => q.x === hover && typeof q.y === 'number')
+        return p && h('circle', { key: i, cx: hoverX, cy: sy(p.y), r: 4, fill: toneColor(s.tone, i), stroke: 'var(--dsw-alias-bg-base)', strokeWidth: 2 })
+      }))))
 }
 
 export function BarChart({ data, locale, height }) {
@@ -152,8 +189,14 @@ export function BarChart({ data, locale, height }) {
     const time = toTime(x)
     return Number.isFinite(time) ? formatDay(time, locale, 0) : String(x)
   }
+  const [hover, pointer] = usePointer(px => Math.max(0, Math.min(data.bars.length - 1, Math.floor(px / slot))))
+  const tipOf = bar => (multi
+    ? [label(bar.x), ...keys.filter(k => bar.values?.[k] !== undefined).map(k => `${k}: ${formatNumber(bar.values[k], locale)}${data.unit ? ` ${data.unit}` : ''}`)]
+    : [label(bar.x), `${formatNumber(bar.value, locale)}${data.unit ? ` ${data.unit}` : ''}`])
   return h('div', null,
-    h('div', { ref, className: 'cb-chart', style: { height } }, width > 0 && h('svg', { width, height, role: 'img' },
+    h('div', { ref, className: 'cb-chart', style: { height } },
+      width > 0 && hover !== null && data.bars[hover] && h(Bubble, { x: slot * hover + slot / 2, width, lines: tipOf(data.bars[hover]) }),
+      width > 0 && h('svg', { width, height, role: 'img', className: 'cb-plot', ...pointer },
       h('line', { x1: 0, x2: width, y1: top + plotH + 0.5, y2: top + plotH + 0.5, className: 'cb-rule' }),
       data.goal && h('line', { x1: 0, x2: width, y1: sy(data.goal.y), y2: sy(data.goal.y), className: 'cb-goal' }),
       data.goal?.label && h('text', { x: width, y: sy(data.goal.y) - 4, className: 'cb-goalLabel', textAnchor: 'end' }, h('title', null, data.goal.label), fit(data.goal.label, width)),
@@ -180,7 +223,7 @@ export function BarChart({ data, locale, height }) {
           h('title', null, tip),
           parts.filter(p => p.y1 > p.y0).map((p, k) => h('rect', {
             key: k, x: p.x, width: p.w, y: sy(p.y1), height: Math.max(0.5, sy(p.y0) - sy(p.y1)),
-            rx: Math.min(4, p.w / 3), fill: p.color, fillOpacity: multi ? 0.85 : 0.55,
+            rx: Math.min(4, p.w / 3), fill: p.color, fillOpacity: hover === i ? 1 : multi ? 0.85 : 0.55,
           })),
           showValues && h('text', { x: cx, y: sy(peaks[i]) - 4, className: 'cb-barValue', textAnchor: 'middle' }, formatNumber(multi && !stacked ? peaks[i] : totals[i], locale, 1)),
           i % labelEvery === 0 && h('text', { x: Math.min(Math.max(cx, textWidth(label(bar.x)) / 2), width - textWidth(label(bar.x)) / 2), y: height - 4, className: 'cb-axis', textAnchor: 'middle' }, label(bar.x)))

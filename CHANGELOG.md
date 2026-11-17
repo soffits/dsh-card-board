@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.9.0
+
+- A card opens: tap it (or its open button) and it shows in DSH's own dialog with the whole list, a taller chart, all its buttons and its optional `detail` (`text`, `facts`, `chart`, `history`). Keyed rows with a `detail` open the same way. The URL follows (`?board=…&card=…&row=…`), so a link opens the page with the card open, and Back closes it.
+- Rows and stat items take a `link`: tapping goes there (an http(s) URL in a new tab, a path of this app in place).
+- Charts show the value and date of the point under the pointer, on hover and on tap.
+- Cards and rows answer hover and press in DSH's colours; a row's buttons show on hover with a mouse and stay visible on touch. A changed card settles, numbers ease to new values, rows a list opens fade in; nothing moves with reduced motion.
+- A list row shows a checkbox only when it has a `done` action, and ticking it presses that action; decorative checkboxes are gone. A row's steps sit with its other buttons.
+- A step press counts as done once recorded, since sending it is the whole job.
+- Chrome (heads, tags, axes, legends, strips, buttons) isn't selectable; titles, notes and numbers are.
+
 ## 0.8.0
 
 - Cards keep their own height: the board packs them like masonry (no card stretches to match a neighbour), and fills gaps with shorter cards.

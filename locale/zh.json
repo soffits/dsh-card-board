@@ -16,7 +16,6 @@
     "open": "打开",
     "listEmpty": "暂无",
     "checked": "已完成",
-    "unchecked": "未完成",
     "error.forbidden": "你没有权限查看这个面板。",
     "error.notFound": "这个面板已经不存在了。",
     "error.gone": "这个操作已经不在卡片上了。",
@@ -36,6 +35,11 @@
     "dayPart.evening": "傍晚",
     "dayPart.night": "夜里",
     "showMore": "还有 {n} 项",
-    "showFewer": "收起"
+    "showFewer": "收起",
+    "details": "详情",
+    "close": "关闭",
+    "history": "记录",
+    "markDone": "标为完成",
+    "rowGone": "这一项已经不在卡片上了。"
   }
 }

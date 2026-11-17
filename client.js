@@ -1,4 +1,4 @@
-/* @soffits/dsh-card-board 0.8.0: built by scripts/build.mjs from src/client/. Do not edit. */
+/* @soffits/dsh-card-board 0.9.0: built by scripts/build.mjs from src/client/. Do not edit. */
 window.__ModuleLoader__.load({
   id: "@soffits/dsh-card-board",
   factory: (require) => {
@@ -29,7 +29,7 @@ __export(index_exports, {
   inject: () => inject
 });
 module.exports = __toCommonJS(index_exports);
-var import_react9 = require("react");
+var import_react12 = require("react");
 
 // src/client/look.js
 var STYLE_ID = "dsh-card-board-style";
@@ -127,8 +127,8 @@ h3.cb-truncOpen{overflow:visible}
 .cb-when{flex:none;color:var(--dsw-alias-label-tertiary);font-size:12px;font-variant-numeric:tabular-nums}
 .cb-rowActions{display:inline-flex;flex-wrap:wrap;justify-content:flex-end;min-width:0}
 .cb-rowSteps{flex-basis:100%;min-width:0;padding-left:41px}
-.cb-check{flex:none;display:inline-grid;place-items:center;width:18px;height:18px;border-radius:5px;color:#fff;box-shadow:inset 0 0 0 1.5px var(--dsw-alias-border-l4,var(--dsw-alias-border-l3))}
-.cb-check[data-checked=true]{background:var(--dsw-alias-state-success-primary);box-shadow:none}
+.cb-doneBox{flex:none;display:inline-flex;align-items:center;min-width:28px;min-height:28px;justify-content:center}
+.cb-visuallyHidden{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .cb-dotSlot{flex:none;display:inline-grid;place-items:center;width:28px}
 .cb-statusSpark{flex:0 1 90px;min-width:48px}
 .cb-statusValue{flex:none;color:var(--dsw-alias-label-secondary);font-variant-numeric:tabular-nums}
@@ -175,7 +175,7 @@ h3.cb-truncOpen{overflow:visible}
 .cb-row>.cb-statusValue{grid-column:3;grid-row:1}
 .cb-statusRow>.cb-rowActions{grid-row:2}
 .cb-row>.cb-rowSteps{grid-column:2/-1;padding-left:0}
-.cb-row>.cb-check+.uk-tile{display:none}
+.cb-row>.cb-doneBox+.uk-tile{display:none}
 }
 @container (width<520px){
 .cb-track{grid-auto-flow:row;grid-auto-columns:auto;gap:10px}
@@ -193,6 +193,56 @@ h3.cb-truncOpen{overflow:visible}
 .cb-summaryText{font-size:16px;line-height:24px}
 .cb-statValue{font-size:24px;line-height:30px}
 }
+/* Touch and pointer: cards and rows answer a hover and a press, in DSH's own interactive colours and motion. */
+.cb-card{transition:box-shadow var(--ds-transition-duration,.2s) var(--ds-ease-in-out,ease),transform var(--ds-transition-duration,.2s) var(--ds-ease-in-out,ease)}
+.cb-cardOpenable{cursor:pointer}
+button.cb-cardOpen{border:0;background:transparent;padding:0;font:inherit;cursor:pointer}
+@media (hover:hover) and (pointer:fine){.cb-cardOpen{opacity:0;transition:opacity var(--ds-transition-duration,.2s) var(--ds-ease-in-out,ease)}.cb-card:hover .cb-cardOpen,.cb-cardOpen:focus-visible{opacity:1}}
+.cb-cardOpenable:active{transform:scale(.995)}
+.cb-rowOpens{cursor:pointer}
+.cb-row{transition:background-color var(--ds-transition-duration,.2s) var(--ds-ease-in-out,ease)}
+.cb-rowOpens:active{background:var(--dsw-alias-interactive-bg-active,var(--dsw-alias-interactive-bg-hover))}
+.cb-rowOpens:focus-visible,.cb-cardOpen:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:1px}
+.cb-statLink{color:inherit;text-decoration:none;border-radius:10px;margin:-4px -6px;padding:4px 6px;transition:background-color var(--ds-transition-duration,.2s) var(--ds-ease-in-out,ease)}
+.cb-statLink:active{background:var(--dsw-alias-interactive-bg-active,var(--dsw-alias-interactive-bg-hover))}
+@media (hover:hover) and (pointer:fine){
+.cb-cardOpenable:hover{box-shadow:inset 0 0 0 .5px var(--dsw-alias-border-l3),0 2px 10px color-mix(in srgb,var(--dsw-alias-label-primary) 6%,transparent)}
+.cb-row:hover,.cb-statLink:hover{background:var(--dsw-alias-interactive-bg-hover)}
+/* a row's buttons show on hover or focus; on touch they are always there */
+.cb-row .cb-rowActions{opacity:0;transition:opacity var(--ds-transition-duration,.2s) var(--ds-ease-in-out,ease)}
+.cb-row:hover .cb-rowActions,.cb-row:focus-within .cb-rowActions{opacity:1}
+}
+/* Motion: a changed card settles, rows that open in a list fade in, numbers ease (motion.js). */
+@keyframes cb-settle{from{transform:translateY(3px);opacity:.55}to{transform:none;opacity:1}}
+@keyframes cb-in{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+.cb-card.uk-wash .cb-cardBody,.cb-card.uk-wash .cb-stats{animation:cb-settle var(--ds-transition-duration,.2s) var(--ds-ease-in-out,ease) both}
+.cb-rowLate{animation:cb-in var(--ds-transition-duration,.2s) var(--ds-ease-in-out,ease) both}
+@media (prefers-reduced-motion:reduce){.cb-card,.cb-row,.cb-statLink{transition:none}.cb-card.uk-wash .cb-cardBody,.cb-card.uk-wash .cb-stats,.cb-rowLate{animation:none}.cb-cardOpenable:active{transform:none}}
+/* What is chrome is not selectable (heads, tags, axes, legends, strips, buttons, times); titles, notes and numbers are. */
+.cb-cardHead,.cb-tabs,.cb-heading .cb-sub,.cb-rowMeta,.cb-rowActions,.cb-statLabel,.cb-strip,.cb-chart svg,.cb-legend,.cb-track b,.cb-more,.cb-doneBox,.cb-delta,.cb-when,.cb-progress small,.cb-bubble{-webkit-user-select:none;user-select:none}
+.cb-cardHead h3{-webkit-user-select:text;user-select:text}
+.cb-card svg,.cb-card img{-webkit-user-drag:none}
+/* The point under the pointer on a chart */
+.cb-chart{position:relative}
+.cb-plot{touch-action:pan-y}
+.cb-hoverRule{stroke:var(--dsw-alias-border-l3);stroke-width:1}
+.cb-bubble{position:absolute;top:4px;z-index:1;pointer-events:none;padding:5px 8px;border-radius:8px;background:var(--dsw-alias-bg-base);box-shadow:0 2px 10px color-mix(in srgb,var(--dsw-alias-label-primary) 14%,transparent),inset 0 0 0 .5px var(--dsw-alias-border-l2);color:var(--dsw-alias-label-primary);font-size:12px;line-height:17px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.cb-bubbleHead{color:var(--dsw-alias-label-tertiary)}
+/* The opened card */
+.cb-sheetModal.cb-sheetModal{width:min(720px,calc(100vw - 32px));max-width:none}
+.cb-sheet{min-width:0}
+.cb-cardInSheet{padding:0;box-shadow:none;background:transparent;border-radius:0}
+.cb-detail{display:flex;flex-direction:column;gap:14px;margin-top:4px}
+.cb-detailText{margin:0;color:var(--dsw-alias-label-secondary);font-size:14px;line-height:21px;white-space:pre-wrap}
+.cb-facts{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:6px 18px;margin:0;font-size:13px;line-height:19px}
+.cb-facts dt{color:var(--dsw-alias-label-tertiary);-webkit-user-select:none;user-select:none}
+.cb-facts dd{margin:0;color:var(--dsw-alias-label-primary);overflow-wrap:anywhere}
+.cb-detailHistory h4{margin:0 0 6px;font-size:12px;font-weight:500;color:var(--dsw-alias-label-tertiary);-webkit-user-select:none;user-select:none}
+.cb-sheetChat{display:flex;justify-content:flex-end}
+.cb-rowSheet{display:flex;flex-direction:column;gap:12px}
+/* the opened view shows every word: nothing is cut to a line or two */
+.cb-sheet .cb-trunc{white-space:normal;display:block;-webkit-line-clamp:unset;overflow:visible;text-overflow:clip}
+@media (width<=640px){.cb-sheetModal.cb-sheetModal{width:calc(100vw - 16px)}}
 @media (width<=768px),(pointer:coarse){
 .cb-cardLink{width:40px;height:40px;margin:-9px 0}
 .cb-cardChat{margin:-9px -10px -9px 0}
@@ -200,19 +250,18 @@ h3.cb-truncOpen{overflow:visible}
 `;
 
 // src/client/page.js
-var import_react8 = require("react");
+var import_react11 = require("react");
 var import_dsh_client_ui_primitives4 = require("@deepseek-ai/dsh-client-ui-primitives");
 
 // src/client/card.js
-var import_react7 = require("react");
-var import_dsh_client_ui_primitives3 = require("@deepseek-ai/dsh-client-ui-primitives");
+var import_react9 = require("react");
+var import_dsh_client_ui_primitives2 = require("@deepseek-ai/dsh-client-ui-primitives");
 
 // src/client/charts.js
 var import_react4 = require("react");
 
 // src/client/pieces.js
 var import_react = require("react");
-var import_dsh_client_ui_primitives = require("@deepseek-ai/dsh-client-ui-primitives");
 function Trunc({ text, as = "div", className = "", lines = 1 }) {
   const [open, setOpen] = (0, import_react.useState)(false);
   return (0, import_react.createElement)(as, {
@@ -220,13 +269,6 @@ function Trunc({ text, as = "div", className = "", lines = 1 }) {
     title: text,
     onClick: () => setOpen((value) => !value)
   }, text);
-}
-function CheckBox({ checked, label }) {
-  return (0, import_react.createElement)(
-    "span",
-    { className: "cb-check", "data-checked": checked ? "true" : "false", role: "img", "aria-label": label },
-    checked && (0, import_react.createElement)(import_dsh_client_ui_primitives.IconCheckOutlineMedium, { size: 12 })
-  );
 }
 
 // src/client/format.js
@@ -327,6 +369,28 @@ var useButtons = () => (0, import_react3.useSyncExternalStore)(buttonsStore.subs
 // src/client/charts.js
 var PALETTE = ["accent", "ok", "warn", "violet", "bad", "muted"];
 var toneColor = (tone, index = 0) => kitStore.get().toneColor(tone ?? PALETTE[index % PALETTE.length]);
+function usePointer(pick) {
+  const [at, setAt] = (0, import_react4.useState)(null);
+  const fromEvent = (event) => {
+    const box = event.currentTarget.getBoundingClientRect();
+    return pick(event.clientX - box.left);
+  };
+  return [at, {
+    onPointerMove: (event) => setAt(fromEvent(event)),
+    onPointerDown: (event) => setAt(fromEvent(event)),
+    onPointerLeave: (event) => {
+      if (event.pointerType === "mouse") setAt(null);
+    }
+  }, () => setAt(null)];
+}
+function Bubble({ x, width, lines }) {
+  const flip = x > width * 0.6;
+  return (0, import_react4.createElement)(
+    "div",
+    { className: "cb-bubble", role: "status", style: flip ? { right: Math.max(0, width - x + 10) } : { left: x + 10 } },
+    lines.map((line, i) => (0, import_react4.createElement)("div", { key: i, className: i === 0 ? "cb-bubbleHead" : void 0 }, line))
+  );
+}
 function Legend({ items, locale }) {
   return (0, import_react4.createElement)("ul", { className: "cb-legend" }, items.map((item, i) => (0, import_react4.createElement)(
     "li",
@@ -402,9 +466,20 @@ function LineChart({ data, locale, height }) {
     return d;
   };
   const gradientId = (0, import_react4.useMemo)(() => `cb-g-${Math.random().toString(36).slice(2, 9)}`, []);
-  return (0, import_react4.createElement)("div", { ref, className: "cb-chart", style: { height } }, width > 0 && (0, import_react4.createElement)(
+  const xsAll = (0, import_react4.useMemo)(() => [...new Set(data.series.flatMap((s) => s.points.filter((p) => typeof p.y === "number").map((p) => p.x)))], [data]);
+  const [hover, pointer] = usePointer((px) => {
+    let best = null;
+    for (const x of xsAll) if (best === null || Math.abs(sx(x) - px) < Math.abs(sx(best) - px)) best = x;
+    return best;
+  });
+  const hoverX = hover === null ? null : sx(hover);
+  const hoverLines = hover === null ? [] : [model.timeAxis ? formatDay(toTime(hover), locale, 0) : xLabel(hover), ...data.series.flatMap((s) => {
+    const p = s.points.find((q) => q.x === hover && typeof q.y === "number");
+    return p ? [`${s.name ? `${s.name}: ` : ""}${formatNumber(p.y, locale)}${data.unit ? ` ${data.unit}` : ""}`] : [];
+  })];
+  return (0, import_react4.createElement)("div", { ref, className: "cb-chart", style: { height } }, width > 0 && hover !== null && (0, import_react4.createElement)(Bubble, { x: hoverX, width, lines: hoverLines }), width > 0 && (0, import_react4.createElement)(
     "svg",
-    { width, height, role: "img" },
+    { width, height, role: "img", className: "cb-plot", ...pointer },
     (0, import_react4.createElement)("defs", null, data.series.map((s, i) => (0, import_react4.createElement)(
       "linearGradient",
       { key: i, id: `${gradientId}-${i}`, x1: 0, y1: 0, x2: 0, y2: 1 },
@@ -449,7 +524,16 @@ function LineChart({ data, locale, height }) {
         )),
         valid.length > 16 && last && (0, import_react4.createElement)("circle", { cx: sx(last.x), cy: sy(last.y), r: 3, fill: color })
       );
-    })
+    }),
+    hover !== null && (0, import_react4.createElement)(
+      "g",
+      { className: "cb-hover" },
+      (0, import_react4.createElement)("line", { x1: hoverX, x2: hoverX, y1: top, y2: top + plotH, className: "cb-hoverRule" }),
+      data.series.map((s, i) => {
+        const p = s.points.find((q) => q.x === hover && typeof q.y === "number");
+        return p && (0, import_react4.createElement)("circle", { key: i, cx: hoverX, cy: sy(p.y), r: 4, fill: toneColor(s.tone, i), stroke: "var(--dsw-alias-bg-base)", strokeWidth: 2 });
+      })
+    )
   ));
 }
 function BarChart({ data, locale, height }) {
@@ -476,51 +560,58 @@ function BarChart({ data, locale, height }) {
     const time = toTime(x);
     return Number.isFinite(time) ? formatDay(time, locale, 0) : String(x);
   };
+  const [hover, pointer] = usePointer((px) => Math.max(0, Math.min(data.bars.length - 1, Math.floor(px / slot))));
+  const tipOf = (bar) => multi ? [label(bar.x), ...keys.filter((k) => bar.values?.[k] !== void 0).map((k) => `${k}: ${formatNumber(bar.values[k], locale)}${data.unit ? ` ${data.unit}` : ""}`)] : [label(bar.x), `${formatNumber(bar.value, locale)}${data.unit ? ` ${data.unit}` : ""}`];
   return (0, import_react4.createElement)(
     "div",
     null,
-    (0, import_react4.createElement)("div", { ref, className: "cb-chart", style: { height } }, width > 0 && (0, import_react4.createElement)(
-      "svg",
-      { width, height, role: "img" },
-      (0, import_react4.createElement)("line", { x1: 0, x2: width, y1: top + plotH + 0.5, y2: top + plotH + 0.5, className: "cb-rule" }),
-      data.goal && (0, import_react4.createElement)("line", { x1: 0, x2: width, y1: sy(data.goal.y), y2: sy(data.goal.y), className: "cb-goal" }),
-      data.goal?.label && (0, import_react4.createElement)("text", { x: width, y: sy(data.goal.y) - 4, className: "cb-goalLabel", textAnchor: "end" }, (0, import_react4.createElement)("title", null, data.goal.label), fit(data.goal.label, width)),
-      data.bars.map((bar, i) => {
-        const cx = slot * i + slot / 2;
-        const tip = multi ? `${label(bar.x)}: ${keys.filter((k) => bar.values?.[k] !== void 0).map((k) => `${k} ${formatNumber(bar.values[k], locale)}`).join(", ")}` : `${label(bar.x)}: ${formatNumber(bar.value, locale)}${data.unit ? ` ${data.unit}` : ""}`;
-        let parts;
-        if (!multi) parts = [{ y0: 0, y1: Math.max(0, bar.value), color: toneColor(void 0, 1), x: cx - barW / 2, w: barW }];
-        else if (stacked) {
-          let base = 0;
-          parts = keys.map((key, k) => {
-            const v = Math.max(0, bar.values?.[key] ?? 0);
-            const part2 = { y0: base, y1: base + v, color: toneColor(void 0, k), x: cx - barW / 2, w: barW };
-            base += v;
-            return part2;
-          });
-        } else {
-          const each = barW / keys.length;
-          parts = keys.map((key, k) => ({ y0: 0, y1: Math.max(0, bar.values?.[key] ?? 0), color: toneColor(void 0, k), x: cx - barW / 2 + k * each, w: Math.max(1, each - 1) }));
-        }
-        return (0, import_react4.createElement)(
-          "g",
-          { key: i },
-          (0, import_react4.createElement)("title", null, tip),
-          parts.filter((p) => p.y1 > p.y0).map((p, k) => (0, import_react4.createElement)("rect", {
-            key: k,
-            x: p.x,
-            width: p.w,
-            y: sy(p.y1),
-            height: Math.max(0.5, sy(p.y0) - sy(p.y1)),
-            rx: Math.min(4, p.w / 3),
-            fill: p.color,
-            fillOpacity: multi ? 0.85 : 0.55
-          })),
-          showValues && (0, import_react4.createElement)("text", { x: cx, y: sy(peaks[i]) - 4, className: "cb-barValue", textAnchor: "middle" }, formatNumber(multi && !stacked ? peaks[i] : totals[i], locale, 1)),
-          i % labelEvery === 0 && (0, import_react4.createElement)("text", { x: Math.min(Math.max(cx, textWidth(label(bar.x)) / 2), width - textWidth(label(bar.x)) / 2), y: height - 4, className: "cb-axis", textAnchor: "middle" }, label(bar.x))
-        );
-      })
-    )),
+    (0, import_react4.createElement)(
+      "div",
+      { ref, className: "cb-chart", style: { height } },
+      width > 0 && hover !== null && data.bars[hover] && (0, import_react4.createElement)(Bubble, { x: slot * hover + slot / 2, width, lines: tipOf(data.bars[hover]) }),
+      width > 0 && (0, import_react4.createElement)(
+        "svg",
+        { width, height, role: "img", className: "cb-plot", ...pointer },
+        (0, import_react4.createElement)("line", { x1: 0, x2: width, y1: top + plotH + 0.5, y2: top + plotH + 0.5, className: "cb-rule" }),
+        data.goal && (0, import_react4.createElement)("line", { x1: 0, x2: width, y1: sy(data.goal.y), y2: sy(data.goal.y), className: "cb-goal" }),
+        data.goal?.label && (0, import_react4.createElement)("text", { x: width, y: sy(data.goal.y) - 4, className: "cb-goalLabel", textAnchor: "end" }, (0, import_react4.createElement)("title", null, data.goal.label), fit(data.goal.label, width)),
+        data.bars.map((bar, i) => {
+          const cx = slot * i + slot / 2;
+          const tip = multi ? `${label(bar.x)}: ${keys.filter((k) => bar.values?.[k] !== void 0).map((k) => `${k} ${formatNumber(bar.values[k], locale)}`).join(", ")}` : `${label(bar.x)}: ${formatNumber(bar.value, locale)}${data.unit ? ` ${data.unit}` : ""}`;
+          let parts;
+          if (!multi) parts = [{ y0: 0, y1: Math.max(0, bar.value), color: toneColor(void 0, 1), x: cx - barW / 2, w: barW }];
+          else if (stacked) {
+            let base = 0;
+            parts = keys.map((key, k) => {
+              const v = Math.max(0, bar.values?.[key] ?? 0);
+              const part2 = { y0: base, y1: base + v, color: toneColor(void 0, k), x: cx - barW / 2, w: barW };
+              base += v;
+              return part2;
+            });
+          } else {
+            const each = barW / keys.length;
+            parts = keys.map((key, k) => ({ y0: 0, y1: Math.max(0, bar.values?.[key] ?? 0), color: toneColor(void 0, k), x: cx - barW / 2 + k * each, w: Math.max(1, each - 1) }));
+          }
+          return (0, import_react4.createElement)(
+            "g",
+            { key: i },
+            (0, import_react4.createElement)("title", null, tip),
+            parts.filter((p) => p.y1 > p.y0).map((p, k) => (0, import_react4.createElement)("rect", {
+              key: k,
+              x: p.x,
+              width: p.w,
+              y: sy(p.y1),
+              height: Math.max(0.5, sy(p.y0) - sy(p.y1)),
+              rx: Math.min(4, p.w / 3),
+              fill: p.color,
+              fillOpacity: hover === i ? 1 : multi ? 0.85 : 0.55
+            })),
+            showValues && (0, import_react4.createElement)("text", { x: cx, y: sy(peaks[i]) - 4, className: "cb-barValue", textAnchor: "middle" }, formatNumber(multi && !stacked ? peaks[i] : totals[i], locale, 1)),
+            i % labelEvery === 0 && (0, import_react4.createElement)("text", { x: Math.min(Math.max(cx, textWidth(label(bar.x)) / 2), width - textWidth(label(bar.x)) / 2), y: height - 4, className: "cb-axis", textAnchor: "middle" }, label(bar.x))
+          );
+        })
+      )
+    ),
     multi && (0, import_react4.createElement)(Legend, { items: keys.map((key, k) => ({ label: key, color: toneColor(void 0, k) })), locale })
   );
 }
@@ -654,8 +745,50 @@ function Timeline({ data, locale }) {
 }
 
 // src/client/cards.js
+var import_react6 = require("react");
+var import_dsh_client_ui_primitives = require("@deepseek-ai/dsh-client-ui-primitives");
+
+// src/client/motion.js
 var import_react5 = require("react");
-var import_dsh_client_ui_primitives2 = require("@deepseek-ai/dsh-client-ui-primitives");
+var reduced = () => typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+function useEased(value, ms = 500) {
+  const [shown, setShown] = (0, import_react5.useState)(value);
+  const from = (0, import_react5.useRef)(value);
+  (0, import_react5.useEffect)(() => {
+    const start = from.current;
+    from.current = value;
+    if (typeof value !== "number" || typeof start !== "number" || start === value || reduced() || typeof requestAnimationFrame !== "function") {
+      setShown(value);
+      return void 0;
+    }
+    const begin = performance.now();
+    let frame = 0;
+    const step = (now) => {
+      const k = Math.min(1, (now - begin) / ms);
+      const eased = 1 - (1 - k) ** 3;
+      setShown(k >= 1 ? value : start + (value - start) * eased);
+      if (k < 1) frame = requestAnimationFrame(step);
+    };
+    frame = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(frame);
+  }, [value, ms]);
+  return shown;
+}
+
+// src/client/links.js
+function openLink(link) {
+  if (/^https?:/i.test(link)) {
+    window.open(link, "_blank", "noopener,noreferrer");
+    return;
+  }
+  const url = new URL(link, window.location.origin);
+  if (url.origin !== window.location.origin) return;
+  window.history.pushState(null, "", url.pathname + url.search + url.hash);
+  window.dispatchEvent(new PopStateEvent("popstate"));
+}
+function onControl(event) {
+  return Boolean(event.target?.closest?.("button,a,input,select,textarea,label,[role=button],[role=checkbox],[role=menuitem]"));
+}
 
 // src/client/steps.js
 function ownOffset(at) {
@@ -712,139 +845,195 @@ function shownRows(rows, open, limit, live) {
 // src/client/cards.js
 var STATE_OF_TONE = { ok: "done", warn: "warning", bad: "error" };
 var DIRECTION_ICON = { up: "trending-up", down: "trending-down" };
+function EasedNumber({ value, locale }) {
+  const shown = useEased(value);
+  if (typeof value !== "number") return formatNumber(value, locale);
+  const decimals = Math.min(3, (String(value).split(".")[1] ?? "").length);
+  return formatNumber(shown === value ? value : Number(shown.toFixed(decimals)), locale);
+}
 function StatBlock({ data, locale, compact, wash }) {
   const kit = useKit();
-  return (0, import_react5.createElement)("div", { className: `cb-stats${compact ? " cb-statsCompact" : ""}` }, data.items.map((item, i) => (0, import_react5.createElement)(
-    "div",
-    { key: i, className: `cb-stat${item.strip ? " cb-statWide" : ""}` },
-    (0, import_react5.createElement)("div", { className: "cb-statLabel" }, (0, import_react5.createElement)(Trunc, { as: "span", text: item.label }), i === 0 && wash && (0, import_react5.createElement)(kit.JustNow)),
-    (0, import_react5.createElement)(
+  return (0, import_react6.createElement)("div", { className: `cb-stats${compact ? " cb-statsCompact" : ""}` }, data.items.map((item, i) => (0, import_react6.createElement)(
+    item.link ? "a" : "div",
+    { key: i, className: `cb-stat${item.strip ? " cb-statWide" : ""}${item.link ? " cb-statLink" : ""}`, ...item.link ? linkProps(item.link) : {} },
+    (0, import_react6.createElement)("div", { className: "cb-statLabel" }, (0, import_react6.createElement)(Trunc, { as: "span", text: item.label }), i === 0 && wash && (0, import_react6.createElement)(kit.JustNow)),
+    (0, import_react6.createElement)(
       "div",
       { className: "cb-statValue", style: item.tone ? { color: kit.toneColor(item.tone) } : void 0 },
-      (0, import_react5.createElement)("span", null, formatNumber(item.value, locale)),
-      item.unit && (0, import_react5.createElement)("small", null, item.unit)
+      (0, import_react6.createElement)("span", null, (0, import_react6.createElement)(EasedNumber, { value: item.value, locale })),
+      item.unit && (0, import_react6.createElement)("small", null, item.unit)
     ),
-    item.delta && (0, import_react5.createElement)(
+    item.delta && (0, import_react6.createElement)(
       "div",
       { className: "cb-delta", style: { color: kit.toneColor(item.delta.tone ?? "muted") } },
-      DIRECTION_ICON[item.delta.dir] && (0, import_react5.createElement)(kit.Icon, { name: DIRECTION_ICON[item.delta.dir], size: 13 }),
-      (0, import_react5.createElement)("span", null, item.delta.text)
+      DIRECTION_ICON[item.delta.dir] && (0, import_react6.createElement)(kit.Icon, { name: DIRECTION_ICON[item.delta.dir], size: 13 }),
+      (0, import_react6.createElement)("span", null, item.delta.text)
     ),
-    item.progress && (0, import_react5.createElement)(
+    item.progress && (0, import_react6.createElement)(
       "div",
       { className: "cb-statProgress" },
-      (0, import_react5.createElement)(kit.Progress, { value: item.progress.value, max: item.progress.max, tone: item.tone ?? (item.progress.value > item.progress.max ? "warn" : "ok") }),
-      item.progress.text && (0, import_react5.createElement)("div", { className: "cb-statSub" }, item.progress.text)
+      (0, import_react6.createElement)(kit.Progress, { value: item.progress.value, max: item.progress.max, tone: item.tone ?? (item.progress.value > item.progress.max ? "warn" : "ok") }),
+      item.progress.text && (0, import_react6.createElement)("div", { className: "cb-statSub" }, item.progress.text)
     ),
-    item.spark && (0, import_react5.createElement)(kit.Spark, { values: item.spark, tone: item.tone ?? "accent", height: 28, area: true }),
-    item.sub && (0, import_react5.createElement)(Trunc, { className: "cb-statSub", lines: 2, text: item.sub }),
-    item.strip && (0, import_react5.createElement)("ol", { className: "cb-strip" }, item.strip.map((cell, j) => (0, import_react5.createElement)(
+    item.spark && (0, import_react6.createElement)(kit.Spark, { values: item.spark, tone: item.tone ?? "accent", height: 28, area: true }),
+    item.sub && (0, import_react6.createElement)(Trunc, { className: "cb-statSub", lines: 2, text: item.sub }),
+    item.strip && (0, import_react6.createElement)("ol", { className: "cb-strip" }, item.strip.map((cell, j) => (0, import_react6.createElement)(
       "li",
       { key: j, "data-on": cell.on ? "true" : void 0 },
-      (0, import_react5.createElement)("b", null, formatNumber(cell.value, locale, 1)),
-      cell.icon && (0, import_react5.createElement)(kit.Icon, { name: cell.icon, size: 14 }),
-      (0, import_react5.createElement)("span", null, cell.label)
+      (0, import_react6.createElement)("b", null, formatNumber(cell.value, locale, 1)),
+      cell.icon && (0, import_react6.createElement)(kit.Icon, { name: cell.icon, size: 14 }),
+      (0, import_react6.createElement)("span", null, cell.label)
     )))
   )));
+}
+function linkProps(link) {
+  const external = /^https?:/i.test(link);
+  return { href: link, ...external ? { target: "_blank", rel: "noopener noreferrer" } : { onClick: (event) => {
+    event.preventDefault();
+    openLink(link);
+  } } };
 }
 function RowWhen({ row, locale, t }) {
   const kit = useKit();
   const now = kit.useNow();
   if (row.active) {
-    if (isActive(row.active, now)) return (0, import_react5.createElement)(import_dsh_client_ui_primitives2.Tag, { tone: "info" }, t("now"));
+    if (isActive(row.active, now)) return (0, import_react6.createElement)(import_dsh_client_ui_primitives.Tag, { tone: "info" }, t("now"));
     const from = Date.parse(row.active.from);
-    if (from > now && new Date(from).toDateString() === new Date(now).toDateString()) return (0, import_react5.createElement)("span", { className: "cb-when" }, t("fromTime", { time: formatClock(from, locale) }));
+    if (from > now && new Date(from).toDateString() === new Date(now).toDateString()) return (0, import_react6.createElement)("span", { className: "cb-when" }, t("fromTime", { time: formatClock(from, locale) }));
   }
-  return row.date ? (0, import_react5.createElement)("span", { className: "cb-when" }, (0, import_react5.createElement)(kit.RelativeDay, { date: row.date })) : null;
+  return row.date ? (0, import_react6.createElement)("span", { className: "cb-when" }, (0, import_react6.createElement)(kit.RelativeDay, { date: row.date })) : null;
 }
-function Row({ lead, title, sub, meta, value, spark, row, index, washCount, fresh, rowActions, className }) {
+function Row({ lead, title, sub, meta, value, spark, row, index, washCount, fresh, rowActions, className, onOpenRow }) {
   const kit = useKit();
   const now = kit.useNow();
   const wash = kit.useWash(washCount, row.key);
-  return (0, import_react5.createElement)(
+  const go = row.link ? () => openLink(row.link) : row.detail && row.key !== void 0 && onOpenRow ? () => onOpenRow(row.key) : null;
+  const opens = go && {
+    "data-opens": "true",
+    role: row.link ? "link" : "button",
+    tabIndex: 0,
+    onClick: (event) => {
+      if (!onControl(event)) {
+        event.stopPropagation();
+        go();
+      }
+    },
+    onKeyDown: (event) => {
+      if ((event.key === "Enter" || event.key === " ") && event.target === event.currentTarget) {
+        event.preventDefault();
+        go();
+      }
+    }
+  };
+  return (0, import_react6.createElement)(
     "li",
-    { className: ["cb-row", className, row.checked && "cb-done", isActive(row.active, now) && "cb-rowNow", wash].filter(Boolean).join(" ") },
+    { className: ["cb-row", className, row.checked && "cb-done", isActive(row.active, now) && "cb-rowNow", go && "cb-rowOpens", wash].filter(Boolean).join(" "), ...opens },
     lead,
-    (0, import_react5.createElement)(
+    (0, import_react6.createElement)(
       "div",
       { className: "cb-rowText" },
-      (0, import_react5.createElement)("div", { className: "cb-rowTitle" }, fresh && (0, import_react5.createElement)(kit.NewDot), (0, import_react5.createElement)(Trunc, { as: "span", lines: 2, text: title })),
-      sub && (0, import_react5.createElement)(Trunc, { className: "cb-rowSub", lines: 2, text: sub })
+      (0, import_react6.createElement)("div", { className: "cb-rowTitle" }, fresh && (0, import_react6.createElement)(kit.NewDot), (0, import_react6.createElement)(Trunc, { as: "span", lines: 2, text: title })),
+      sub && (0, import_react6.createElement)(Trunc, { className: "cb-rowSub", lines: 2, text: sub })
     ),
     spark,
     meta,
     value,
-    row.actions && rowActions && (0, import_react5.createElement)("span", { className: "cb-rowActions" }, rowActions(index, row.actions, "buttons")),
-    row.actions?.some((action) => action.kind === "step") && rowActions && (0, import_react5.createElement)("div", { className: "cb-rowSteps" }, rowActions(index, row.actions, "steps"))
+    // The row's own buttons on the right: its steps first (a step starts the work on one tap), then the others.
+    row.actions && rowActions && (0, import_react6.createElement)(
+      "span",
+      { className: "cb-rowActions" },
+      row.actions.some((action) => action.kind === "step") && rowActions(index, row.actions, "steps"),
+      rowActions(index, row.actions, "buttons")
+    )
+  );
+}
+function DoneBox({ row, index, done, rowControls, t }) {
+  const state = rowControls.state(index, done.id);
+  const checked = row.checked === true || state === "done" || state === "pending";
+  return (0, import_react6.createElement)(
+    "span",
+    { className: "cb-doneBox", onClick: (event) => event.stopPropagation() },
+    (0, import_react6.createElement)(import_dsh_client_ui_primitives.Checkbox, {
+      checked,
+      disabled: checked,
+      title: t(checked ? "checked" : "markDone"),
+      label: (0, import_react6.createElement)("span", { className: "cb-visuallyHidden" }, t(checked ? "checked" : "markDone")),
+      onChange: (value) => {
+        if (value) rowControls.press(index, done);
+      }
+    })
   );
 }
 var rowLive = (live, row) => ({ washCount: live.rows?.[row.key] ?? 0, fresh: row.key !== void 0 && live.freshRows.has(row.key) });
-function ListCard({ data, live, locale, t, rowActions }) {
+function ListCard({ data, live, locale, t, rowActions, all = false, onOpenRow, rowControls }) {
   const kit = useKit();
-  const [open, setOpen] = (0, import_react5.useState)(false);
-  const rows = shownRows(data.rows, open, LIST_ROWS, live);
+  const [open, setOpen] = (0, import_react6.useState)(false);
+  const rows = shownRows(data.rows, open || all, LIST_ROWS, live);
   const hidden = data.rows.length - rows.length;
-  const checkable = data.rows.some((row) => "checked" in row);
+  const doneOf = (row) => row.actions?.find((action) => action.kind === "done");
   const progress = data.progress;
-  return (0, import_react5.createElement)(
+  return (0, import_react6.createElement)(
     "div",
     { className: "cb-list" },
-    progress && (0, import_react5.createElement)(
+    progress && (0, import_react6.createElement)(
       "div",
       { className: "cb-progress" },
-      (0, import_react5.createElement)(
+      (0, import_react6.createElement)(
         kit.Ring,
         { value: progress.done, max: progress.total, size: 54, tone: progress.done >= progress.total ? "ok" : "accent", label: `${progress.done}/${progress.total}` },
-        (0, import_react5.createElement)("span", null, String(progress.done)),
-        (0, import_react5.createElement)("small", null, t("ofTotal", { total: progress.total }))
+        (0, import_react6.createElement)("span", null, String(progress.done)),
+        (0, import_react6.createElement)("small", null, t("ofTotal", { total: progress.total }))
       ),
-      (0, import_react5.createElement)(
+      (0, import_react6.createElement)(
         "div",
         { className: "cb-progressText" },
-        progress.label && (0, import_react5.createElement)("div", { className: "cb-progressLabel" }, progress.label),
-        progress.sub && (0, import_react5.createElement)("div", { className: "cb-rowSub" }, progress.sub)
+        progress.label && (0, import_react6.createElement)("div", { className: "cb-progressLabel" }, progress.label),
+        progress.sub && (0, import_react6.createElement)("div", { className: "cb-rowSub" }, progress.sub)
       )
     ),
-    data.rows.length === 0 ? (0, import_react5.createElement)("p", { className: "cb-muted" }, data.empty ?? t("listEmpty")) : (0, import_react5.createElement)("ul", { className: "cb-rows" }, rows.map((row, i) => (0, import_react5.createElement)(Row, {
+    data.rows.length === 0 ? (0, import_react6.createElement)("p", { className: "cb-muted" }, data.empty ?? t("listEmpty")) : (0, import_react6.createElement)("ul", { className: "cb-rows" }, rows.map((row, i) => (0, import_react6.createElement)(Row, {
       key: row.key ?? i,
-      index: i,
-      row,
+      index: data.rows.indexOf(row),
+      row: doneOf(row) && rowControls ? { ...row, actions: row.actions.filter((a) => a.kind !== "done") } : row,
       rowActions,
+      onOpenRow,
+      className: i >= LIST_ROWS ? "cb-rowLate" : void 0,
       ...rowLive(live, row),
       lead: [
-        checkable && (0, import_react5.createElement)(CheckBox, { key: "check", checked: row.checked === true, label: t(row.checked ? "checked" : "unchecked") }),
-        row.icon && (0, import_react5.createElement)(kit.Tile, { key: "tile", icon: row.icon, tone: row.tone ?? "muted", size: 30 })
+        doneOf(row) && rowControls && (0, import_react6.createElement)(DoneBox, { key: "check", row, index: data.rows.indexOf(row), done: doneOf(row), rowControls, t }),
+        row.icon && (0, import_react6.createElement)(kit.Tile, { key: "tile", icon: row.icon, tone: row.tone ?? "muted", size: 30 })
       ],
       title: row.title,
       sub: row.sub,
-      meta: (0, import_react5.createElement)(
+      meta: (0, import_react6.createElement)(
         "span",
         { className: "cb-rowMeta" },
-        row.chip && (0, import_react5.createElement)(import_dsh_client_ui_primitives2.Tag, { tone: kit.tagTone(row.chip.tone ?? "muted") }, row.chip.text),
-        (0, import_react5.createElement)(RowWhen, { row, locale, t })
+        row.chip && (0, import_react6.createElement)(import_dsh_client_ui_primitives.Tag, { tone: kit.tagTone(row.chip.tone ?? "muted") }, row.chip.text),
+        (0, import_react6.createElement)(RowWhen, { row, locale, t })
       )
     }))),
-    (hidden > 0 || open) && data.rows.length > LIST_ROWS + 1 && (0, import_react5.createElement)(
-      import_dsh_client_ui_primitives2.Button,
+    !all && (hidden > 0 || open) && data.rows.length > LIST_ROWS + 1 && (0, import_react6.createElement)(
+      import_dsh_client_ui_primitives.Button,
       { variant: "ghost", size: "sm", className: "cb-more", onClick: () => setOpen((value) => !value) },
       open ? t("showFewer") : t("showMore", { n: hidden })
     )
   );
 }
-function StatusCard({ data, live, locale, rowActions }) {
+function StatusCard({ data, live, locale, rowActions, onOpenRow }) {
   const kit = useKit();
-  return (0, import_react5.createElement)("ul", { className: "cb-rows" }, data.rows.map((row, i) => (0, import_react5.createElement)(Row, {
+  return (0, import_react6.createElement)("ul", { className: "cb-rows" }, data.rows.map((row, i) => (0, import_react6.createElement)(Row, {
     key: row.key ?? i,
     index: i,
     row,
     rowActions,
+    onOpenRow,
     ...rowLive(live, row),
     className: "cb-statusRow",
-    lead: row.icon ? (0, import_react5.createElement)(kit.Tile, { icon: row.icon, tone: row.tone, size: 28 }) : (0, import_react5.createElement)("span", { className: "cb-dotSlot" }, (0, import_react5.createElement)(import_dsh_client_ui_primitives2.StateDot, { state: STATE_OF_TONE[row.tone] ?? "idle" })),
+    lead: row.icon ? (0, import_react6.createElement)(kit.Tile, { icon: row.icon, tone: row.tone, size: 28 }) : (0, import_react6.createElement)("span", { className: "cb-dotSlot" }, (0, import_react6.createElement)(import_dsh_client_ui_primitives.StateDot, { state: STATE_OF_TONE[row.tone] ?? "idle" })),
     title: row.label,
     sub: row.sub,
-    spark: row.spark && (0, import_react5.createElement)("span", { className: "cb-statusSpark" }, (0, import_react5.createElement)(kit.Spark, { values: row.spark, tone: row.tone === "ok" ? "ok" : row.tone, height: 22 })),
-    value: (0, import_react5.createElement)("span", { className: "cb-statusValue", style: row.tone === "bad" || row.tone === "warn" ? { color: kit.toneColor(row.tone) } : void 0 }, formatNumber(row.value, locale))
+    spark: row.spark && (0, import_react6.createElement)("span", { className: "cb-statusSpark" }, (0, import_react6.createElement)(kit.Spark, { values: row.spark, tone: row.tone === "ok" ? "ok" : row.tone, height: 22 })),
+    value: (0, import_react6.createElement)("span", { className: "cb-statusValue", style: row.tone === "bad" || row.tone === "warn" ? { color: kit.toneColor(row.tone) } : void 0 }, formatNumber(row.value, locale))
   })));
 }
 var PARTS = [[5, "dayPart.morning"], [12, "dayPart.afternoon"], [18, "dayPart.evening"], [22, "dayPart.night"]];
@@ -857,12 +1046,12 @@ function SummaryBody({ card, locale, t, wash }) {
   const kit = useKit();
   const now = kit.useNow();
   const day = dayLine(now, locale, t);
-  return (0, import_react5.createElement)(
+  return (0, import_react6.createElement)(
     "div",
     { className: "cb-summary" },
-    (0, import_react5.createElement)("div", { className: "cb-summaryLine" }, (0, import_react5.createElement)(kit.Icon, { name: day.dark ? "moon" : "sun-medium", size: 14 }), (0, import_react5.createElement)("span", null, `${day.text} \xB7 ${card.title}`), wash && (0, import_react5.createElement)(kit.JustNow)),
-    (0, import_react5.createElement)("p", { className: "cb-summaryText" }, card.data.text),
-    card.data.chips?.length > 0 && (0, import_react5.createElement)("div", { className: "cb-chips" }, card.data.chips.map((chip, i) => (0, import_react5.createElement)(kit.Chip, { key: i, icon: chip.icon, tone: chip.tone ?? "muted", to: chip.to }, chip.text)))
+    (0, import_react6.createElement)("div", { className: "cb-summaryLine" }, (0, import_react6.createElement)(kit.Icon, { name: day.dark ? "moon" : "sun-medium", size: 14 }), (0, import_react6.createElement)("span", null, `${day.text} \xB7 ${card.title}`), wash && (0, import_react6.createElement)(kit.JustNow)),
+    (0, import_react6.createElement)("p", { className: "cb-summaryText" }, card.data.text),
+    card.data.chips?.length > 0 && (0, import_react6.createElement)("div", { className: "cb-chips" }, card.data.chips.map((chip, i) => (0, import_react6.createElement)(kit.Chip, { key: i, icon: chip.icon, tone: chip.tone ?? "muted", to: chip.to }, chip.text)))
   );
 }
 function CountdownBody({ card, locale }) {
@@ -871,26 +1060,26 @@ function CountdownBody({ card, locale }) {
   const data = card.data;
   const times = data.steps ? stepTimes(data.steps, locale) : [];
   const next = times.findIndex((step) => step.time > now);
-  return (0, import_react5.createElement)(
+  return (0, import_react6.createElement)(
     "div",
     { className: "cb-countdown" },
-    (0, import_react5.createElement)(
+    (0, import_react6.createElement)(
       "div",
       { className: "cb-countdownHead" },
-      (0, import_react5.createElement)(kit.Countdown, { to: data.to }),
-      (0, import_react5.createElement)(
+      (0, import_react6.createElement)(kit.Countdown, { to: data.to }),
+      (0, import_react6.createElement)(
         "div",
         { className: "cb-countdownText" },
-        (0, import_react5.createElement)("div", null, data.label),
-        data.sub && (0, import_react5.createElement)("div", { className: "cb-rowSub" }, data.sub)
+        (0, import_react6.createElement)("div", null, data.label),
+        data.sub && (0, import_react6.createElement)("div", { className: "cb-rowSub" }, data.sub)
       )
     ),
-    times.length > 0 && (0, import_react5.createElement)("ol", { className: "cb-track" }, data.steps.map((step, i) => (0, import_react5.createElement)(
+    times.length > 0 && (0, import_react6.createElement)("ol", { className: "cb-track" }, data.steps.map((step, i) => (0, import_react6.createElement)(
       "li",
       { key: i, "data-state": i === next ? "next" : times[i].time <= now ? "past" : "later" },
-      (0, import_react5.createElement)("i", { "aria-hidden": true }),
-      (0, import_react5.createElement)("b", null, times[i].text),
-      (0, import_react5.createElement)("span", null, step.sub ? `${step.label} \xB7 ${step.sub}` : step.label)
+      (0, import_react6.createElement)("i", { "aria-hidden": true }),
+      (0, import_react6.createElement)("b", null, times[i].text),
+      (0, import_react6.createElement)("span", null, step.sub ? `${step.label} \xB7 ${step.sub}` : step.label)
     )))
   );
 }
@@ -944,7 +1133,7 @@ function summaryLines(card, locale, t) {
 }
 
 // src/client/words.js
-var import_react6 = require("react");
+var import_react7 = require("react");
 var messageRequests = /* @__PURE__ */ new Map();
 function fetchMessages(tag) {
   if (!messageRequests.has(tag)) {
@@ -990,11 +1179,11 @@ var setClientContext = (ctx) => {
   clientCtx = ctx;
 };
 function useActiveLocale() {
-  const subscribe = (0, import_react6.useCallback)((listener) => clientCtx.locale.subscribe(listener), []);
-  const active = (0, import_react6.useSyncExternalStore)(subscribe, () => clientCtx.locale.getSnapshot().active);
-  const [loaded, setLoaded] = (0, import_react6.useState)(null);
-  const [attempt, setAttempt] = (0, import_react6.useState)(0);
-  (0, import_react6.useEffect)(() => {
+  const subscribe = (0, import_react7.useCallback)((listener) => clientCtx.locale.subscribe(listener), []);
+  const active = (0, import_react7.useSyncExternalStore)(subscribe, () => clientCtx.locale.getSnapshot().active);
+  const [loaded, setLoaded] = (0, import_react7.useState)(null);
+  const [attempt, setAttempt] = (0, import_react7.useState)(0);
+  (0, import_react7.useEffect)(() => {
     let live = true;
     let timer;
     fetchMessages(active).then(
@@ -1010,15 +1199,40 @@ function useActiveLocale() {
       clearTimeout(timer);
     };
   }, [active, attempt]);
-  return (0, import_react6.useMemo)(() => ({ active: loaded?.active ?? active, ready: loaded !== null, intl: intlTag(loaded?.active ?? active), t: translator(loaded?.messages ?? {}) }), [loaded, active]);
+  return (0, import_react7.useMemo)(() => ({ active: loaded?.active ?? active, ready: loaded !== null, intl: intlTag(loaded?.active ?? active), t: translator(loaded?.messages ?? {}) }), [loaded, active]);
+}
+
+// src/client/detail.js
+var import_react8 = require("react");
+var CHARTS = { line: LineChart, bar: BarChart };
+function DetailParts({ detail, locale, t }) {
+  const kit = useKit();
+  if (!detail) return null;
+  const Chart = detail.chart && CHARTS[detail.chart.type];
+  return (0, import_react8.createElement)(
+    "div",
+    { className: "cb-detail" },
+    detail.text && (0, import_react8.createElement)("p", { className: "cb-detailText" }, detail.text),
+    detail.facts?.length > 0 && (0, import_react8.createElement)("dl", { className: "cb-facts" }, detail.facts.map((fact, i) => [
+      (0, import_react8.createElement)("dt", { key: `t${i}` }, fact.label),
+      (0, import_react8.createElement)("dd", { key: `d${i}` }, typeof fact.value === "number" ? formatNumber(fact.value, locale) : fact.value)
+    ])),
+    Chart && (0, import_react8.createElement)("div", { className: "cb-detailChart" }, (0, import_react8.createElement)(Chart, { data: detail.chart.data, locale, height: 240 })),
+    detail.history?.length > 0 && (0, import_react8.createElement)(
+      "section",
+      { className: "cb-detailHistory" },
+      (0, import_react8.createElement)("h4", null, t("history")),
+      (0, import_react8.createElement)(kit.History, { items: detail.history, max: 8, moreLabel: t("showMore", { n: "{n}" }) })
+    )
+  );
 }
 
 // src/client/card.js
 var CHART_HEIGHT = 150;
 function useRowSpan() {
-  const ref = (0, import_react7.useRef)(null);
-  const [rows, setRows] = (0, import_react7.useState)(0);
-  (0, import_react7.useLayoutEffect)(() => {
+  const ref = (0, import_react9.useRef)(null);
+  const [rows, setRows] = (0, import_react9.useState)(0);
+  (0, import_react9.useLayoutEffect)(() => {
     const el = ref.current;
     if (!el || typeof ResizeObserver === "undefined") return void 0;
     const measure = () => setRows(Math.ceil((el.getBoundingClientRect().height + GAP) / ROW));
@@ -1029,44 +1243,44 @@ function useRowSpan() {
   }, []);
   return [ref, rows];
 }
-var CHARTS = { line: LineChart, bar: BarChart, donut: Donut, timeline: Timeline };
+var CHARTS2 = { line: LineChart, bar: BarChart, donut: Donut, timeline: Timeline };
 function statesOf(presses, row) {
   const states = {};
   for (const press of presses ?? []) if (press.row === row) states[press.id] = press.state;
   return states;
 }
-function Body({ card, live, wash, locale, t, rowActions }) {
+function Body({ card, live, wash, locale, t, rowActions, all, onOpenRow, rowControls }) {
   const data = card.data;
   switch (card.type) {
     case "stat":
-      return (0, import_react7.createElement)(StatBlock, { data, locale, wash });
+      return (0, import_react9.createElement)(StatBlock, { data, locale, wash });
     case "list":
-      return (0, import_react7.createElement)(ListCard, { data, live, locale, t, rowActions });
+      return (0, import_react9.createElement)(ListCard, { data, live, locale, t, rowActions, all, onOpenRow, rowControls });
     case "status":
-      return (0, import_react7.createElement)(StatusCard, { data, live, locale, rowActions });
+      return (0, import_react9.createElement)(StatusCard, { data, live, locale, rowActions, onOpenRow });
     case "countdown":
-      return (0, import_react7.createElement)(CountdownBody, { card, locale });
+      return (0, import_react9.createElement)(CountdownBody, { card, locale });
     default: {
-      const Chart = CHARTS[card.type];
+      const Chart = CHARTS2[card.type];
       if (Chart === void 0) return null;
-      return (0, import_react7.createElement)(Chart, { data, locale, height: card.type === "bar" ? 130 : card.type === "donut" ? 160 : CHART_HEIGHT });
+      return (0, import_react9.createElement)(Chart, { data, locale, height: all ? card.type === "donut" ? 200 : 240 : card.type === "bar" ? 130 : card.type === "donut" ? 160 : CHART_HEIGHT });
     }
   }
 }
-function Card({ entry, live, boardId, assistant, tracks, active, locale, t, press }) {
+function Card({ entry, live, boardId, assistant, tracks, active, locale, t, press, onOpen, sheet = false, row: openRow }) {
   const kit = useKit();
   const actions = useButtons();
   const now = kit.useNow();
   const wash = kit.useWash(live.wash, entry.id);
   const [ref, rows] = useRowSpan();
-  const style = { gridColumn: `span ${spanOf(entry.card?.type, entry.size, tracks)}`, gridRowEnd: rows > 0 ? `span ${rows}` : void 0 };
+  const style = sheet ? void 0 : { gridColumn: `span ${spanOf(entry.card?.type, entry.size, tracks)}`, gridRowEnd: rows > 0 ? `span ${rows}` : void 0 };
   if (!entry.card) {
-    return (0, import_react7.createElement)(
+    return (0, import_react9.createElement)(
       "section",
       { ref, className: "cb-card cb-cardError", style },
-      (0, import_react7.createElement)("header", { className: "cb-cardHead" }, (0, import_react7.createElement)("h3", { title: entry.id }, entry.id)),
-      (0, import_react7.createElement)("p", { className: "cb-errorText" }, t("cardError")),
-      (0, import_react7.createElement)("ul", { className: "cb-problems" }, (entry.problems ?? []).map((p, i) => (0, import_react7.createElement)("li", { key: i }, p)))
+      (0, import_react9.createElement)("header", { className: "cb-cardHead" }, (0, import_react9.createElement)("h3", { title: entry.id }, entry.id)),
+      (0, import_react9.createElement)("p", { className: "cb-errorText" }, t("cardError")),
+      (0, import_react9.createElement)("ul", { className: "cb-problems" }, (entry.problems ?? []).map((p, i) => (0, import_react9.createElement)("li", { key: i }, p)))
     );
   }
   const card = pickCard(entry.card, active);
@@ -1085,7 +1299,7 @@ function Card({ entry, live, boardId, assistant, tracks, active, locale, t, pres
   const askName = assistant ? t("action.chatNamed", { name: assistant }) : void 0;
   const named = (list) => assistant ? list?.map((action) => action.kind === "chat" && action.label === void 0 ? { ...action, label: askName } : action) : list;
   const onPress = (target) => (action, extra) => press(action, extra, { card: entry.id, ...target });
-  const rowActions = actions && ((row, list, part2) => (0, import_react7.createElement)(actions.ActionBar, {
+  const rowActions = actions && ((row, list, part2) => (0, import_react9.createElement)(actions.ActionBar, {
     actions: named(list),
     part: part2,
     states: statesOf(entry.presses, row),
@@ -1093,48 +1307,80 @@ function Card({ entry, live, boardId, assistant, tracks, active, locale, t, pres
     about: about(row, rowLine(row)),
     onPress: onPress({ row })
   }));
-  const chat = actions && (0, import_react7.createElement)("span", { className: "cb-cardChat" }, (0, import_react7.createElement)(actions.ActionButton, { action: { kind: "chat", id: "_chat", label: askName }, compact: true, about: about() }));
+  const rowControls = {
+    press: (row, action) => onPress({ row })(action),
+    state: (row, id) => statesOf(entry.presses, row)[id]
+  };
+  const chat = actions && (0, import_react9.createElement)("span", { className: "cb-cardChat" }, (0, import_react9.createElement)(actions.ActionButton, { action: { kind: "chat", id: "_chat", label: askName }, compact: true, about: about() }));
   const others = card.actions?.filter((action) => action.kind !== "step") ?? [];
-  const steps = card.actions?.some((action) => action.kind === "step") && (0, import_react7.createElement)(kit.Suggested, { actions: card.actions, about: about(), states: statesOf(entry.presses, void 0), onPress: onPress({}) });
-  const footer = actions && others.length > 0 && (0, import_react7.createElement)("footer", { className: "cb-cardActions" }, (0, import_react7.createElement)(actions.ActionBar, {
+  const steps = card.actions?.some((action) => action.kind === "step") && (0, import_react9.createElement)(kit.Suggested, { actions: card.actions, about: about(), states: statesOf(entry.presses, void 0), onPress: onPress({}) });
+  const footer = actions && others.length > 0 && (0, import_react9.createElement)("footer", { className: "cb-cardActions" }, (0, import_react9.createElement)(actions.ActionBar, {
     actions: named(others),
     part: "buttons",
     states: statesOf(entry.presses, void 0),
     about: about(),
     onPress: onPress({})
   }));
-  const className = ["cb-card", `cb-card-${card.type}`, stale && "cb-cardStale", wash].filter(Boolean).join(" ");
-  if (card.type === "summary") {
-    return (0, import_react7.createElement)(
-      "section",
-      { ref, className, style, "data-type": card.type },
-      (0, import_react7.createElement)("div", { className: "cb-summaryMain" }, (0, import_react7.createElement)(SummaryBody, { card, locale, t, wash: wash !== "" }), steps, footer),
-      (0, import_react7.createElement)("div", { className: "cb-summaryAside" }, live.fresh && (0, import_react7.createElement)(kit.NewDot), chat)
+  const openable = !sheet && onOpen && card.type !== "summary";
+  const className = ["cb-card", `cb-card-${card.type}`, stale && "cb-cardStale", openable && "cb-cardOpenable", sheet && "cb-cardInSheet", wash].filter(Boolean).join(" ");
+  const openOnTap = openable ? { onClick: (event) => {
+    if (!onControl(event) && !event.target.closest?.("[data-opens]") && !window.getSelection?.()?.toString()) onOpen();
+  } } : {};
+  const onOpenRow = onOpen && ((key) => onOpen(key));
+  if (sheet && openRow !== void 0) {
+    const index = card.data.rows?.findIndex((r) => r.key === openRow) ?? -1;
+    const target = index >= 0 ? card.data.rows[index] : null;
+    if (!target) return (0, import_react9.createElement)("p", { className: "cb-muted" }, t("rowGone"));
+    return (0, import_react9.createElement)(
+      "div",
+      { className: "cb-rowSheet" },
+      (0, import_react9.createElement)(Body, {
+        card: { ...card, data: { ...card.data, rows: [target], progress: void 0 } },
+        live,
+        wash: false,
+        locale,
+        t,
+        rowActions: rowActions && ((_, list, part2) => rowActions(index, list, part2)),
+        all: true,
+        rowControls: { press: (_, action) => rowControls.press(index, action), state: (_, id) => rowControls.state(index, id) }
+      }),
+      (0, import_react9.createElement)(DetailParts, { detail: target.detail, locale, t })
     );
   }
-  const statBlock = card.stat && (0, import_react7.createElement)(StatBlock, { data: card.stat, locale, compact: true, wash: wash !== "" });
-  const body = (0, import_react7.createElement)(Body, { card, live, wash: wash !== "", locale, t, rowActions });
-  return (0, import_react7.createElement)(
+  if (card.type === "summary") {
+    return (0, import_react9.createElement)(
+      "section",
+      { ref, className, style, "data-type": card.type },
+      (0, import_react9.createElement)("div", { className: "cb-summaryMain" }, (0, import_react9.createElement)(SummaryBody, { card, locale, t, wash: wash !== "" }), steps, footer),
+      (0, import_react9.createElement)("div", { className: "cb-summaryAside" }, live.fresh && (0, import_react9.createElement)(kit.NewDot), chat)
+    );
+  }
+  const statBlock = card.stat && (0, import_react9.createElement)(StatBlock, { data: card.stat, locale, compact: true, wash: wash !== "" });
+  const body = (0, import_react9.createElement)(Body, { card, live, wash: wash !== "", locale, t, rowActions, all: sheet, onOpenRow, rowControls });
+  return (0, import_react9.createElement)(
     "section",
-    { ref, className, style, "data-type": card.type },
-    (0, import_react7.createElement)(
+    { ref, className, style, "data-type": card.type, ...openOnTap },
+    !sheet && (0, import_react9.createElement)(
       "header",
       { className: "cb-cardHead" },
-      card.icon && (0, import_react7.createElement)(kit.Tile, { icon: card.icon, tone: card.tone ?? "muted", size: 30 }),
-      (0, import_react7.createElement)(Trunc, { as: "h3", text: card.title }),
-      live.fresh && (0, import_react7.createElement)(kit.NewDot),
-      wash !== "" && card.type !== "stat" && !card.stat && (0, import_react7.createElement)(kit.JustNow),
-      stale && (0, import_react7.createElement)(
+      card.icon && (0, import_react9.createElement)(kit.Tile, { icon: card.icon, tone: card.tone ?? "muted", size: 30 }),
+      (0, import_react9.createElement)(Trunc, { as: "h3", text: card.title }),
+      live.fresh && (0, import_react9.createElement)(kit.NewDot),
+      wash !== "" && card.type !== "stat" && !card.stat && (0, import_react9.createElement)(kit.JustNow),
+      stale && (0, import_react9.createElement)(
         "span",
         { className: "cb-stale", title: new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(updated) },
-        (0, import_react7.createElement)(import_dsh_client_ui_primitives3.Tag, { tone: "warning" }, t("stale", { age: formatAge(age, locale) }))
+        (0, import_react9.createElement)(import_dsh_client_ui_primitives2.Tag, { tone: "warning" }, t("stale", { age: formatAge(age, locale) }))
       ),
-      card.link && (0, import_react7.createElement)("a", { className: "cb-cardLink", href: card.link, title: t("open"), "aria-label": t("open"), ...external ? { target: "_blank", rel: "noopener noreferrer" } : {} }, (0, import_react7.createElement)(import_dsh_client_ui_primitives3.IconRightUpOutlineRegular, { size: 14 })),
+      card.link && (0, import_react9.createElement)("a", { className: "cb-cardLink", href: card.link, title: t("open"), "aria-label": t("open"), ...external ? { target: "_blank", rel: "noopener noreferrer" } : {} }, (0, import_react9.createElement)(import_dsh_client_ui_primitives2.IconRightUpOutlineRegular, { size: 14 })),
+      openable && (0, import_react9.createElement)("button", { type: "button", className: "cb-cardLink cb-cardOpen", title: t("details"), "aria-label": t("details"), onClick: () => onOpen() }, (0, import_react9.createElement)(import_dsh_client_ui_primitives2.IconFullscreenOutlineRegular, { size: 14 })),
       chat
     ),
-    statBlock && ["line", "bar", "donut"].includes(card.type) ? (0, import_react7.createElement)("div", { className: "cb-split" }, statBlock, (0, import_react7.createElement)("div", { className: "cb-cardBody" }, body)) : [statBlock && (0, import_react7.createElement)("div", { key: "stat" }, statBlock), (0, import_react7.createElement)("div", { key: "body", className: "cb-cardBody" }, body)],
+    statBlock && ["line", "bar", "donut"].includes(card.type) ? (0, import_react9.createElement)("div", { className: "cb-split" }, statBlock, (0, import_react9.createElement)("div", { className: "cb-cardBody" }, body)) : [statBlock && (0, import_react9.createElement)("div", { key: "stat" }, statBlock), (0, import_react9.createElement)("div", { key: "body", className: "cb-cardBody" }, body)],
+    sheet && (0, import_react9.createElement)(DetailParts, { detail: card.detail, locale, t }),
     steps,
-    footer
+    footer,
+    sheet && chat && (0, import_react9.createElement)("div", { className: "cb-sheetChat" }, chat)
   );
 }
 
@@ -1169,6 +1415,33 @@ function seenReport(board) {
   return { board: board.id, cards };
 }
 
+// src/client/nav.js
+var NAMES = ["board", "card", "row"];
+function readNav(search) {
+  const params = new URLSearchParams(search);
+  const nav = {};
+  for (const name of NAMES) {
+    const value = params.get(name);
+    if (value) nav[name] = value;
+  }
+  return nav;
+}
+function writeNav(search, nav) {
+  const params = new URLSearchParams(search);
+  for (const name of NAMES) params.delete(name);
+  for (const name of NAMES) if (nav?.[name]) params.set(name, nav[name]);
+  const query = params.toString();
+  return query ? `?${query}` : "";
+}
+var hasNav = (search) => Boolean(readNav(search).card);
+
+// src/client/sheet.js
+var import_react10 = require("react");
+var import_dsh_client_ui_primitives3 = require("@deepseek-ai/dsh-client-ui-primitives");
+function Sheet({ open, onClose, title, closeLabel, children }) {
+  return (0, import_react10.createElement)(import_dsh_client_ui_primitives3.Modal, { open, onClose, title, closeLabel, className: "cb-sheetModal", contentClassName: "cb-sheet" }, children);
+}
+
 // src/client/page.js
 var STORE_KEY = "dsh-card-board:board";
 var SEEN_AFTER_MS = 2500;
@@ -1198,31 +1471,34 @@ var visible = () => document.visibilityState === "visible";
 function BoardsPage() {
   const kit = useKit();
   const { active, intl: locale, ready, t } = useActiveLocale();
-  const [boards, setBoards] = (0, import_react8.useState)(null);
-  const [listError, setListError] = (0, import_react8.useState)(null);
-  const [selected, setSelected] = (0, import_react8.useState)(() => {
+  const [boards, setBoards] = (0, import_react11.useState)(null);
+  const [listError, setListError] = (0, import_react11.useState)(null);
+  const [opened, setOpened] = (0, import_react11.useState)(() => typeof location === "undefined" ? {} : readNav(location.search));
+  const pushed = (0, import_react11.useRef)(false);
+  const [selected, setSelected] = (0, import_react11.useState)(() => {
+    if (opened.board) return opened.board;
     try {
       return localStorage.getItem(STORE_KEY);
     } catch {
       return null;
     }
   });
-  const [view, setView] = (0, import_react8.useState)({ board: null, live: {} });
-  const [boardError, setBoardError] = (0, import_react8.useState)(null);
-  const [pollSeconds, setPollSeconds] = (0, import_react8.useState)(30);
-  const etag = (0, import_react8.useRef)(null);
+  const [view, setView] = (0, import_react11.useState)({ board: null, live: {} });
+  const [boardError, setBoardError] = (0, import_react11.useState)(null);
+  const [pollSeconds, setPollSeconds] = (0, import_react11.useState)(30);
+  const etag = (0, import_react11.useRef)(null);
   const [gridRef, tracks] = useTracks();
-  const currentRef = (0, import_react8.useRef)(null);
-  const translateRef = (0, import_react8.useRef)(t);
+  const currentRef = (0, import_react11.useRef)(null);
+  const translateRef = (0, import_react11.useRef)(t);
   translateRef.current = t;
   const board = view.board;
-  const boardRef = (0, import_react8.useRef)(null);
+  const boardRef = (0, import_react11.useRef)(null);
   boardRef.current = board;
-  const show = (0, import_react8.useCallback)((next) => setView((prev) => ({
+  const show = (0, import_react11.useCallback)((next) => setView((prev) => ({
     board: next,
     live: next === null ? {} : nextLive(prev.board?.id === next.id ? prev.board : null, next, prev.board?.id === next.id ? prev.live : {})
   })), []);
-  const loadList = (0, import_react8.useCallback)(async () => {
+  const loadList = (0, import_react11.useCallback)(async () => {
     try {
       const { body } = await getJson("boards");
       setBoards(body.boards);
@@ -1233,7 +1509,7 @@ function BoardsPage() {
     }
   }, []);
   const current = boards?.some((b) => b.id === selected) ? selected : boards?.[0]?.id ?? null;
-  const loadBoard = (0, import_react8.useCallback)(async (id, fresh) => {
+  const loadBoard = (0, import_react11.useCallback)(async (id, fresh) => {
     if (!id) return;
     try {
       const result = await getJson(`board?id=${encodeURIComponent(id)}`, fresh ? null : etag.current);
@@ -1249,7 +1525,7 @@ function BoardsPage() {
       }
     }
   }, [loadList, show]);
-  const loadCard = (0, import_react8.useCallback)(async (boardId, id) => {
+  const loadCard = (0, import_react11.useCallback)(async (boardId, id) => {
     try {
       if (boardRef.current?.id !== boardId || !boardRef.current.cards.some((card) => card.id === id)) return loadBoard(boardId, false);
       const { body } = await getJson(`card?board=${encodeURIComponent(boardId)}&id=${encodeURIComponent(id)}`);
@@ -1263,7 +1539,7 @@ function BoardsPage() {
       else loadBoard(boardId, false);
     }
   }, [loadBoard]);
-  const onEvent = (0, import_react8.useCallback)((message) => {
+  const onEvent = (0, import_react11.useCallback)((message) => {
     const id = currentRef.current;
     if (!id) return;
     if (message.type === "card") loadCard(id, message.id);
@@ -1275,7 +1551,7 @@ function BoardsPage() {
     }
   }, [loadBoard, loadCard, loadList, show]);
   const status = kit.useEventStream(current ? `api/card-board/events?board=${encodeURIComponent(current)}` : null, onEvent);
-  const press = (0, import_react8.useCallback)(async (action, extra, target) => {
+  const press = (0, import_react11.useCallback)(async (action, extra, target) => {
     const response = await fetch(api("action"), {
       method: "POST",
       credentials: "same-origin",
@@ -1287,10 +1563,10 @@ function BoardsPage() {
     loadBoard(currentRef.current, false);
     return body;
   }, [loadBoard]);
-  (0, import_react8.useEffect)(() => {
+  (0, import_react11.useEffect)(() => {
     loadList();
   }, [loadList]);
-  (0, import_react8.useEffect)(() => {
+  (0, import_react11.useEffect)(() => {
     currentRef.current = current;
     if (!current) return;
     etag.current = null;
@@ -1298,7 +1574,7 @@ function BoardsPage() {
     loadBoard(current, true);
   }, [current, loadBoard]);
   const waiting = board?.cards.some((entry) => entry.presses?.some((p) => p.state === "pending")) === true;
-  (0, import_react8.useEffect)(() => {
+  (0, import_react11.useEffect)(() => {
     if (!current || status === "live" && !waiting) return void 0;
     let ticks = 0;
     const timer = setInterval(() => {
@@ -1318,8 +1594,8 @@ function BoardsPage() {
       document.removeEventListener("visibilitychange", onVisible);
     };
   }, [current, status, waiting, pollSeconds, loadBoard, loadList]);
-  const reported = (0, import_react8.useRef)("");
-  (0, import_react8.useEffect)(() => {
+  const reported = (0, import_react11.useRef)("");
+  (0, import_react11.useEffect)(() => {
     if (!board) return void 0;
     const report = seenReport(board);
     const text = JSON.stringify(report);
@@ -1333,6 +1609,27 @@ function BoardsPage() {
     }, SEEN_AFTER_MS);
     return () => clearTimeout(timer);
   }, [board]);
+  (0, import_react11.useEffect)(() => {
+    const onPop = () => {
+      pushed.current = false;
+      setOpened(readNav(location.search));
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+  const openCard = (0, import_react11.useCallback)((boardId, card, row) => {
+    const nav = { board: boardId, card, ...row === void 0 ? {} : { row } };
+    window.history[pushed.current ? "replaceState" : "pushState"](window.history.state, "", `${location.pathname}${writeNav(location.search, nav)}${location.hash}`);
+    pushed.current = true;
+    setOpened(nav);
+  }, []);
+  const closeCard = (0, import_react11.useCallback)(() => {
+    setOpened({});
+    if (pushed.current) {
+      pushed.current = false;
+      window.history.back();
+    } else window.history.replaceState(window.history.state, "", `${location.pathname}${writeNav(location.search, {})}${location.hash}`);
+  }, []);
   const choose = (id) => {
     setSelected(id);
     try {
@@ -1345,39 +1642,49 @@ function BoardsPage() {
     return Number.isFinite(time) && time > max ? time : max;
   }, 0);
   const titleOf = (entry) => pickText(entry.title, active);
-  if (!ready) return (0, import_react8.createElement)("div", { className: "cb-page" });
+  if (!ready) return (0, import_react11.createElement)("div", { className: "cb-page" });
   let content;
-  if (listError) content = (0, import_react8.createElement)("p", { className: "cb-notice" }, errorText(listError, t));
-  else if (boards === null) content = (0, import_react8.createElement)("p", { className: "cb-muted" }, t("loading"));
-  else if (boards.length === 0) content = (0, import_react8.createElement)("div", { className: "cb-empty" }, (0, import_react8.createElement)("p", { className: "cb-emptyTitle" }, t("emptyTitle")), (0, import_react8.createElement)("p", { className: "cb-muted" }, t("emptyHint")));
-  else if (boardError) content = (0, import_react8.createElement)("p", { className: "cb-notice" }, errorText(boardError, t));
-  else if (!board) content = (0, import_react8.createElement)("p", { className: "cb-muted" }, t("loading"));
-  else content = (0, import_react8.createElement)(
-    import_react8.Fragment,
+  if (listError) content = (0, import_react11.createElement)("p", { className: "cb-notice" }, errorText(listError, t));
+  else if (boards === null) content = (0, import_react11.createElement)("p", { className: "cb-muted" }, t("loading"));
+  else if (boards.length === 0) content = (0, import_react11.createElement)("div", { className: "cb-empty" }, (0, import_react11.createElement)("p", { className: "cb-emptyTitle" }, t("emptyTitle")), (0, import_react11.createElement)("p", { className: "cb-muted" }, t("emptyHint")));
+  else if (boardError) content = (0, import_react11.createElement)("p", { className: "cb-notice" }, errorText(boardError, t));
+  else if (!board) content = (0, import_react11.createElement)("p", { className: "cb-muted" }, t("loading"));
+  else content = (0, import_react11.createElement)(
+    import_react11.Fragment,
     null,
-    board.problems?.length > 0 && (0, import_react8.createElement)("div", { className: "cb-notice" }, t("boardProblems"), (0, import_react8.createElement)("ul", { className: "cb-problems" }, board.problems.map((p, i) => (0, import_react8.createElement)("li", { key: i }, p)))),
-    board.cards.length === 0 && (0, import_react8.createElement)("p", { className: "cb-muted" }, t("noCards")),
-    (0, import_react8.createElement)(
+    board.problems?.length > 0 && (0, import_react11.createElement)("div", { className: "cb-notice" }, t("boardProblems"), (0, import_react11.createElement)("ul", { className: "cb-problems" }, board.problems.map((p, i) => (0, import_react11.createElement)("li", { key: i }, p)))),
+    board.cards.length === 0 && (0, import_react11.createElement)("p", { className: "cb-muted" }, t("noCards")),
+    (0, import_react11.createElement)(
       "div",
       { className: "cb-grid", style: { gridTemplateColumns: `repeat(${tracks}, minmax(0, 1fr))`, gridAutoRows: `${ROW}px`, columnGap: GAP } },
-      board.cards.map((entry) => (0, import_react8.createElement)(Card, { key: entry.id, entry, live: liveOf(view.live, entry.id), boardId: board.id, assistant: board.assistant, tracks, active, locale, t, press }))
+      board.cards.map((entry) => (0, import_react11.createElement)(Card, { key: entry.id, entry, live: liveOf(view.live, entry.id), boardId: board.id, assistant: board.assistant, tracks, active, locale, t, press, onOpen: (row) => openCard(board.id, entry.id, row) }))
     )
   );
-  return (0, import_react8.createElement)(
+  const openEntry = opened.card && board && (!opened.board || opened.board === board.id) ? board.cards.find((entry) => entry.id === opened.card && entry.card) : void 0;
+  const openCardData = openEntry && pickCard(openEntry.card, active);
+  const openRow = openCardData && opened.row !== void 0 ? openCardData.data.rows?.find((r) => r.key === opened.row) : void 0;
+  const sheet = (0, import_react11.createElement)(Sheet, {
+    open: Boolean(openEntry),
+    onClose: closeCard,
+    title: openRow ? openRow.title ?? openRow.label : openCardData?.title,
+    closeLabel: t("close")
+  }, openEntry && (0, import_react11.createElement)(Card, { entry: openEntry, live: liveOf(view.live, openEntry.id), boardId: board.id, assistant: board.assistant, tracks: 1, active, locale, t, press, sheet: true, row: opened.row }));
+  return (0, import_react11.createElement)(
     "div",
     { className: "cb-page" },
-    (0, import_react8.createElement)(
+    (0, import_react11.createElement)(
       "div",
       { className: "cb-content", ref: gridRef },
-      (0, import_react8.createElement)(
+      (0, import_react11.createElement)(
         "div",
         { className: "cb-heading" },
-        (0, import_react8.createElement)("h1", null, boards?.length === 1 ? titleOf(boards[0]) : t("title")),
-        board && (0, import_react8.createElement)("div", { className: "cb-sub" }, (0, import_react8.createElement)(kit.LiveStatus, { status, updatedAt: newest || void 0 }))
+        (0, import_react11.createElement)("h1", null, boards?.length === 1 ? titleOf(boards[0]) : t("title")),
+        board && (0, import_react11.createElement)("div", { className: "cb-sub" }, (0, import_react11.createElement)(kit.LiveStatus, { status, updatedAt: newest || void 0 }))
       ),
-      boards && boards.length > 1 && (0, import_react8.createElement)("div", { className: "cb-tabs", role: "tablist" }, boards.map((b) => (0, import_react8.createElement)(import_dsh_client_ui_primitives4.Pill, { key: b.id, active: b.id === current, role: "tab", "aria-selected": b.id === current, title: titleOf(b), onClick: () => choose(b.id) }, titleOf(b)))),
+      boards && boards.length > 1 && (0, import_react11.createElement)("div", { className: "cb-tabs", role: "tablist" }, boards.map((b) => (0, import_react11.createElement)(import_dsh_client_ui_primitives4.Pill, { key: b.id, active: b.id === current, role: "tab", "aria-selected": b.id === current, title: titleOf(b), onClick: () => choose(b.id) }, titleOf(b)))),
       content
-    )
+    ),
+    board && sheet
   );
 }
 
@@ -1386,17 +1693,17 @@ var NS = "dsh-card-board";
 var PANEL = "dsh-card-board";
 function SidebarIcon({ size }) {
   const stroke = { stroke: "currentColor", strokeWidth: 1.2, strokeLinecap: "round", strokeLinejoin: "round", fill: "none" };
-  return (0, import_react9.createElement)(
+  return (0, import_react12.createElement)(
     "svg",
     { width: size, height: size, viewBox: "0 0 16 16", "aria-hidden": true, focusable: "false" },
-    (0, import_react9.createElement)("rect", { x: 1.75, y: 1.75, width: 5.5, height: 5.5, rx: 1.4, ...stroke }),
-    (0, import_react9.createElement)("rect", { x: 8.75, y: 1.75, width: 5.5, height: 5.5, rx: 1.4, ...stroke }),
-    (0, import_react9.createElement)("rect", { x: 1.75, y: 8.75, width: 5.5, height: 5.5, rx: 1.4, ...stroke }),
-    (0, import_react9.createElement)("path", { d: "M9 13.5l1.6-2 1.4 1 2-2.8", ...stroke })
+    (0, import_react12.createElement)("rect", { x: 1.75, y: 1.75, width: 5.5, height: 5.5, rx: 1.4, ...stroke }),
+    (0, import_react12.createElement)("rect", { x: 8.75, y: 1.75, width: 5.5, height: 5.5, rx: 1.4, ...stroke }),
+    (0, import_react12.createElement)("rect", { x: 1.75, y: 8.75, width: 5.5, height: 5.5, rx: 1.4, ...stroke }),
+    (0, import_react12.createElement)("path", { d: "M9 13.5l1.6-2 1.4 1 2-2.8", ...stroke })
   );
 }
 function Page() {
-  return useKit() === null ? (0, import_react9.createElement)("div", { className: "cb-page" }) : (0, import_react9.createElement)(BoardsPage);
+  return useKit() === null ? (0, import_react12.createElement)("div", { className: "cb-page" }) : (0, import_react12.createElement)(BoardsPage);
 }
 var inject = ["slots", "locale"];
 function apply(ctx) {
@@ -1460,6 +1767,21 @@ function apply(ctx) {
     document.head.appendChild(tag);
     return () => tag.remove();
   }, "card-board: styles");
+  ctx.effect(() => {
+    if (typeof location === "undefined" || !hasNav(location.search)) return () => {
+    };
+    let tries = 0;
+    const timer = setInterval(() => {
+      const layout = ctx.get("layout");
+      try {
+        layout?.selectPanel(PANEL);
+        if (layout) clearInterval(timer);
+      } catch {
+      }
+      if (++tries > 50) clearInterval(timer);
+    }, 100);
+    return () => clearInterval(timer);
+  }, "card-board: card link");
   ctx.slots.inject("main", () => ctx.slots.register({ name: "main", key: PANEL, locale: NS }, Page));
   ctx.slots.inject("sidebar.panellist", () => ctx.slots.register({
     name: "sidebar.panellist",

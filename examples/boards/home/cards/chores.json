@@ -67,7 +67,26 @@
           }
         ],
         "key": "chore-2",
-        "icon": "book-open"
+        "icon": "book-open",
+        "detail": {
+          "text": "Three books, due at the branch on Elm Street.",
+          "facts": [
+            {
+              "label": "Renewals left",
+              "value": 1
+            },
+            {
+              "label": "Fine per day",
+              "value": "0.25 EUR"
+            }
+          ],
+          "history": [
+            {
+              "at": "2026-02-20T15:10:00+01:00",
+              "text": "Borrowed"
+            }
+          ]
+        }
       },
       {
         "title": {
@@ -100,7 +119,8 @@
           }
         ],
         "key": "chore-3",
-        "icon": "trash-2"
+        "icon": "trash-2",
+        "link": "https://example.com/heating"
       }
     ],
     "empty": {
@@ -109,5 +129,28 @@
     }
   },
   "icon": "list-todo",
-  "tone": "accent"
+  "tone": "accent",
+  "detail": {
+    "text": "Chores for the flat, from the shared list.",
+    "facts": [
+      {
+        "label": "Done this week",
+        "value": 4
+      },
+      {
+        "label": "Left",
+        "value": 3
+      }
+    ],
+    "history": [
+      {
+        "at": "2026-03-02T08:30:00+01:00",
+        "text": "Watered the plants"
+      },
+      {
+        "at": "2026-03-01T18:05:00+01:00",
+        "text": "Took the recycling out"
+      }
+    ]
+  }
 }
