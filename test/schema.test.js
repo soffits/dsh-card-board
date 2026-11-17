@@ -84,6 +84,15 @@ describe('checkCard', () => {
     assert.deepEqual(checkCard(action({ prompt: { fr: 'À propos' } })), ['data.rows[0].actions[0].payload.prompt: needs an "en" text'])
   })
 
+  it('takes suggested steps: a plain label is required, at most 80 characters and 3 per row', () => {
+    const steps = list => ({ ...base, type: 'list', data: { rows: [{ title: 'x', actions: list }] } })
+    const step = (id, extra = {}) => ({ kind: 'step', id, label: { en: 'Renew the books', fr: 'Renouveler les livres' }, ...extra })
+    assert.deepEqual(checkCard(steps([step('a', { payload: { prompt: { en: 'Renew them online.' }, context: { n: 2 } } })])), [])
+    assert.deepEqual(checkCard(steps([{ kind: 'step', id: 'a' }])), ['data.rows[0].actions[0].label: is required for a step: it says the step plainly'])
+    assert.deepEqual(checkCard(steps([step('a', { label: 'x'.repeat(81) })])), ['data.rows[0].actions[0].label: is longer than 80 characters'])
+    assert.deepEqual(checkCard(steps(['a', 'b', 'c', 'd'].map(id => step(id)))), ['data.rows[0].actions: has more than 3 steps'])
+  })
+
   it('names the path of a bad text map', () => {
     const at = title => checkCard({ ...base, title, type: 'list', data: { rows: [] } })
     assert.deepEqual(at({ fr: 'Aujourd’hui' }), ['title: needs an "en" text'])

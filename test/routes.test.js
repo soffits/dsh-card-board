@@ -219,6 +219,16 @@ describe('actions', () => {
     assert.equal((await presses.list()).length, 1)
   })
 
+  it('records a step press: the person\'s go-ahead for what its label says', async () => {
+    const { call, state, published } = routes()
+    state.id = 'sub-alex'
+    const result = await call(...press({ board: 'home', card: 'chores', row: 1, id: 'library-books:renew' }))
+    assert.equal(result.status, 200)
+    assert.equal(published[0].channel, 'ui.action.step')
+    assert.equal(published[0].data.person, 'alex')
+    assert.equal(published[0].data.id, 'library-books:renew')
+  })
+
   it('takes the picked time for a snooze without one', async () => {
     const { call, state, published } = routes()
     state.id = 'sub-alex'

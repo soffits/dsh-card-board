@@ -38,6 +38,20 @@
         },
         "actions": [
           {
+            "kind": "step",
+            "id": "library-books:renew",
+            "label": {
+              "en": "Renew the books online",
+              "fr": "Renouveler les livres en ligne",
+              "zh": "在网上续借这些书"
+            },
+            "payload": {
+              "prompt": {
+                "en": "Renew the library books that are due on the library's website, then tell me the new due date."
+              }
+            }
+          },
+          {
             "kind": "done",
             "id": "library-books:done"
           },

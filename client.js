@@ -487,6 +487,9 @@ window.__ModuleLoader__.load({
           progress.label && size >= 90 && h('span', null, progress.label)))
     }
 
+    /** A row's suggested steps go on their own line under it; its other buttons stay beside the title. */
+    const hasSteps = row => row.actions?.some(action => action.kind === 'step') === true
+
     function ListCard({ data, locale, t, rowActions }) {
       const [ref, width] = useWidth()
       const checkable = data.rows.some(row => 'checked' in row)
@@ -501,7 +504,8 @@ window.__ModuleLoader__.load({
             (row.date || row.chip) && h('span', { className: 'cb-listMeta' },
               row.date && h('span', { className: 'cb-listDate' }, formatDay(toTime(row.date), locale, 0)),
               row.chip && h(Chip, row.chip)),
-            row.actions && rowActions && h('span', { className: 'cb-rowActions' }, rowActions(i, row.actions, listRowLine(row))))))
+            row.actions && rowActions && h('span', { className: 'cb-rowActions' }, rowActions(i, row.actions, listRowLine(row), 'buttons')),
+            hasSteps(row) && rowActions && h('div', { className: 'cb-rowSteps' }, rowActions(i, row.actions, listRowLine(row), 'steps')))))
       if (!data.progress) return rows
       // Beside the rows when there is room for both, else a small ring with its count above them.
       const wide = width >= 460
@@ -607,7 +611,8 @@ window.__ModuleLoader__.load({
             h('span', { className: 'cb-statusNum', style: row.tone === 'bad' || row.tone === 'warn' ? { color: toneColor(row.tone) } : undefined }, formatNumber(row.value, locale)),
             row.sub && h(Trunc, { as: 'small', className: 'cb-statusSub', lines: 2, text: row.sub })),
           sparks && (row.spark ? h(Spark, { values: row.spark, color: toneColor(row.tone === 'ok' ? 'accent' : row.tone) }) : h('span', { className: 'cb-spark' })),
-          hasActions && h('span', { className: 'cb-rowActions' }, rowActions && row.actions ? rowActions(i, row.actions, statusRowLine(row, locale)) : null))))
+          hasActions && h('span', { className: 'cb-rowActions' }, rowActions && row.actions ? rowActions(i, row.actions, statusRowLine(row, locale), 'buttons') : null),
+          hasSteps(row) && rowActions && h('div', { className: 'cb-rowSteps' }, rowActions(i, row.actions, statusRowLine(row, locale), 'steps')))))
     }
 
     // ---- what a chat quotes ----------------------------------------------------
@@ -715,8 +720,9 @@ window.__ModuleLoader__.load({
       // A chat button without its own label says "Ask <assistant>" when the board names one.
       const askName = assistant ? t('action.chatNamed', { name: assistant }) : undefined
       const named = list => (assistant ? list?.map(action => (action.kind === 'chat' && action.label === undefined ? { ...action, label: askName } : action)) : list)
-      const rowActions = actions && ((row, list, line) => h(actions.ActionBar, {
+      const rowActions = actions && ((row, list, line, part) => h(actions.ActionBar, {
         actions: named(list),
+        part,
         states: statesOf(entry.presses, row),
         compact: true,
         about: about(row, line),
@@ -978,7 +984,10 @@ h3.cb-truncOpen{overflow:visible}
 .cb-progressLine strong{font-size:10px!important}
 
 .cb-listMain{flex:1;min-width:0}
-.cb-list li{display:flex;align-items:center;gap:10px;padding:8px 2px;border-top:.5px solid var(--dsw-alias-border-l2)}
+.cb-list li{display:flex;flex-wrap:wrap;align-items:center;gap:10px;padding:8px 2px;border-top:.5px solid var(--dsw-alias-border-l2)}
+.cb-rowSteps{flex-basis:100%;min-width:0}
+.cb-list li .cb-checkBox~.cb-rowSteps{padding-left:28px}
+.cb-status li>.cb-rowSteps{grid-column:2/-1}
 .cb-list li:first-child{border-top:0}
 .cb-listText{flex:1;min-width:0}
 .cb-listSub{color:var(--dsw-alias-label-tertiary);font-size:12px;line-height:18px}
@@ -1010,6 +1019,7 @@ h3.cb-truncOpen{overflow:visible}
 .cb-list li .cb-listText{grid-column:2;grid-row:1}
 .cb-list li .cb-rowActions{grid-column:3;grid-row:1;margin-left:8px}
 .cb-list li .cb-listMeta{grid-column:2/-1;grid-row:2;margin-top:2px}
+.cb-list li .cb-rowSteps,.cb-list li .cb-checkBox~.cb-rowSteps{grid-column:2/-1;grid-row:3;margin-top:6px;padding-left:0}
 }
 @container (width<380px){
 .cb-status,.cb-statusSparks{grid-template-columns:8px minmax(0,1fr) auto}

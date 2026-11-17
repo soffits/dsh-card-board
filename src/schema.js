@@ -10,9 +10,11 @@
 
 export const CARD_TYPES = Object.freeze(['stat', 'line', 'bar', 'donut', 'list', 'timeline', 'status'])
 export const TONES = Object.freeze(['ok', 'warn', 'bad', 'muted', 'accent'])
-export const ACTION_KINDS = Object.freeze(['chat', 'done', 'snooze', 'event', 'link'])
+export const ACTION_KINDS = Object.freeze(['chat', 'step', 'done', 'snooze', 'event', 'link'])
 /** Kinds the server records as events; chat and link happen in the browser only. */
-export const PRESS_KINDS = Object.freeze(['done', 'snooze', 'event'])
+export const PRESS_KINDS = Object.freeze(['step', 'done', 'snooze', 'event'])
+/** Suggested steps per card or row: a few clear next moves, not a menu. */
+export const MAX_STEPS = 3
 export const ACTION_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,99}$/
 const MAX_ACTIONS = 6
 const MAX_PAYLOAD_BYTES = 4096
@@ -145,6 +147,7 @@ function tone(c, value, path) {
 /** Problems with an `actions` list (on a card, a list row or a status row). */
 function actions(c, list, path) {
   if (!c.array(list, path, { max: MAX_ACTIONS })) return
+  if (list.filter(action => action?.kind === 'step').length > MAX_STEPS) c.fail(path, `has more than ${MAX_STEPS} steps`)
   const seen = new Set()
   list.forEach((action, i) => {
     const p = join(path, i)
@@ -153,8 +156,8 @@ function actions(c, list, path) {
     if (typeof action.id !== 'string' || !ACTION_ID_PATTERN.test(action.id)) c.fail(join(p, 'id'), 'must be letters, digits and . _ : - (up to 100), starting with a letter or digit')
     else if (seen.has(action.id)) c.fail(join(p, 'id'), 'repeats another action id here')
     else seen.add(action.id)
-    if ('label' in action) c.label(action.label, join(p, 'label'), { max: 40 })
-    else if (action.kind === 'event') c.fail(join(p, 'label'), 'is required for an event action')
+    if ('label' in action) c.label(action.label, join(p, 'label'), { max: action.kind === 'step' ? 80 : 40 })
+    else if (action.kind === 'event' || action.kind === 'step') c.fail(join(p, 'label'), `is required for ${action.kind === 'step' ? 'a step: it says the step plainly' : 'an event action'}`)
     const payload = action.payload
     if ('payload' in action) {
       const pp = join(p, 'payload')
@@ -166,7 +169,7 @@ function actions(c, list, path) {
       if (!isSafeLink(payload?.url)) c.fail(join(join(p, 'payload'), 'url'), 'is required: an http(s) URL or a path starting with /')
     }
     if (action.kind === 'snooze' && payload !== undefined && 'until' in payload) c.dateTime(payload.until, join(join(p, 'payload'), 'until'))
-    if (action.kind === 'chat' && payload !== undefined) {
+    if ((action.kind === 'chat' || action.kind === 'step') && payload !== undefined) {
       const pp = join(p, 'payload')
       if ('prompt' in payload) c.label(payload.prompt, join(pp, 'prompt'), { max: 2000 })
       if ('session' in payload) c.text(payload.session, join(pp, 'session'), { max: 200 })
