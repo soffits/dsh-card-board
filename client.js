@@ -52,12 +52,14 @@ window.__ModuleLoader__.load({
 
     /** A card copy whose texts are resolved: walks the whole tree, so every component sees plain strings. */
     function pickCard(card, active) {
+      const withPrompt = payload => (payload && 'prompt' in payload ? { ...payload, prompt: pickText(payload.prompt, active) } : payload)
       const walk = value => {
         if (Array.isArray(value)) return value.map(walk)
         if (typeof value !== 'object' || value === null) return value
         const keys = Object.keys(value)
         if (keys.length > 0 && 'en' in value && keys.every(key => /^[a-z]{2,3}(-[a-z0-9]{2,8})*$/.test(key)) && keys.every(key => typeof value[key] === 'string')) return pickText(value, active)
-        return Object.fromEntries(keys.map(key => [key, key === 'payload' ? value[key] : walk(value[key])]))
+        // An action's payload is data for handlers, except the words a chat starts with.
+        return Object.fromEntries(keys.map(key => [key, key === 'payload' ? withPrompt(value[key]) : walk(value[key])]))
       }
       return walk(card)
     }
