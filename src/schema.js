@@ -425,10 +425,11 @@ function listData(c, data, path) {
   if (c.array(data.rows, join(path, 'rows'), { max: 100 }))
     data.rows.forEach((row, i) => {
       const p = join(join(path, 'rows'), i)
-      if (!c.object(row, p, ['title'], ['sub', 'chip', 'checked', 'date', 'actions', 'icon', 'tone', 'key', 'active', 'link', 'detail'])) return
+      if (!c.object(row, p, ['title'], ['sub', 'chip', 'checked', 'date', 'actions', 'icon', 'tone', 'key', 'active', 'link', 'detail', 'ask'])) return
       rowOpen(c, row, p)
       rowLook(c, row, p, keys)
       c.optional(row, 'actions', v => actions(c, v, join(p, 'actions')))
+      c.optional(row, 'ask', v => c.boolean(v, join(p, 'ask')))
       c.label(row.title, join(p, 'title'))
       c.optional(row, 'sub', v => c.label(v, join(p, 'sub')))
       c.optional(row, 'checked', v => c.boolean(v, join(p, 'checked')))
@@ -488,7 +489,7 @@ function statusData(c, data, path) {
   const keys = new Set()
   data.rows.forEach((row, i) => {
     const p = join(join(path, 'rows'), i)
-    if (!c.object(row, p, ['label', 'value', 'tone'], ['sub', 'spark', 'actions', 'icon', 'key', 'active', 'link', 'detail'])) return
+    if (!c.object(row, p, ['label', 'value', 'tone'], ['sub', 'spark', 'actions', 'icon', 'key', 'active', 'link', 'detail', 'ask'])) return
     rowOpen(c, row, p)
     rowLook(c, row, p, keys, { toneRequired: true })
     c.optional(row, 'actions', v => actions(c, v, join(p, 'actions')))
@@ -568,7 +569,8 @@ export function isSafeLink(value) {
 /** Problems with one card file's parsed content. */
 export function checkCard(card) {
   const c = new Check()
-  if (!c.object(card, '', ['type', 'title', 'updatedAt', 'data'], ['staleAfter', 'link', 'stat', 'actions', 'icon', 'tone', 'detail', 'raise'])) return c.problems
+  if (!c.object(card, '', ['type', 'title', 'updatedAt', 'data'], ['staleAfter', 'link', 'stat', 'actions', 'icon', 'tone', 'detail', 'raise', 'ask'])) return c.problems
+  c.optional(card, 'ask', v => c.boolean(v, 'ask'))
   c.optional(card, 'raise', v => raiseWindow(c, v, 'raise'))
   c.optional(card, 'detail', v => checkDetail(c, v, 'detail'))
   if (!c.oneOf(card.type, 'type', CARD_TYPES)) return c.problems

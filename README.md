@@ -289,7 +289,7 @@ On a chart, hovering or tapping shows the value and date of the point under the 
 
 ## Actions
 
-A card, a list row or a status row can carry up to six buttons:
+A card, a list row or a status row can carry up to six buttons (a list or status row also gets the Ask button below):
 
 ```json
 "actions": [
@@ -302,7 +302,7 @@ A card, a list row or a status row can carry up to six buttons:
 ]
 ```
 
-- `chat` opens a new conversation (or the session named in `payload.session`) with a draft that quotes the card or row and carries its ids as JSON, after `payload.prompt` if you gave one. Nothing is sent until the person sends it, so the message comes from them like any other. Every card also has a chat button in its corner without declaring one ("Chat about this"); when the board names an `assistant` the buttons say who they ask ("Ask Robin"). A `label` and `payload.prompt` can be text in several languages.
+- `chat` opens a new conversation (or the session named in `payload.session`) with a draft that quotes the card or row and carries its ids as JSON, after `payload.prompt` if you gave one. Nothing is sent until the person sends it, so the message comes from them like any other. Every card also has a chat button in its corner without declaring one ("Chat about this"), and every list and status row has one at the end of its buttons ("Ask"), about that row and its card; a row that declares a `chat` action keeps its own, and one with six buttons already gets none. Set `ask: false` on a row, or on a card for all its rows, where asking makes no sense (a row that only says "nothing else today"). When the board names an `assistant` the buttons say who they ask ("Ask Robin"). A `label` and `payload.prompt` can be text in several languages.
 - `step` is a suggested next step the assistant starts on one tap (on a row it sits with the row's other buttons, "Start" for instance): the label says the step plainly ("Renew the books online") and the tap is the person's go-ahead for exactly that. The press is recorded on the server like `done`, then the page sends the step (`payload.prompt` when it needs more words than the label, never more than it authorises; otherwise the label) with the card or row into a new session (or `payload.session`) as the person, with no draft to confirm, and the button links to that session. At most 3 steps per card or row; add one only where the data has a clear next step. The label (up to 80 characters) is required.
 - `done`, `snooze` and `event` are pressed on the server. A snooze without `payload.until` asks: in 3 hours, tomorrow at 9:00, or a time.
 - `link` opens `payload.url`.

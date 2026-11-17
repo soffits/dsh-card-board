@@ -1,4 +1,4 @@
-/* @soffits/dsh-card-board 0.11.0: built by scripts/build.mjs from src/client/. Do not edit. */
+/* @soffits/dsh-card-board 0.12.0: built by scripts/build.mjs from src/client/. Do not edit. */
 window.__ModuleLoader__.load({
   id: "@soffits/dsh-card-board",
   factory: (require) => {
@@ -966,6 +966,15 @@ function doneState(row, latest) {
 }
 var withKept = (kept = [], entry) => [...kept.filter((other) => other.id !== entry.id), entry];
 
+// src/client/ask.js
+var MAX_ACTIONS = 6;
+function rowButtons(row, cardAsk) {
+  const own = row.actions ?? [];
+  if (row.ask === false || cardAsk === false) return own;
+  if (own.some((action) => action.kind === "chat") || own.length >= MAX_ACTIONS) return own;
+  return [...own, { kind: "chat", id: "_ask" }];
+}
+
 // src/client/cards.js
 var STATE_OF_TONE = { ok: "done", warn: "warning", bad: "error" };
 var DIRECTION_ICON = { up: "trending-up", down: "trending-down" };
@@ -1027,7 +1036,7 @@ function RowWhen({ row, locale, t }) {
   }
   return row.date ? (0, import_react6.createElement)("span", { className: "cb-when" }, (0, import_react6.createElement)(kit.RelativeDay, { date: row.date })) : null;
 }
-function Row({ lead, title, sub, meta, value, spark, row, index, washCount, fresh, rowActions, className, onOpenRow }) {
+function Row({ lead, title, sub, meta, value, spark, row, index, washCount, fresh, rowActions, ask, className, onOpenRow }) {
   const kit = useKit();
   const now = kit.useNow();
   const wash = kit.useWash(washCount, row.key);
@@ -1049,6 +1058,7 @@ function Row({ lead, title, sub, meta, value, spark, row, index, washCount, fres
       }
     }
   };
+  const buttons = rowActions && rowButtons(row, ask);
   return (0, import_react6.createElement)(
     "li",
     { className: ["cb-row", className, isActive(row.active, now) && "cb-rowNow", go && "cb-rowOpens", wash].filter(Boolean).join(" "), ...opens },
@@ -1063,11 +1073,11 @@ function Row({ lead, title, sub, meta, value, spark, row, index, washCount, fres
     meta,
     value,
     // The row's own buttons on the right: its steps first (a step starts the work on one tap), then the others.
-    row.actions && rowActions && (0, import_react6.createElement)(
+    buttons?.length > 0 && (0, import_react6.createElement)(
       "span",
       { className: "cb-rowActions" },
-      row.actions.some((action) => action.kind === "step") && rowActions(index, row.actions, "steps"),
-      rowActions(index, row.actions, "buttons")
+      buttons.some((action) => action.kind === "step") && rowActions(index, buttons, "steps"),
+      rowActions(index, buttons, "buttons")
     )
   );
 }
@@ -1090,7 +1100,7 @@ function DoneBox({ row, index, done, rowControls, t }) {
   );
 }
 var rowLive = (live, row) => ({ washCount: live.rows?.[row.key] ?? 0, fresh: row.key !== void 0 && live.freshRows.has(row.key) });
-function ListCard({ data, live, locale, t, rowActions, all = false, onOpenRow, rowControls }) {
+function ListCard({ data, live, locale, t, rowActions, ask, all = false, onOpenRow, rowControls }) {
   const kit = useKit();
   const [open, setOpen] = (0, import_react6.useState)(false);
   const listed = keepTicked(data.rows, rowControls?.kept);
@@ -1125,6 +1135,7 @@ function ListCard({ data, live, locale, t, rowActions, all = false, onOpenRow, r
       index: data.rows.indexOf(row),
       row: doneOf(row) && rowControls ? { ...row, actions: row.actions.filter((a) => a.kind !== "done") } : row,
       rowActions: data.rows.includes(row) ? rowActions : void 0,
+      ask,
       onOpenRow,
       className: [i >= LIST_ROWS && "cb-rowLate", ticked(row) && "cb-done"].filter(Boolean).join(" ") || void 0,
       ...rowLive(live, row),
@@ -1148,13 +1159,14 @@ function ListCard({ data, live, locale, t, rowActions, all = false, onOpenRow, r
     )
   );
 }
-function StatusCard({ data, live, locale, rowActions, onOpenRow }) {
+function StatusCard({ data, live, locale, rowActions, ask, onOpenRow }) {
   const kit = useKit();
   return (0, import_react6.createElement)("ul", { className: "cb-rows" }, data.rows.map((row, i) => (0, import_react6.createElement)(Row, {
     key: row.key ?? i,
     index: i,
     row,
     rowActions,
+    ask,
     onOpenRow,
     ...rowLive(live, row),
     className: "cb-statusRow",
@@ -1428,9 +1440,9 @@ function Body({ card, live, wash, locale, t, rowActions, all, onOpenRow, rowCont
     case "stat":
       return (0, import_react10.createElement)(StatBlock, { data, locale, wash });
     case "list":
-      return (0, import_react10.createElement)(ListCard, { data, live, locale, t, rowActions, all, onOpenRow, rowControls });
+      return (0, import_react10.createElement)(ListCard, { data, live, locale, t, rowActions, ask: card.ask, all, onOpenRow, rowControls });
     case "status":
-      return (0, import_react10.createElement)(StatusCard, { data, live, locale, rowActions, onOpenRow });
+      return (0, import_react10.createElement)(StatusCard, { data, live, locale, rowActions, ask: card.ask, onOpenRow });
     case "countdown":
       return (0, import_react10.createElement)(CountdownBody, { card, locale });
     default: {

@@ -49,8 +49,8 @@ function Body({ card, live, wash, locale, t, rowActions, all, onOpenRow, rowCont
   const data = card.data
   switch (card.type) {
     case 'stat': return h(StatBlock, { data, locale, wash })
-    case 'list': return h(ListCard, { data, live, locale, t, rowActions, all, onOpenRow, rowControls })
-    case 'status': return h(StatusCard, { data, live, locale, rowActions, onOpenRow })
+    case 'list': return h(ListCard, { data, live, locale, t, rowActions, ask: card.ask, all, onOpenRow, rowControls })
+    case 'status': return h(StatusCard, { data, live, locale, rowActions, ask: card.ask, onOpenRow })
     case 'countdown': return h(CountdownBody, { card, locale })
     default: {
       const Chart = CHARTS[card.type]
