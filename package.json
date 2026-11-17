@@ -1,6 +1,6 @@
 {
   "name": "@soffits/dsh-card-board",
-  "version": "0.9.0",
+  "version": "0.9.1",
   "description": "A data-driven card board for DeepSeek Harness: scripts write small JSON cards, the Web UI shows each person the boards they may see.",
   "type": "module",
   "license": "MIT",

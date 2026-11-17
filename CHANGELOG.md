@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.1
+
+- Select-all on a board no longer picks up chrome: summary chips, the day line, tiles, icons, new and just-now marks join the non-selectable parts; titles, notes and numbers still copy.
+
 ## 0.9.0
 
 - A card opens: tap it (or its open button) and it shows in DSH's own dialog with the whole list, a taller chart, all its buttons and its optional `detail` (`text`, `facts`, `chart`, `history`). Keyed rows with a `detail` open the same way. The URL follows (`?board=…&card=…&row=…`), so a link opens the page with the card open, and Back closes it.
