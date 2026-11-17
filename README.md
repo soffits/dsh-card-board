@@ -71,11 +71,12 @@ Board and card ids are lowercase letters, digits, `-` and `_`, up to 64 characte
   "title": "Home",
   "viewers": ["alex", "sam"],
   "order": ["weather", "savings", "energy"],
-  "layout": { "next-weeks": { "w": 2, "h": 1 } }
+  "layout": { "next-weeks": { "w": 2, "h": 1 } },
+  "assistant": "Robin"
 }
 ```
 
-`order` lists cards to put first; the rest follow by id. `layout` sets a card's width and height in grid cells (1 to 3). The grid has three columns on a wide screen, two on a medium one and one on a phone; a wide card shrinks to fit.
+`order` lists cards to put first; the rest follow by id. `layout` sets a card's width and height in grid cells (1 to 3). The grid has four columns on a very wide screen, three on a wide one, two on a medium one and one on a phone; a wide card shrinks to fit. `assistant` is optional: the name the chat buttons ask ("Ask Robin" instead of "Ask"). `title` can be [text in several languages](#languages).
 
 A card:
 
@@ -103,7 +104,19 @@ A card:
 
 Unknown fields are errors, so a typo fails when the file is written instead of quietly not showing. A card that doesn't parse or fails the schema shows as a small error card with the reason; the rest of the board is unaffected.
 
-Colours are never given directly. `tone` is one of `ok`, `warn`, `bad`, `muted` or `accent`, and the page maps it to DSH's theme, light or dark. Text can be in any language; nothing in the format assumes one. Dates are `YYYY-MM-DD` or ISO date-times.
+Colours are never given directly. `tone` is one of `ok`, `warn`, `bad`, `muted` or `accent`, and the page maps it to DSH's theme, light or dark. Dates are `YYYY-MM-DD` or ISO date-times. Numbers, dates and units are formatted by the page in the viewer's language.
+
+### Languages
+
+Every text a person reads (titles, labels, units, sub-lines, chip text, list rows, point and span labels, a status row's value, action labels) is either a string, shown as it is to everyone, or a map from language id to text:
+
+```json
+"title": { "en": "Today", "fr": "Aujourd’hui", "zh": "今天" }
+```
+
+Ids are lowercase BCP 47 tags and `en` is required, the same shape DSH uses for localized package text. The page shows the text for DSH's active language: the exact tag (`pt-br`), then its primary language (`pt`), then `en`. So one board reads in French to one person and in Chinese to another, and the file holds no preference of its own. Things that are data, not words (a to-do's title, a merchant), stay plain strings. Bar series names (the keys of `values`) and x values are not translated.
+
+The page's own words (buttons, empty states, errors) live in [`locale/<tag>.json`](locale), under `ui`, one file per language. English, French and Chinese ship. Which languages exist is whatever files are there: a new language is one new file with the same keys as `en.json`, no code change (a test checks every file has every key and the same `{placeholders}`), and a missing key falls back to the primary language, then English.
 
 ### stat
 
@@ -212,7 +225,7 @@ A card, a list row or a status row can carry up to six buttons:
 ]
 ```
 
-- `chat` opens a new conversation (or the session named in `payload.session`) with a draft that quotes the card or row and carries its ids as JSON, after `payload.prompt` if you gave one. Nothing is sent until the person sends it, so the message comes from them like any other. Every card also has a chat button in its corner without declaring one.
+- `chat` opens a new conversation (or the session named in `payload.session`) with a draft that quotes the card or row and carries its ids as JSON, after `payload.prompt` if you gave one. Nothing is sent until the person sends it, so the message comes from them like any other. Every card also has a chat button in its corner without declaring one; when the board names an `assistant` the button says who it asks. A `label` can be text in several languages.
 - `done`, `snooze` and `event` are pressed on the server. A snooze without `payload.until` asks: in 3 hours, tomorrow at 9:00, or a time.
 - `link` opens `payload.url`.
 
@@ -237,7 +250,7 @@ It's appended to the action log, emitted in-process as the Cordis event `card-bo
 
 The button shows the press as pending until the card file is written again, then done. If nothing rewrites the card within `actionTimeoutSeconds`, it says nothing picked the press up. So a handler should rewrite the card when it has acted, even if only `updatedAt` changes.
 
-The buttons come from [`client.actions.js`](client.actions.js), a dependency-free module other plugins can copy to draw actions the same way; its header says how.
+The buttons come from [`client.actions.js`](client.actions.js), loaded with the page. On a phone they are at least 40 px, and a snooze picker opens as a sheet at the bottom of the screen.
 
 ## Writing cards: the CLI
 
@@ -260,7 +273,7 @@ From JavaScript the same checks are `import { checkCard, checkBoard } from '@sof
 
 ## How the page updates
 
-The page polls `GET /api/card-board/board?id=<board>` while it's visible, with the last `ETag` in `If-None-Match`. The tag is built from file sizes and times, so an unchanged board answers 304 without reading a card. Coming back to the tab checks at once.
+The page polls `GET /api/card-board/board?id=<board>` while it's visible, with the last `ETag` in `If-None-Match`. The tag is built from file sizes and times, so an unchanged board answers 304 without reading a card. Coming back to the tab checks at once. The page's words come once per language from `GET /api/card-board/locale?tag=<id>` (the merged `locale/*.json`, English filling gaps).
 
 ## Development
 

@@ -1,12 +1,38 @@
 {
   "type": "stat",
-  "title": "Outside",
+  "title": {
+    "en": "Outside",
+    "zh": "室外"
+  },
   "updatedAt": "2026-03-02T09:30:00Z",
   "staleAfter": 3600,
   "data": {
     "items": [
-      { "label": "Temperature", "value": 4.5, "unit": "°C", "delta": { "value": -2.1, "unit": "°C", "tone": "accent" }, "sub": "feels like 1 °C" },
-      { "label": "Humidity", "value": 71, "unit": "%" }
+      {
+        "label": {
+          "en": "Temperature",
+          "zh": "温度"
+        },
+        "value": 4.5,
+        "unit": "°C",
+        "delta": {
+          "value": -2.1,
+          "unit": "°C",
+          "tone": "accent"
+        },
+        "sub": {
+          "en": "feels like 1 °C",
+          "zh": "体感 1 °C"
+        }
+      },
+      {
+        "label": {
+          "en": "Humidity",
+          "zh": "湿度"
+        },
+        "value": 71,
+        "unit": "%"
+      }
     ]
   }
 }

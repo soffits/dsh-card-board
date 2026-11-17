@@ -1,17 +1,29 @@
 {
   "type": "status",
-  "title": "House",
+  "title": {
+    "en": "House",
+    "zh": "家"
+  },
   "updatedAt": "2026-03-02T09:29:00Z",
   "staleAfter": 600,
   "data": {
     "rows": [
       {
-        "label": "Leak sensor",
-        "value": "dry",
+        "label": {
+          "en": "Leak sensor",
+          "zh": "漏水传感器"
+        },
+        "value": {
+          "en": "dry",
+          "zh": "干燥"
+        },
         "tone": "ok"
       },
       {
-        "label": "Living room",
+        "label": {
+          "en": "Living room",
+          "zh": "客厅"
+        },
         "value": "20.5 °C",
         "tone": "ok",
         "spark": [
@@ -26,21 +38,39 @@
         ]
       },
       {
-        "label": "Front door",
-        "value": "unlocked",
+        "label": {
+          "en": "Front door",
+          "zh": "前门"
+        },
+        "value": {
+          "en": "unlocked",
+          "zh": "未上锁"
+        },
         "tone": "warn",
-        "sub": "since 08:12",
+        "sub": {
+          "en": "since 08:12",
+          "zh": "从 08:12 起"
+        },
         "actions": [
           {
             "kind": "event",
             "id": "front-door:lock",
-            "label": "Lock"
+            "label": {
+              "en": "Lock",
+              "zh": "上锁"
+            }
           }
         ]
       },
       {
-        "label": "Backup drive",
-        "value": "offline",
+        "label": {
+          "en": "Backup drive",
+          "zh": "备份硬盘"
+        },
+        "value": {
+          "en": "offline",
+          "zh": "离线"
+        },
         "tone": "bad"
       }
     ]
@@ -49,7 +79,10 @@
     {
       "kind": "link",
       "id": "house:panel",
-      "label": "Home panel",
+      "label": {
+        "en": "Home panel",
+        "zh": "家庭面板"
+      },
       "payload": {
         "url": "https://example.com/home-panel"
       }

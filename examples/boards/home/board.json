@@ -1,9 +1,29 @@
 {
-  "title": "Home",
-  "viewers": ["alex", "sam"],
-  "order": ["weather", "savings", "energy", "next-weeks", "spending", "chores", "house"],
+  "title": {
+    "en": "Home",
+    "zh": "家"
+  },
+  "viewers": [
+    "alex",
+    "sam"
+  ],
+  "order": [
+    "weather",
+    "savings",
+    "energy",
+    "next-weeks",
+    "spending",
+    "chores",
+    "house"
+  ],
   "layout": {
-    "savings": { "w": 1, "h": 1 },
-    "next-weeks": { "w": 2, "h": 1 }
+    "savings": {
+      "w": 1,
+      "h": 1
+    },
+    "next-weeks": {
+      "w": 2,
+      "h": 1
+    }
   }
 }
