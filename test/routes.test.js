@@ -116,6 +116,15 @@ describe('routes', () => {
     assert.equal((await routes({ ownerPerson: 'robin', provider: false }).call('/api/card-board/boards')).status, 503)
   })
 
+  it('keeps the owner person to their own boards and signed-in people out of the owner person\'s', async () => {
+    const owner = routes({ ownerPerson: 'robin' })
+    assert.equal((await owner.call('/api/card-board/board?id=home')).status, 403)
+    assert.equal((await owner.call('/api/card-board/board?id=garden')).status, 200)
+    owner.state.id = 'sub-alex'
+    assert.equal((await owner.call('/api/card-board/board?id=garden')).status, 403)
+    assert.equal((await owner.call('/api/card-board/board?id=home')).status, 200)
+  })
+
   it('answers 403 for a board the person may not see, and for one that does not exist', async () => {
     const { call, state } = routes()
     state.id = 'sub-robin'
