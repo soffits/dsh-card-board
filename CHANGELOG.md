@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.2
+
+- List rows on narrow cards (a phone) keep their buttons beside the title, with the date and chip underneath, instead of putting the buttons on a line of their own: a long list takes about a third less height.
+
 ## 0.4.1
 
 - A chat button's `payload.prompt` can be text in several languages like any other text; the other payload fields stay as written.

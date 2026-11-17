@@ -492,8 +492,9 @@ window.__ModuleLoader__.load({
             h('div', { className: 'cb-listText' },
               h(Trunc, { className: 'cb-listTitle', lines: 2, text: row.title }),
               row.sub && h(Trunc, { className: 'cb-listSub', lines: 2, text: row.sub })),
-            row.date && h('span', { className: 'cb-listDate' }, formatDay(toTime(row.date), locale, 0)),
-            row.chip && h(Chip, row.chip),
+            (row.date || row.chip) && h('span', { className: 'cb-listMeta' },
+              row.date && h('span', { className: 'cb-listDate' }, formatDay(toTime(row.date), locale, 0)),
+              row.chip && h(Chip, row.chip)),
             row.actions && rowActions && h('span', { className: 'cb-rowActions' }, rowActions(i, row.actions, listRowLine(row))))))
       if (!data.progress) return rows
       // Beside the rows when there is room for both, else a small ring with its count above them.
@@ -988,6 +989,7 @@ h3.cb-truncOpen{overflow:visible}
 .cb-list li:first-child{border-top:0}
 .cb-listText{flex:1;min-width:0}
 .cb-listSub{color:var(--dsw-alias-label-tertiary);font-size:12px;line-height:18px}
+.cb-listMeta{display:flex;align-items:center;gap:10px;min-width:0}
 .cb-listDate{flex:none;color:var(--dsw-alias-label-tertiary);font-size:12px;font-variant-numeric:tabular-nums}
 .cb-done .cb-listTitle{color:var(--dsw-alias-label-tertiary)}
 .cb-checkBox{flex:none;display:inline-flex}
@@ -1010,9 +1012,11 @@ h3.cb-truncOpen{overflow:visible}
 .cb-statusValue small{color:var(--dsw-alias-label-tertiary);font-size:12px;line-height:16px}
 .cb-spark{min-width:0}
 @container (width<380px){
-.cb-list li{flex-wrap:wrap}
-.cb-list li .cb-listText{flex:1 1 9em}
-.cb-list li .cb-rowActions{flex:1 0 100%;justify-content:flex-start;padding-left:28px}
+.cb-list li{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:0}
+.cb-list li .cb-checkBox{grid-column:1;grid-row:1;margin-right:10px}
+.cb-list li .cb-listText{grid-column:2;grid-row:1}
+.cb-list li .cb-rowActions{grid-column:3;grid-row:1;margin-left:8px}
+.cb-list li .cb-listMeta{grid-column:2/-1;grid-row:2;margin-top:2px}
 }
 @container (width<380px){
 .cb-status,.cb-statusSparks,.cb-statusActions,.cb-statusSparks.cb-statusActions{grid-template-columns:8px minmax(0,1fr) auto}
