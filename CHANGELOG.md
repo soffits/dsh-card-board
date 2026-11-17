@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.0
+
+- Remove `ownerPerson` again. Who a request is, including one that reaches DSH without passing the sign-in, is for the `requestIdentity` provider to say; the board only maps the id it gets.
+
 ## 0.2.0
 
 - Add `ownerPerson`: with a people mapping, requests DSH lets in with its own login (launch link or API token) rather than through the sign-in plugin count as that person instead of seeing nothing. Without an identity provider the routes still answer 503.

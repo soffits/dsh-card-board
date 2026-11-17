@@ -37,7 +37,7 @@ function identityFor(state) {
 }
 
 let logCount = 0
-function routes({ people = PEOPLE, provider = true, state = {}, published = [], now = Date.now, publisher, ownerPerson } = {}) {
+function routes({ people = PEOPLE, provider = true, state = {}, published = [], now = Date.now, publisher } = {}) {
   const presses = createPresses({
     logPath: join(dir, `.actions-${++logCount}.jsonl`),
     publisher: publisher ?? (() => ({ emit: event => { published.push(event); return { matched: [] } } })),
@@ -50,7 +50,6 @@ function routes({ people = PEOPLE, provider = true, state = {}, published = [], 
     identity: () => (provider ? identityFor(state) : undefined),
     pollSeconds: 30,
     presses,
-    ownerPerson,
     version: 'test',
   })
   const call = async (path, headers = {}, body) => {
@@ -110,19 +109,14 @@ describe('routes', () => {
     assert.deepEqual((await call('/api/card-board/boards')).body.boards, [])
   })
 
-  it('gives requests without a sign-in identity the ownerPerson view, and nothing without a provider', async () => {
-    const { call } = routes({ ownerPerson: 'Robin' })
-    assert.deepEqual((await call('/api/card-board/boards')).body.boards, [{ id: 'garden', title: 'Garden' }])
-    assert.equal((await routes({ ownerPerson: 'robin', provider: false }).call('/api/card-board/boards')).status, 503)
-  })
-
-  it('keeps the owner person to their own boards and signed-in people out of the owner person\'s', async () => {
-    const owner = routes({ ownerPerson: 'robin' })
-    assert.equal((await owner.call('/api/card-board/board?id=home')).status, 403)
-    assert.equal((await owner.call('/api/card-board/board?id=garden')).status, 200)
-    owner.state.id = 'sub-alex'
-    assert.equal((await owner.call('/api/card-board/board?id=garden')).status, 403)
-    assert.equal((await owner.call('/api/card-board/board?id=home')).status, 200)
+  it('keeps each person to their own boards, both ways', async () => {
+    const { call, state } = routes()
+    state.id = 'sub-alex'
+    assert.equal((await call('/api/card-board/board?id=garden')).status, 403)
+    assert.equal((await call('/api/card-board/board?id=home')).status, 200)
+    state.id = 'sub-robin'
+    assert.equal((await call('/api/card-board/board?id=home')).status, 403)
+    assert.equal((await call('/api/card-board/board?id=garden')).status, 200)
   })
 
   it('answers 403 for a board the person may not see, and for one that does not exist', async () => {

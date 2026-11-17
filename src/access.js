@@ -76,18 +76,12 @@ export function createPeople({ people = {}, peopleFile = '', peopleKey = '' }, {
  * `{ mode: 'people', person }` (person may be undefined: sees nothing) or
  * `{ mode: 'people', unavailable: true }` when a mapping is configured but no
  * identity provider is installed.
- *
- * `ownerPerson` names the person behind a request the provider can't name:
- * one DSH let in with its own login (its launch link or API token) rather
- * than through the sign-in plugin. Without a provider at all nobody can be
- * told apart, so that stays unavailable.
  */
-export async function viewerOf(people, identityService, ownerPerson = '') {
+export async function viewerOf(people, identityService) {
   if (!people.enabled) return { mode: 'owner' }
   if (identityService === undefined || typeof identityService?.current !== 'function') return { mode: 'people', unavailable: true }
   const identity = identityService.current()
-  if (identity === null || identity === undefined) return { mode: 'people', person: ownerPerson ? personKey(ownerPerson) : undefined }
-  return { mode: 'people', person: await people.personFor(identity.id) }
+  return { mode: 'people', person: await people.personFor(identity?.id) }
 }
 
 /** Whether a viewer may see a board (its board.json already validated). */

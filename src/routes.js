@@ -36,12 +36,11 @@ const NO_PROVIDER = 'This board needs a sign-in plugin that provides requestIden
  * @param {() => object | undefined} options.identity - the requestIdentity service right now, if any
  * @param {number} options.pollSeconds
  * @param {ReturnType<import('./presses.js').createPresses>} options.presses
- * @param {string} [options.ownerPerson] - the person for requests DSH admits without a sign-in identity
  * @param {string} [options.version] - mixed into ETags, so a plugin update refreshes open pages
  */
-export function createRoutes({ dataDir, people, identity, pollSeconds, presses, ownerPerson = '', version = '' }) {
+export function createRoutes({ dataDir, people, identity, pollSeconds, presses, version = '' }) {
   async function boards() {
-    const viewer = await viewerOf(people, identity(), ownerPerson)
+    const viewer = await viewerOf(people, identity())
     if (viewer.unavailable) return json(503, { error: NO_PROVIDER })
     const root = await resolveDataDir(dataDir)
     const visible = root === undefined ? [] : (await listBoards(root)).filter(entry => viewer.mode === 'owner' || maySee(viewer, entry.board))
@@ -55,7 +54,7 @@ export function createRoutes({ dataDir, people, identity, pollSeconds, presses, 
   async function board(request) {
     const id = new URL(request.url).searchParams.get('id') ?? ''
     if (!ID_PATTERN.test(id)) return json(400, { error: 'Not a board id.' })
-    const viewer = await viewerOf(people, identity(), ownerPerson)
+    const viewer = await viewerOf(people, identity())
     if (viewer.unavailable) return json(503, { error: NO_PROVIDER })
     const root = await resolveDataDir(dataDir)
     const entry = root === undefined ? undefined : await readBoard(root, id)
@@ -93,7 +92,7 @@ export function createRoutes({ dataDir, people, identity, pollSeconds, presses, 
     if (row !== undefined && !(Number.isInteger(row) && row >= 0)) return json(400, { error: 'row must be a row index.' })
     if (until !== undefined && (typeof until !== 'string' || !DATE_TIME.test(until) || Number.isNaN(Date.parse(until))))
       return json(400, { error: 'until must be an ISO date-time with a zone.' })
-    const viewer = await viewerOf(people, identity(), ownerPerson)
+    const viewer = await viewerOf(people, identity())
     if (viewer.unavailable) return json(503, { error: NO_PROVIDER })
     const root = await resolveDataDir(dataDir)
     const entry = root === undefined ? undefined : await readBoard(root, board)
