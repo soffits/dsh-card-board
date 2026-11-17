@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.12.0
+
+- Every list and status row now has an Ask button without declaring one, the way every card has its chat button: it opens a new conversation with that row and its card attached ("Ask Robin" when the board names an `assistant`). A row that declares its own `chat` action keeps it, and a row with all six buttons taken gets none. Rows without a `key` get it too: the chat names the row by its place in the card.
+- New `ask` field, a boolean on a card (all its rows) or on a row: `false` leaves the default button out. The card's corner button is unchanged.
+
 ## 0.11.0
 
 - Each person can arrange a board for themselves: drag a card (mouse: by the handle on hover; touch: press and hold the head), or use its menu (Pin to top, Move up, Move down; Alt+↑/↓ on the menu button). Pinned cards come first, and **Reset order** goes back to the board's `order`, which stays the default. The arrangement is stored once by the plugin per person (`<dataDir>/.arrange/`, the same identity as who sees what), follows them across devices and reaches their other open pages through the events stream (`{ "type": "arrange" }`). A card the person never placed goes where the board's order puts it.
