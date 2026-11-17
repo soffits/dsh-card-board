@@ -32,6 +32,7 @@ Override the row in your profile's `cordis.patch.yml`:
 | `people` | `{}` | Verified user id → person id, for a DSH several people sign in to. |
 | `peopleFile` | | A JSON file with more of that mapping, re-read when it changes. `people` wins on a clash. |
 | `peopleKey` | | The key in `peopleFile` that holds the mapping; empty means the whole file. |
+| `ownerPerson` | | With a mapping, the person id for requests DSH lets in with its own login (its launch link or an API token) rather than through the sign-in plugin. Empty (the default): they see no boards. See the note below before setting it. |
 | `pollSeconds` | `30` | How often an open, visible page checks for changes. A hidden tab doesn't poll. |
 | `actionLog` | `<dataDir>/.actions.jsonl` | Where action presses are appended. |
 | `actionTimeoutSeconds` | `300` | A press nobody handles within this time shows as not handled. |
@@ -40,7 +41,9 @@ Override the row in your profile's `cordis.patch.yml`:
 
 With no `people` and no `peopleFile`, the plugin assumes a single-person DSH: everyone DSH lets in sees every board.
 
-With a mapping, each request is checked on the server. The plugin asks the `requestIdentity` service who made the request, maps that user id to a person id, and serves only boards whose `viewers` list that person. A request without a verified identity sees no boards; a board the person may not see answers 403, the same as one that doesn't exist. The tabs in the page come only from the server's list. Person ids compare without regard to case.
+With a mapping, each request is checked on the server. The plugin asks the `requestIdentity` service who made the request, maps that user id to a person id, and serves only boards whose `viewers` list that person. A request without a verified identity sees no boards (or `ownerPerson`'s, if you set it); a board the person may not see answers 403, the same as one that doesn't exist. The tabs in the page come only from the server's list. Person ids compare without regard to case.
+
+`ownerPerson` maps every request DSH admits without a sign-in identity to that one person. That's only safe when every outside path to DSH goes through the sign-in gate (a forward-auth proxy or a gateway) and the only way around it is local, such as DSH's own port on a private network. Give that person their own boards rather than adding them to everyone's.
 
 `requestIdentity` is a small service any sign-in plugin can provide. [dsh-oidc](https://github.com/soffits/dsh-oidc) (0.3.0-alpha.9 or later) does; another plugin can provide the same interface:
 
