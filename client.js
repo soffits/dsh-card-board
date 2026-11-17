@@ -1,4 +1,4 @@
-/* @soffits/dsh-card-board 0.10.0: built by scripts/build.mjs from src/client/. Do not edit. */
+/* @soffits/dsh-card-board 0.10.1: built by scripts/build.mjs from src/client/. Do not edit. */
 window.__ModuleLoader__.load({
   id: "@soffits/dsh-card-board",
   factory: (require) => {
@@ -1024,7 +1024,7 @@ function ListCard({ data, live, locale, t, rowActions, all = false, onOpenRow, r
       key: row.key ?? i,
       index: data.rows.indexOf(row),
       row: doneOf(row) && rowControls ? { ...row, actions: row.actions.filter((a) => a.kind !== "done") } : row,
-      rowActions,
+      rowActions: data.rows.includes(row) ? rowActions : void 0,
       onOpenRow,
       className: [i >= LIST_ROWS && "cb-rowLate", ticked(row) && "cb-done"].filter(Boolean).join(" ") || void 0,
       ...rowLive(live, row),
