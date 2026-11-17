@@ -31,6 +31,8 @@ export const Config = z.object({
     .description('A JSON file with more of the same mapping, re-read when it changes. Entries in people win.'),
   peopleKey: z.string().default('')
     .description('The top-level key in peopleFile that holds the mapping. Empty means the whole file is the mapping.'),
+  ownerPerson: z.string().default('')
+    .description('With a mapping: the person id for requests DSH lets in with its own login (launch link or API token) rather than through the sign-in plugin. Empty means such requests see no boards.'),
   pollSeconds: z.natural().min(5).max(3600).default(30)
     .description('How often an open, visible page checks for changes.'),
   actionLog: z.string().default('')
@@ -41,7 +43,7 @@ export const Config = z.object({
 
 /**
  * @param {import('@deepseek-ai/cordis').Context} ctx
- * @param {{ dataDir: string, people: Record<string, string>, peopleFile: string, peopleKey: string, pollSeconds: number }} config
+ * @param {{ dataDir: string, people: Record<string, string>, peopleFile: string, peopleKey: string, ownerPerson: string, pollSeconds: number, actionLog: string, actionTimeoutSeconds: number }} config
  */
 export function apply(ctx, config) {
   const logger = ctx.logger('card-board')
@@ -69,6 +71,7 @@ export function apply(ctx, config) {
     identity: () => ctx.get('requestIdentity'),
     pollSeconds: config.pollSeconds ?? 30,
     presses,
+    ownerPerson: config.ownerPerson ?? '',
     version,
   })
   for (const route of routes) ctx.connection.fetch.register(route)
