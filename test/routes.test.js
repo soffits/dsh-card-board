@@ -321,12 +321,13 @@ describe('actions', () => {
     const result = await call(...press({ board: 'home', card: 'chores', row: 1, id: 'library-books:done' }))
     assert.equal(result.status, 200)
     assert.equal(result.body.state, 'pending')
+    assert.equal(result.body.undoable, true)
     assert.equal(published.length, 1)
     assert.equal(published[0].channel, 'ui.action.done')
     assert.equal(published[0].key, result.body.press)
     const event = published[0].data
     assert.deepEqual({ ...event, at: undefined, press: undefined }, {
-      action: 'done', id: 'library-books:done', payload: {}, person: 'alex', user: 'sub-alex', at: undefined, press: undefined,
+      action: 'done', id: 'library-books:done', inverse: { kind: 'reopen' }, payload: {}, person: 'alex', user: 'sub-alex', at: undefined, press: undefined,
       source: { plugin: 'dsh-card-board', board: 'home', card: 'chores', row: 1 },
     })
     assert.equal((await presses.list()).length, 1)
@@ -381,6 +382,56 @@ describe('actions', () => {
     await writeFile(file, await readFile(file, 'utf8'))
     clock = Date.now()
     assert.equal(await stateOf(), 'done')
+  })
+
+  it('takes a press back with the inverse the card offered, once, and keeps both records', async () => {
+    const { call, state, published, presses } = routes()
+    state.id = 'sub-alex'
+    const done = (await call(...press({ board: 'home', card: 'chores', row: 1, id: 'library-books:done' }))).body
+    const undone = await call(...press({ board: 'home', card: 'chores', undo: done.press }))
+    assert.equal(undone.status, 200)
+    assert.equal(undone.body.undoes, done.press)
+    assert.equal(published[1].channel, 'ui.action.undo')
+    assert.deepEqual({ ...published[1].data, at: undefined, press: undefined }, {
+      action: 'undo', of: 'done', id: 'library-books:done', undoes: done.press, inverse: 'reopen', payload: {}, person: 'alex', user: 'sub-alex', at: undefined, press: undefined,
+      source: { plugin: 'dsh-card-board', board: 'home', card: 'chores', row: 1 },
+    })
+    assert.equal((await call(...press({ board: 'home', card: 'chores', undo: done.press }))).body.press, undone.body.press)
+    assert.equal((await presses.list()).length, 2)
+    const states = (await call('/api/card-board/board?id=home')).body.cards.find(c => c.id === 'chores').presses
+    assert.deepEqual(states.map(({ press, at, ...rest }) => rest), [{ id: 'library-books:done', row: 1, state: 'undone' }])
+  })
+
+  it('takes a snooze back to the date the card declared, not the one picked', async () => {
+    const { call, state, published } = routes()
+    state.id = 'sub-alex'
+    const snoozed = (await call(...press({ board: 'home', card: 'chores', row: 1, id: 'library-books:snooze', until: '2026-03-09T09:00:00Z' }))).body
+    assert.equal(published[0].data.payload.until, '2026-03-09T09:00:00Z')
+    await call(...press({ board: 'home', card: 'chores', undo: snoozed.press }))
+    assert.deepEqual(published[1].data.payload, { until: '2026-03-02T09:00:00Z' })
+    assert.equal(published[1].data.of, 'snooze')
+  })
+
+  it('refuses to undo what has no inverse, someone else\'s press or an unknown press', async () => {
+    const { call, state } = routes()
+    state.id = 'sub-alex'
+    const lock = (await call(...press({ board: 'home', card: 'house', row: 2, id: 'front-door:lock' }))).body
+    assert.equal((await call(...press({ board: 'home', card: 'house', undo: lock.press }))).status, 409)
+    assert.equal((await call(...press({ board: 'home', card: 'house', undo: 'nope' }))).status, 409)
+    const done = (await call(...press({ board: 'home', card: 'chores', row: 1, id: 'library-books:done' }))).body
+    assert.equal((await call(...press({ board: 'home', card: 'house', undo: done.press }))).status, 409)
+    state.id = 'sub-robin'
+    assert.equal((await call(...press({ board: 'home', card: 'chores', undo: done.press }))).status, 403)
+  })
+
+  it('lets a press be made again after it was undone, even within the double-tap window', async () => {
+    const { call, state, presses } = routes()
+    state.id = 'sub-alex'
+    const first = (await call(...press({ board: 'home', card: 'chores', row: 1, id: 'library-books:done' }))).body
+    await call(...press({ board: 'home', card: 'chores', undo: first.press }))
+    const again = (await call(...press({ board: 'home', card: 'chores', row: 1, id: 'library-books:done' }))).body
+    assert.notEqual(again.press, first.press)
+    assert.equal((await presses.list()).length, 3)
   })
 
   it('logs the press even when no event publisher runs', async () => {

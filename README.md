@@ -280,8 +280,8 @@ A card, a list row or a status row can carry up to six buttons:
 
 ```json
 "actions": [
-  { "kind": "done", "id": "library-books:done" },
-  { "kind": "snooze", "id": "library-books:snooze" },
+  { "kind": "done", "id": "library-books:done", "inverse": { "kind": "reopen" } },
+  { "kind": "snooze", "id": "library-books:snooze", "inverse": { "kind": "unsnooze", "payload": { "until": "2026-03-02T09:00:00Z" } } },
   { "kind": "step", "id": "library-books:renew", "label": { "en": "Renew the books online", "fr": "Renouveler les livres en ligne" } },
   { "kind": "chat", "id": "landlord:ask", "label": "Draft a message", "payload": { "prompt": "Help me write a short follow-up to the landlord." } },
   { "kind": "event", "id": "front-door:lock", "label": "Lock" },
@@ -295,6 +295,8 @@ A card, a list row or a status row can carry up to six buttons:
 - `link` opens `payload.url`.
 
 `id` is yours: letters, digits and `. _ : -`, unique within the card or row. `label` is optional except for `event` and `step`. `payload` is any small object (up to 4 KB of JSON).
+
+`inverse` (on `done`, `snooze` and `event`) says the action can be taken back: `kind` is the name its owner knows the way back by (`reopen`, `unsnooze`), `payload` what that needs (a snooze's previous date). A press of such an action shows an Undo in a toast for about 8 seconds, and a ticked row stays in view, struck through, until the board is refreshed or left; unticking it is the same undo. A step has no inverse.
 
 The plugin doesn't act on a press itself. It checks that the person may see the board and that the action is in the card as written, then records an event:
 
@@ -312,6 +314,14 @@ The plugin doesn't act on a press itself. It checks that the person may see the 
 ```
 
 It's appended to the action log, emitted in-process as the Cordis event `card-board/action`, and published on channel `ui.action.<kind>` through [dsh-cron-jobs](https://github.com/soffits/dsh-cron-jobs) when that's installed, so a job subscribed to `ui.action.done` can mark the thing done wherever it lives. `person` is `owner` on a single-person DSH.
+
+Taking a press back is another press, appended to the same log, so every record says who, when, what and whether it was undone. Its `action` is `undo` (channel `ui.action.undo`), `undoes` names the press, `of` is the kind it takes back, `inverse` the declared name, and `payload` is the action's own payload without the time the person picked, plus the inverse's. The press keeps the inverse as the card offered it, so an undo works after the card was rewritten, and a press taken back shows as `undone`. A handler that receives a press and its undo in one batch should treat the pair as nothing happening.
+
+```json
+{ "press": "5d0f…", "action": "undo", "of": "done", "id": "library-books:done", "undoes": "fcb114dd-3890-42e6-af4b-b23173edf8e0", "inverse": "reopen", "payload": {}, "person": "alex", "at": "2026-03-02T09:41:15.000Z", "source": { "plugin": "dsh-card-board", "board": "home", "card": "chores", "row": 1 } }
+```
+
+The press log is never a second source of the item's state: a press only marks the gap until the owner of the item writes the card again, and after that a row's box follows the card's `checked`.
 
 The button shows the press as pending until the card file is written again, then done (a step is done once recorded, since sending it is the whole job). If nothing rewrites the card within `actionTimeoutSeconds`, it says nothing picked the press up. So a handler should rewrite the card when it has acted, even if only `updatedAt` changes.
 

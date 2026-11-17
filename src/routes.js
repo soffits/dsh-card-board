@@ -10,7 +10,7 @@
  *   GET  /api/card-board/events?board=<id>      Server-Sent Events: which card or board.json changed
  *   POST /api/card-board/seen                   the card versions the viewer has seen
  *   GET  /api/card-board/locale?tag=fr          the page's own words for a language (from locale/*.json)
- *   POST /api/card-board/action                 press a step, done, snooze or event action
+ *   POST /api/card-board/action                 press a step, done, snooze or event action, or take a press back (`undo`)
  *
  * Every card entry carries its content `version` (and `rows`, the versions of its keyed rows) and, when something
  * in it is new since the viewer last looked, `fresh: { card: true, rows: [keys] }`.
@@ -209,7 +209,8 @@ export function createRoutes({ dataDir, people, identity, pollSeconds, presses, 
     } catch {
       return json(400, { error: 'The body must be JSON.' })
     }
-    const { board, card, row, id, until } = body ?? {}
+    const { board, card, row, id, until, undo } = body ?? {}
+    if (undo !== undefined) return undoPress({ board, card, undo })
     if (typeof board !== 'string' || !ID_PATTERN.test(board) || typeof card !== 'string' || !ID_PATTERN.test(card) || typeof id !== 'string')
       return json(400, { error: 'Say which board, card and action.' })
     if (row !== undefined && !(Number.isInteger(row) && row >= 0)) return json(400, { error: 'row must be a row index.' })
@@ -232,7 +233,22 @@ export function createRoutes({ dataDir, people, identity, pollSeconds, presses, 
       row,
       payload,
     })
-    return json(200, { press: event.press, state: 'pending', at: event.at })
+    return json(200, { press: event.press, state: 'pending', at: event.at, ...(event.inverse ? { undoable: true } : {}) })
+  }
+
+  /** Take back a press: the body names the press, and the board and card it was made on. */
+  async function undoPress({ board, card, undo }) {
+    if (typeof board !== 'string' || !ID_PATTERN.test(board) || typeof card !== 'string' || !ID_PATTERN.test(card) || typeof undo !== 'string' || undo.length > 100)
+      return json(400, { error: 'Say which board, card and press.' })
+    const viewer = await viewerOf(people, identity())
+    if (viewer.unavailable) return json(503, { error: NO_PROVIDER })
+    const root = await resolveDataDir(dataDir)
+    const entry = root === undefined ? undefined : await readBoard(root, board)
+    if (!maySee(viewer, entry?.board) || entry === undefined) return json(403, { error: 'You can’t act on this board.' })
+    const result = await presses.undo({ press: undo, person: viewer.mode === 'owner' ? 'owner' : viewer.person, user: identity()?.current?.()?.id, board, card })
+    if (result.problem === 'forbidden') return json(403, { error: 'You can’t act on this board.' })
+    if (result.problem) return json(409, { error: 'This action can’t be undone.' })
+    return json(200, { press: result.event.press, state: 'pending', at: result.event.at, undoes: result.event.undoes })
   }
 
   return [

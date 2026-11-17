@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.10.0
+
+- Undo: an action can declare an `inverse` (`{ "kind", "payload"? }`, on `done`, `snooze` and `event`). Pressing one shows an Undo in DSH's own toast for about 8 seconds, in English, French and Chinese; tapping it sends an `undo` press (channel `ui.action.undo`) that carries the inverse the card offered, so the owner of the item can reverse it (done and reopen, snooze and unsnooze) even after the card was rewritten.
+- A row ticked done stays in place, struck through and ticked, until the board is refreshed or left. Unticking its box is the same undo.
+- Every undo is its own record in the action log (who, when, which press it takes back); a press that was taken back shows as `undone`.
+- Fix: a press only bridges the gap until the card is written again. After that the card's own `checked` decides whether a row's box is ticked, so an item reopened somewhere else shows unticked instead of staying ticked for a day because of its old press.
+- Touch targets: the checkbox and the toast's Undo are at least 40 px on touch and narrow screens, and not selectable.
+
 ## 0.9.1
 
 - Select-all on a board no longer picks up chrome: summary chips, the day line, tiles, icons, new and just-now marks join the non-selectable parts; titles, notes and numbers still copy.

@@ -39,6 +39,11 @@ function statesOf(presses, row) {
   return states
 }
 
+/** The newest press of an action on a row (any row when `row` is -1: a kept row is no longer where it was). */
+function latestOf(presses, row, id) {
+  return (presses ?? []).findLast(press => press.id === id && (row < 0 || press.row === row))
+}
+
 function Body({ card, live, wash, locale, t, rowActions, all, onOpenRow, rowControls }) {
   const data = card.data
   switch (card.type) {
@@ -65,7 +70,7 @@ function Body({ card, live, wash, locale, t, rowActions, all, onOpenRow, rowCont
  * sheet has the title), the whole list, a taller chart and the card's `detail`; with `row`, just that row and its
  * detail and buttons.
  */
-export function Card({ entry, live, boardId, assistant, tracks, active, locale, t, press, onOpen, sheet = false, row: openRow }) {
+export function Card({ entry, live, boardId, assistant, tracks, active, locale, t, press, undo, kept, onOpen, sheet = false, row: openRow }) {
   const kit = useKit()
   const actions = useButtons()
   const now = kit.useNow()
@@ -97,13 +102,17 @@ export function Card({ entry, live, boardId, assistant, tracks, active, locale, 
   // A chat button without its own label says "Ask <assistant>" when the board names one.
   const askName = assistant ? t('action.chatNamed', { name: assistant }) : undefined
   const named = list => (assistant ? list?.map(action => (action.kind === 'chat' && action.label === undefined ? { ...action, label: askName } : action)) : list)
-  const onPress = target => (action, extra) => press(action, extra, { card: entry.id, ...target })
+  // A press carries the row as it stood, so a row ticked done can stay in view when the card is rewritten without it.
+  const onPress = target => (action, extra) => press(action, extra, { card: entry.id, ...target }, target.row === undefined ? undefined : card.data.rows?.[target.row])
   const rowActions = actions && ((row, list, part) => h(actions.ActionBar, {
     actions: named(list), part, states: statesOf(entry.presses, row), compact: true, about: about(row, rowLine(row)), onPress: onPress({ row }),
   }))
   const rowControls = {
     press: (row, action) => onPress({ row })(action),
     state: (row, id) => statesOf(entry.presses, row)[id],
+    latest: (row, id) => latestOf(entry.presses, row, id),
+    kept,
+    undo: pressId => undo(pressId, entry.id),
   }
   const chat = actions && h('span', { className: 'cb-cardChat' }, h(actions.ActionButton, { action: { kind: 'chat', id: '_chat', label: askName }, compact: true, about: about() }))
   const others = card.actions?.filter(action => action.kind !== 'step') ?? []
@@ -124,7 +133,7 @@ export function Card({ entry, live, boardId, assistant, tracks, active, locale, 
     if (!target) return h('p', { className: 'cb-muted' }, t('rowGone'))
     return h('div', { className: 'cb-rowSheet' },
       h(Body, { card: { ...card, data: { ...card.data, rows: [target], progress: undefined } }, live, wash: false, locale, t, rowActions: rowActions && ((_, list, part) => rowActions(index, list, part)), all: true,
-        rowControls: { press: (_, action) => rowControls.press(index, action), state: (_, id) => rowControls.state(index, id) } }),
+        rowControls: { ...rowControls, kept: [], press: (_, action) => rowControls.press(index, action), state: (_, id) => rowControls.state(index, id), latest: (_, id) => rowControls.latest(index, id) } }),
       h(DetailParts, { detail: target.detail, locale, t }))
   }
 

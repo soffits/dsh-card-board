@@ -11,6 +11,7 @@ import { useEased } from './motion.js'
 import { onControl, openLink } from './links.js'
 import { stepTimes } from './steps.js'
 import { LIST_ROWS, shownRows } from './layout.js'
+import { doneOf, doneState, keepTicked } from './ticks.js'
 
 const STATE_OF_TONE = { ok: 'done', warn: 'warning', bad: 'error' }
 const DIRECTION_ICON = { up: 'trending-up', down: 'trending-down' }
@@ -81,7 +82,7 @@ function Row({ lead, title, sub, meta, value, spark, row, index, washCount, fres
     onClick: event => { if (!onControl(event)) { event.stopPropagation(); go() } },
     onKeyDown: event => { if ((event.key === 'Enter' || event.key === ' ') && event.target === event.currentTarget) { event.preventDefault(); go() } },
   }
-  return h('li', { className: ['cb-row', className, row.checked && 'cb-done', isActive(row.active, now) && 'cb-rowNow', go && 'cb-rowOpens', wash].filter(Boolean).join(' '), ...opens },
+  return h('li', { className: ['cb-row', className, isActive(row.active, now) && 'cb-rowNow', go && 'cb-rowOpens', wash].filter(Boolean).join(' '), ...opens },
     lead,
     h('div', { className: 'cb-rowText' },
       h('div', { className: 'cb-rowTitle' }, fresh && h(kit.NewDot), h(Trunc, { as: 'span', lines: 2, text: title })),
@@ -95,17 +96,20 @@ function Row({ lead, title, sub, meta, value, spark, row, index, washCount, fres
       rowActions(index, row.actions, 'buttons')))
 }
 
-/** A row's done action as a checkbox: ticked when the row says so or once the press went through. */
+/**
+ * A row's done action as a checkbox: ticked when the row says so or once the press went through, and, when the card
+ * offered a way back, unticking it takes the press back. A kept row is no longer on the card, so only a way back works.
+ */
 function DoneBox({ row, index, done, rowControls, t }) {
-  const state = rowControls.state(index, done.id)
-  const checked = row.checked === true || state === 'done' || state === 'pending'
+  const { checked, undo } = doneState(row, rowControls.latest(index, done.id))
+  const label = t(checked ? (undo ? 'markNotDone' : 'checked') : 'markDone')
   return h('span', { className: 'cb-doneBox', onClick: event => event.stopPropagation() },
     h(Checkbox, {
       checked,
-      disabled: checked,
-      title: t(checked ? 'checked' : 'markDone'),
-      label: h('span', { className: 'cb-visuallyHidden' }, t(checked ? 'checked' : 'markDone')),
-      onChange: value => { if (value) rowControls.press(index, done) },
+      disabled: checked ? undo === undefined : index < 0,
+      title: label,
+      label: h('span', { className: 'cb-visuallyHidden' }, label),
+      onChange: value => { if (value) rowControls.press(index, done); else if (undo) rowControls.undo(undo) },
     }))
 }
 
@@ -115,10 +119,11 @@ const rowLive = (live, row) => ({ washCount: live.rows?.[row.key] ?? 0, fresh: r
 export function ListCard({ data, live, locale, t, rowActions, all = false, onOpenRow, rowControls }) {
   const kit = useKit()
   const [open, setOpen] = useState(false)
-  const rows = shownRows(data.rows, open || all, LIST_ROWS, live)
-  const hidden = data.rows.length - rows.length
-  // A checkbox only where ticking it does something: a row with a `done` action (the box is that action).
-  const doneOf = row => row.actions?.find(action => action.kind === 'done')
+  // Rows ticked this visit stay where they were; their index is -1 because the card no longer has them.
+  const listed = keepTicked(data.rows, rowControls?.kept)
+  const rows = shownRows(listed, open || all, LIST_ROWS, live)
+  const hidden = listed.length - rows.length
+  const ticked = row => { const done = doneOf(row); return done !== undefined && rowControls !== undefined ? doneState(row, rowControls.latest(data.rows.indexOf(row), done.id)).checked : row.checked === true }
   const progress = data.progress
   return h('div', { className: 'cb-list' },
     progress && h('div', { className: 'cb-progress' },
@@ -127,10 +132,10 @@ export function ListCard({ data, live, locale, t, rowActions, all = false, onOpe
       h('div', { className: 'cb-progressText' },
         progress.label && h('div', { className: 'cb-progressLabel' }, progress.label),
         progress.sub && h('div', { className: 'cb-rowSub' }, progress.sub))),
-    data.rows.length === 0
+    listed.length === 0
       ? h('p', { className: 'cb-muted' }, data.empty ?? t('listEmpty'))
       : h('ul', { className: 'cb-rows' }, rows.map((row, i) => h(Row, {
-        key: row.key ?? i, index: data.rows.indexOf(row), row: doneOf(row) && rowControls ? { ...row, actions: row.actions.filter(a => a.kind !== 'done') } : row, rowActions, onOpenRow, className: i >= LIST_ROWS ? 'cb-rowLate' : undefined, ...rowLive(live, row),
+        key: row.key ?? i, index: data.rows.indexOf(row), row: doneOf(row) && rowControls ? { ...row, actions: row.actions.filter(a => a.kind !== 'done') } : row, rowActions, onOpenRow, className: [i >= LIST_ROWS && 'cb-rowLate', ticked(row) && 'cb-done'].filter(Boolean).join(' ') || undefined, ...rowLive(live, row),
         lead: [
           doneOf(row) && rowControls && h(DoneBox, { key: 'check', row, index: data.rows.indexOf(row), done: doneOf(row), rowControls, t }),
           row.icon && h(kit.Tile, { key: 'tile', icon: row.icon, tone: row.tone ?? 'muted', size: 30 }),
@@ -141,7 +146,7 @@ export function ListCard({ data, live, locale, t, rowActions, all = false, onOpe
           row.chip && h(Tag, { tone: kit.tagTone(row.chip.tone ?? 'muted') }, row.chip.text),
           h(RowWhen, { row, locale, t })),
       }))),
-    !all && (hidden > 0 || open) && data.rows.length > LIST_ROWS + 1 && h(Button, { variant: 'ghost', size: 'sm', className: 'cb-more', onClick: () => setOpen(value => !value) },
+    !all && (hidden > 0 || open) && listed.length > LIST_ROWS + 1 && h(Button, { variant: 'ghost', size: 'sm', className: 'cb-more', onClick: () => setOpen(value => !value) },
       open ? t('showFewer') : t('showMore', { n: hidden })))
 }
 
