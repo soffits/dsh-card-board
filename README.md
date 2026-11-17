@@ -321,6 +321,8 @@ Taking a press back is another press, appended to the same log, so every record 
 { "press": "5d0f…", "action": "undo", "of": "done", "id": "library-books:done", "undoes": "fcb114dd-3890-42e6-af4b-b23173edf8e0", "inverse": "reopen", "payload": {}, "person": "alex", "at": "2026-03-02T09:41:15.000Z", "source": { "plugin": "dsh-card-board", "board": "home", "card": "chores", "row": 1 } }
 ```
 
+The press log is never a second source of the item's state: a press only marks the gap until the owner of the item writes the card again, and after that a row's box follows the card's `checked`.
+
 The button shows the press as pending until the card file is written again, then done (a step is done once recorded, since sending it is the whole job). If nothing rewrites the card within `actionTimeoutSeconds`, it says nothing picked the press up. So a handler should rewrite the card when it has acted, even if only `updatedAt` changes.
 
 The buttons come from [`@soffits/dsh-ui-actions`](https://github.com/soffits/dsh-ui-actions), a separate plugin the board uses when it is installed (`dsh plugin --profile web add @soffits/dsh-ui-actions`; DSH 0.2.2-rc.1 or later). Without it cards show no buttons. A chat button opens a new conversation with the card or row attached to the message box as a small card, and the person writes beside it; a chat button's words ("Ask", "Chat about this") and the done and snooze buttons' words come from that plugin, in the person's language. On a phone the buttons are at least 40 px, and a snooze picker opens as a sheet at the bottom of the screen.

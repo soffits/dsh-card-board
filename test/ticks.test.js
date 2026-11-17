@@ -23,7 +23,8 @@ describe('rows ticked this visit', () => {
   it('shows a box ticked once pressed, unticked once undone, and says which press unticking takes back', () => {
     assert.deepEqual(doneState(row('a'), undefined), { checked: false, undo: undefined })
     assert.deepEqual(doneState(row('a'), { press: 'p1', state: 'pending', undoable: true }), { checked: true, undo: 'p1' })
-    assert.deepEqual(doneState(row('a'), { press: 'p1', state: 'done' }), { checked: true, undo: undefined })
+    assert.deepEqual(doneState(row('a'), { press: 'p1', state: 'done', undoable: true }), { checked: false, undo: undefined }, 'once the card was rewritten it decides, not the press')
+    assert.deepEqual(doneState(keepOf(row('a'), 0).row, { press: 'p1', state: 'done', undoable: true }), { checked: true, undo: 'p1' })
     assert.deepEqual(doneState(keepOf(row('a'), 0).row, { press: 'p1', state: 'undone' }), { checked: false, undo: undefined })
     assert.deepEqual(doneState(row('a', { checked: true }), undefined), { checked: true, undo: undefined })
   })

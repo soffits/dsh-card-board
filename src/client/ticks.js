@@ -28,11 +28,13 @@ export function keepTicked(rows, kept = []) {
 
 /**
  * Whether a row's box is ticked, and which press ticking it again would take back. `latest` is the newest press of the
- * done action on this row as the server reports it (`{ press, state, undoable }`).
+ * done action on this row as the server reports it (`{ press, state, undoable }`). The item's owner is the one source:
+ * a press only bridges the gap until the owner writes the card again (`pending`), after which the card's own
+ * `checked` decides, so an item reopened elsewhere shows unticked.
  */
 export function doneState(row, latest) {
   const state = latest?.state
-  const checked = state === 'undone' ? false : row.checked === true || state === 'done' || state === 'pending'
+  const checked = state === 'undone' ? false : state === 'pending' || row.checked === true
   return { checked, undo: checked && latest?.undoable ? latest.press : undefined }
 }
 

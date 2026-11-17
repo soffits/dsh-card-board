@@ -861,7 +861,7 @@ function keepTicked(rows, kept = []) {
 }
 function doneState(row, latest) {
   const state = latest?.state;
-  const checked = state === "undone" ? false : row.checked === true || state === "done" || state === "pending";
+  const checked = state === "undone" ? false : state === "pending" || row.checked === true;
   return { checked, undo: checked && latest?.undoable ? latest.press : void 0 };
 }
 var withKept = (kept = [], entry) => [...kept.filter((other) => other.id !== entry.id), entry];
