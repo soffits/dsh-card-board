@@ -1,16 +1,57 @@
 {
   "type": "timeline",
-  "title": "Next two weeks",
+  "title": {
+    "en": "Next two weeks",
+    "zh": "未来两周"
+  },
   "updatedAt": "2026-03-02T06:00:00Z",
   "data": {
     "from": "2026-03-02",
     "to": "2026-03-16",
     "points": [
-      { "date": "2026-03-04", "label": "Train to Lyon", "kind": "travel" },
-      { "date": "2026-03-05", "label": "Phone bill", "kind": "due", "tone": "warn" },
-      { "date": "2026-03-12", "label": "Dentist", "kind": "health" },
-      { "date": "2026-03-14", "label": "Book club", "kind": "event" }
+      {
+        "date": "2026-03-04",
+        "label": {
+          "en": "Train to Lyon",
+          "zh": "乘火车去里昂"
+        },
+        "kind": "travel"
+      },
+      {
+        "date": "2026-03-05",
+        "label": {
+          "en": "Phone bill",
+          "zh": "电话账单"
+        },
+        "kind": "due",
+        "tone": "warn"
+      },
+      {
+        "date": "2026-03-12",
+        "label": {
+          "en": "Dentist",
+          "zh": "牙医"
+        },
+        "kind": "health"
+      },
+      {
+        "date": "2026-03-14",
+        "label": {
+          "en": "Book club",
+          "zh": "读书会"
+        },
+        "kind": "event"
+      }
     ],
-    "spans": [{ "from": "2026-03-04", "to": "2026-03-09", "label": "In Lyon" }]
+    "spans": [
+      {
+        "from": "2026-03-04",
+        "to": "2026-03-09",
+        "label": {
+          "en": "In Lyon",
+          "zh": "在里昂"
+        }
+      }
+    ]
   }
 }

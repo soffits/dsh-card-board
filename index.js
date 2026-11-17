@@ -9,8 +9,10 @@
 import { readFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { isAbsolute, join, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import z from '@deepseek-ai/schemastery'
 import { createPeople, expandHome } from './src/access.js'
+import { createMessages } from './src/messages.js'
 import { createPresses } from './src/presses.js'
 import { createRoutes } from './src/routes.js'
 
@@ -69,6 +71,7 @@ export function apply(ctx, config) {
     identity: () => ctx.get('requestIdentity'),
     pollSeconds: config.pollSeconds ?? 30,
     presses,
+    messages: createMessages(fileURLToPath(new URL('./locale', import.meta.url))),
     version,
   })
   for (const route of routes) ctx.connection.fetch.register(route)

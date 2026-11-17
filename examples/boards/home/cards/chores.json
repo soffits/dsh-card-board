@@ -1,24 +1,39 @@
 {
   "type": "list",
-  "title": "Today",
+  "title": {
+    "en": "Today",
+    "zh": "今天"
+  },
   "updatedAt": "2026-03-02T09:00:00Z",
   "staleAfter": 3600,
   "data": {
     "progress": {
       "done": 1,
       "total": 3,
-      "label": "done"
+      "label": {
+        "en": "done",
+        "zh": "已完成"
+      }
     },
     "rows": [
       {
-        "title": "Water the plants",
+        "title": {
+          "en": "Water the plants",
+          "zh": "给植物浇水"
+        },
         "checked": true
       },
       {
-        "title": "Return the library books",
+        "title": {
+          "en": "Return the library books",
+          "zh": "还图书馆的书"
+        },
         "checked": false,
         "chip": {
-          "text": "due today",
+          "text": {
+            "en": "due today",
+            "zh": "今天到期"
+          },
           "tone": "warn"
         },
         "actions": [
@@ -33,18 +48,30 @@
         ]
       },
       {
-        "title": "Call the landlord about the heater",
-        "sub": "waiting since Friday",
+        "title": {
+          "en": "Call the landlord about the heater",
+          "zh": "就暖气问题联系房东"
+        },
+        "sub": {
+          "en": "waiting since Friday",
+          "zh": "从周五起一直在等"
+        },
         "date": "2026-02-27",
         "chip": {
-          "text": "chase",
+          "text": {
+            "en": "chase",
+            "zh": "去催一催"
+          },
           "tone": "bad"
         },
         "actions": [
           {
             "kind": "chat",
             "id": "landlord:ask",
-            "label": "Draft a message",
+            "label": {
+              "en": "Draft a message",
+              "zh": "起草消息"
+            },
             "payload": {
               "prompt": "Help me write a short, polite follow-up to the landlord about the heater."
             }
@@ -52,6 +79,9 @@
         ]
       }
     ],
-    "empty": "Nothing left for today."
+    "empty": {
+      "en": "Nothing left for today.",
+      "zh": "今天没有待办了。"
+    }
   }
 }

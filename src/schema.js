@@ -23,6 +23,8 @@ export const MAX_CARD_BYTES = 256 * 1024
 
 const MAX_TEXT = 200
 const MAX_ITEMS = 500
+const MAX_LANGUAGES = 12
+const LANGUAGE_ID = /^[a-z]{2,3}(-[a-z0-9]{2,8})*$/
 const MAX_POINTS = 2000
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/
 const DATE_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})$/
@@ -63,6 +65,25 @@ class Check {
     return true
   }
 
+  /**
+   * Text a person reads: a string, or a map of language id to string with `en` always present
+   * (the shape DSH uses for localized package text). The browser picks by the active language.
+   */
+  label(value, path, options = {}) {
+    if (value === undefined) return false
+    if (typeof value === 'string') return this.text(value, path, options)
+    if (typeof value !== 'object' || value === null || Array.isArray(value)) return this.fail(path, 'must be a string or an object of language id to string')
+    const languages = Object.keys(value)
+    if (languages.length === 0 || languages.length > MAX_LANGUAGES) return this.fail(path, `needs 1 to ${MAX_LANGUAGES} languages`)
+    if (!('en' in value)) this.fail(path, 'needs an "en" text')
+    let ok = true
+    for (const language of languages) {
+      if (!LANGUAGE_ID.test(language)) ok = this.fail(join(path, language), 'is not a lowercase language id like en or zh-cn')
+      else ok = this.text(value[language], join(path, language), options) && ok
+    }
+    return ok
+  }
+
   number(value, path, { min = -Infinity } = {}) {
     if (value === undefined) return false
     if (typeof value !== 'number' || !Number.isFinite(value)) return this.fail(path, 'must be a finite number')
@@ -84,6 +105,13 @@ class Check {
     if (value === undefined) return false
     if (typeof value === 'number') return this.number(value, path)
     return this.text(value, path)
+  }
+
+  /** A shown value: a number, or a label. */
+  labelOrNumber(value, path) {
+    if (value === undefined) return false
+    if (typeof value === 'number') return this.number(value, path)
+    return this.label(value, path)
   }
 
   date(value, path) {
@@ -125,7 +153,7 @@ function actions(c, list, path) {
     if (typeof action.id !== 'string' || !ACTION_ID_PATTERN.test(action.id)) c.fail(join(p, 'id'), 'must be letters, digits and . _ : - (up to 100), starting with a letter or digit')
     else if (seen.has(action.id)) c.fail(join(p, 'id'), 'repeats another action id here')
     else seen.add(action.id)
-    if ('label' in action) c.text(action.label, join(p, 'label'), { max: 40 })
+    if ('label' in action) c.label(action.label, join(p, 'label'), { max: 40 })
     else if (action.kind === 'event') c.fail(join(p, 'label'), 'is required for an event action')
     const payload = action.payload
     if ('payload' in action) {
@@ -152,16 +180,16 @@ function statData(c, data, path) {
   data.items.forEach((item, i) => {
     const p = join(join(path, 'items'), i)
     if (!c.object(item, p, ['label', 'value'], ['unit', 'delta', 'sub', 'tone'])) return
-    c.text(item.label, join(p, 'label'))
-    c.textOrNumber(item.value, join(p, 'value'))
-    c.optional(item, 'unit', v => c.text(v, join(p, 'unit'), { max: 20 }))
-    c.optional(item, 'sub', v => c.text(v, join(p, 'sub')))
+    c.label(item.label, join(p, 'label'))
+    c.labelOrNumber(item.value, join(p, 'value'))
+    c.optional(item, 'unit', v => c.label(v, join(p, 'unit'), { max: 20 }))
+    c.optional(item, 'sub', v => c.label(v, join(p, 'sub')))
     tone(c, item, p)
     c.optional(item, 'delta', delta => {
       const dp = join(p, 'delta')
       if (!c.object(delta, dp, ['value'], ['unit', 'tone'])) return
       c.number(delta.value, join(dp, 'value'))
-      c.optional(delta, 'unit', v => c.text(v, join(dp, 'unit'), { max: 20 }))
+      c.optional(delta, 'unit', v => c.label(v, join(dp, 'unit'), { max: 20 }))
       tone(c, delta, dp)
     })
   })
@@ -186,7 +214,7 @@ function goalLine(c, goal, path, allowPoints) {
     if (!c.object(goal, path, ['y'], ['label'])) return
     c.number(goal.y, join(path, 'y'))
   }
-  c.optional(goal, 'label', v => c.text(v, join(path, 'label')))
+  c.optional(goal, 'label', v => c.label(v, join(path, 'label')))
 }
 
 function lineData(c, data, path) {
@@ -195,11 +223,11 @@ function lineData(c, data, path) {
     data.series.forEach((series, i) => {
       const p = join(join(path, 'series'), i)
       if (!c.object(series, p, ['name', 'points'], ['tone'])) return
-      c.text(series.name, join(p, 'name'), { empty: true })
+      c.label(series.name, join(p, 'name'), { empty: true })
       points(c, series.points, join(p, 'points'))
       tone(c, series, p)
     })
-  c.optional(data, 'unit', v => c.text(v, join(path, 'unit'), { max: 20 }))
+  c.optional(data, 'unit', v => c.label(v, join(path, 'unit'), { max: 20 }))
   c.optional(data, 'area', v => c.boolean(v, join(path, 'area')))
   c.optional(data, 'goal', v => goalLine(c, v, join(path, 'goal'), true))
   c.optional(data, 'markers', markers => {
@@ -208,7 +236,7 @@ function lineData(c, data, path) {
       const p = join(join(path, 'markers'), i)
       if (!c.object(marker, p, ['x', 'label'])) return
       c.textOrNumber(marker.x, join(p, 'x'))
-      c.text(marker.label, join(p, 'label'))
+      c.label(marker.label, join(p, 'label'))
     })
   })
 }
@@ -235,7 +263,7 @@ function barData(c, data, path) {
       })
     })
   c.optional(data, 'stacked', v => c.boolean(v, join(path, 'stacked')))
-  c.optional(data, 'unit', v => c.text(v, join(path, 'unit'), { max: 20 }))
+  c.optional(data, 'unit', v => c.label(v, join(path, 'unit'), { max: 20 }))
   c.optional(data, 'goal', v => goalLine(c, v, join(path, 'goal'), false))
 }
 
@@ -245,17 +273,17 @@ function donutData(c, data, path) {
     data.segments.forEach((segment, i) => {
       const p = join(join(path, 'segments'), i)
       if (!c.object(segment, p, ['label', 'value'], ['tone'])) return
-      c.text(segment.label, join(p, 'label'))
+      c.label(segment.label, join(p, 'label'))
       c.number(segment.value, join(p, 'value'), { min: 0 })
       tone(c, segment, p)
     })
   c.optional(data, 'centre', centre => {
     const p = join(path, 'centre')
     if (!c.object(centre, p, ['text'], ['sub'])) return
-    c.text(centre.text, join(p, 'text'), { max: 40 })
-    c.optional(centre, 'sub', v => c.text(v, join(p, 'sub'), { max: 40 }))
+    c.label(centre.text, join(p, 'text'), { max: 40 })
+    c.optional(centre, 'sub', v => c.label(v, join(p, 'sub'), { max: 40 }))
   })
-  c.optional(data, 'unit', v => c.text(v, join(path, 'unit'), { max: 20 }))
+  c.optional(data, 'unit', v => c.label(v, join(path, 'unit'), { max: 20 }))
 }
 
 function listData(c, data, path) {
@@ -265,25 +293,25 @@ function listData(c, data, path) {
       const p = join(join(path, 'rows'), i)
       if (!c.object(row, p, ['title'], ['sub', 'chip', 'checked', 'date', 'actions'])) return
       c.optional(row, 'actions', v => actions(c, v, join(p, 'actions')))
-      c.text(row.title, join(p, 'title'))
-      c.optional(row, 'sub', v => c.text(v, join(p, 'sub')))
+      c.label(row.title, join(p, 'title'))
+      c.optional(row, 'sub', v => c.label(v, join(p, 'sub')))
       c.optional(row, 'checked', v => c.boolean(v, join(p, 'checked')))
       c.optional(row, 'date', v => c.date(v, join(p, 'date')))
       c.optional(row, 'chip', chip => {
         const cp = join(p, 'chip')
         if (!c.object(chip, cp, ['text'], ['tone'])) return
-        c.text(chip.text, join(cp, 'text'), { max: 40 })
+        c.label(chip.text, join(cp, 'text'), { max: 40 })
         tone(c, chip, cp)
       })
     })
-  c.optional(data, 'empty', v => c.text(v, join(path, 'empty')))
+  c.optional(data, 'empty', v => c.label(v, join(path, 'empty')))
   c.optional(data, 'progress', progress => {
     const p = join(path, 'progress')
     if (!c.object(progress, p, ['done', 'total'], ['label'])) return
     const done = c.number(progress.done, join(p, 'done'), { min: 0 })
     const total = c.number(progress.total, join(p, 'total'), { min: 0 })
     if (done && total && progress.done > progress.total) c.fail(join(p, 'done'), 'must not be more than total')
-    c.optional(progress, 'label', v => c.text(v, join(p, 'label'), { max: 40 }))
+    c.optional(progress, 'label', v => c.label(v, join(p, 'label'), { max: 40 }))
   })
 }
 
@@ -298,7 +326,7 @@ function timelineData(c, data, path) {
       const p = join(join(path, 'points'), i)
       if (!c.object(point, p, ['date', 'label'], ['kind', 'tone'])) return
       c.date(point.date, join(p, 'date'))
-      c.text(point.label, join(p, 'label'))
+      c.label(point.label, join(p, 'label'))
       c.optional(point, 'kind', v => c.text(v, join(p, 'kind'), { max: 20 }))
       tone(c, point, p)
     })
@@ -311,7 +339,7 @@ function timelineData(c, data, path) {
       const fromValid = c.date(span.from, join(p, 'from'))
       const toValid = c.date(span.to, join(p, 'to'))
       if (fromValid && toValid && Date.parse(span.to) < Date.parse(span.from)) c.fail(join(p, 'to'), 'must not be before from')
-      c.text(span.label, join(p, 'label'))
+      c.label(span.label, join(p, 'label'))
       tone(c, span, p)
     })
   })
@@ -324,10 +352,10 @@ function statusData(c, data, path) {
     const p = join(join(path, 'rows'), i)
     if (!c.object(row, p, ['label', 'value', 'tone'], ['sub', 'spark', 'actions'])) return
     c.optional(row, 'actions', v => actions(c, v, join(p, 'actions')))
-    c.text(row.label, join(p, 'label'))
-    c.textOrNumber(row.value, join(p, 'value'))
+    c.label(row.label, join(p, 'label'))
+    c.labelOrNumber(row.value, join(p, 'value'))
     c.oneOf(row.tone, join(p, 'tone'), TONES)
-    c.optional(row, 'sub', v => c.text(v, join(p, 'sub')))
+    c.optional(row, 'sub', v => c.label(v, join(p, 'sub')))
     c.optional(row, 'spark', spark => {
       if (!c.array(spark, join(p, 'spark'), { min: 2, max: MAX_POINTS })) return
       spark.forEach((v, j) => c.number(v, join(join(p, 'spark'), j)))
@@ -354,7 +382,7 @@ export function checkCard(card) {
   const c = new Check()
   if (!c.object(card, '', ['type', 'title', 'updatedAt', 'data'], ['staleAfter', 'link', 'stat', 'actions'])) return c.problems
   if (!c.oneOf(card.type, 'type', CARD_TYPES)) return c.problems
-  c.text(card.title, 'title', { max: 120 })
+  c.label(card.title, 'title', { max: 120 })
   c.dateTime(card.updatedAt, 'updatedAt')
   c.optional(card, 'staleAfter', v => c.number(v, 'staleAfter', { min: 1 }))
   c.optional(card, 'link', v => isSafeLink(v) || c.fail('link', 'must be an http(s) URL or a path starting with /'))
@@ -380,8 +408,9 @@ export function findAction(card, actionId, row) {
 /** Problems with a board.json's parsed content. */
 export function checkBoard(board) {
   const c = new Check()
-  if (!c.object(board, '', ['title'], ['viewers', 'order', 'layout'])) return c.problems
-  c.text(board.title, 'title', { max: 80 })
+  if (!c.object(board, '', ['title'], ['viewers', 'order', 'layout', 'assistant'])) return c.problems
+  c.label(board.title, 'title', { max: 80 })
+  c.optional(board, 'assistant', v => c.text(v, 'assistant', { max: 40 }))
   c.optional(board, 'viewers', viewers => {
     if (c.array(viewers, 'viewers', { max: 100 })) viewers.forEach((v, i) => c.text(v, join('viewers', i), { max: 100 }))
   })

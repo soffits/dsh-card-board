@@ -1,17 +1,54 @@
 {
   "type": "donut",
-  "title": "Spending this month",
+  "title": {
+    "en": "Spending this month",
+    "zh": "本月支出"
+  },
   "updatedAt": "2026-03-02T06:00:00Z",
   "staleAfter": 86400,
   "data": {
     "segments": [
-      { "label": "Rent", "value": 950 },
-      { "label": "Groceries", "value": 310 },
-      { "label": "Transport", "value": 85 },
-      { "label": "Subscriptions", "value": 42 },
-      { "label": "Other", "value": 64, "tone": "muted" }
+      {
+        "label": {
+          "en": "Rent",
+          "zh": "房租"
+        },
+        "value": 950
+      },
+      {
+        "label": {
+          "en": "Groceries",
+          "zh": "买菜"
+        },
+        "value": 310
+      },
+      {
+        "label": {
+          "en": "Transport",
+          "zh": "交通"
+        },
+        "value": 85
+      },
+      {
+        "label": {
+          "en": "Subscriptions",
+          "zh": "订阅"
+        },
+        "value": 42
+      },
+      {
+        "label": {
+          "en": "Other",
+          "zh": "其他"
+        },
+        "value": 64,
+        "tone": "muted"
+      }
     ],
-    "centre": { "text": "1,451", "sub": "EUR" },
+    "centre": {
+      "text": "1,451",
+      "sub": "EUR"
+    },
     "unit": "EUR"
   }
 }

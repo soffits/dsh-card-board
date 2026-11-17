@@ -22,49 +22,85 @@ window.__ModuleLoader__.load({
     const STORE_KEY = 'dsh-card-board:board'
     const api = path => new URL(`api/card-board/${path}`, document.baseURI).href
 
-    const en = {
-      panel: 'Boards',
-      title: 'Boards',
-      updated: 'Updated {time}',
-      refreshFailed: 'Couldn’t refresh; trying again',
-      loading: 'Loading…',
-      emptyTitle: 'No boards yet.',
-      emptyHint: 'A board shows up here once a script writes its board.json into the data folder.',
-      noProvider: 'Boards need a sign-in plugin that says who is asking, and none is running.',
-      noCards: 'This board has no cards yet.',
-      cardError: 'This card can’t be shown',
-      boardProblems: 'board.json has problems:',
-      stale: 'stale · {age}',
-      open: 'Open',
-      listEmpty: 'Nothing here.',
-      minutes: '{n} min',
-      hours: '{n} h',
-      days: '{n} d',
-      'time.locale': 'en-US',
-    }
-    const zh = {
-      panel: '面板',
-      title: '面板',
-      updated: '{time} 更新',
-      refreshFailed: '刷新失败，稍后重试',
-      loading: '加载中…',
-      emptyTitle: '还没有面板。',
-      emptyHint: '脚本把 board.json 写进数据目录后，面板就会出现在这里。',
-      noProvider: '面板需要一个能确认访问者身份的登录插件，但现在没有运行。',
-      noCards: '这个面板还没有卡片。',
-      cardError: '这张卡片无法显示',
-      boardProblems: 'board.json 有问题：',
-      stale: '已过时 · {age}',
-      open: '打开',
-      listEmpty: '暂无',
-      minutes: '{n} 分钟',
-      hours: '{n} 小时',
-      days: '{n} 天',
-      'time.locale': 'zh-CN',
+    // ---- the page's own words -------------------------------------------------------
+    // One file per language in the package's locale folder (`ui` in locale/<tag>.json), served by the
+    // Host for the active language; the action buttons (client.actions.js) take theirs from the same
+    // files under `action.`. The code names no language. A test fails when a component renders a
+    // literal string instead of one of these.
+
+    const messageRequests = new Map()
+    /** The words for a DSH language id, fetched once per page load (a failed fetch is tried again next time). */
+    function fetchMessages(tag) {
+      if (!messageRequests.has(tag)) {
+        const request = fetch(api(`locale?tag=${encodeURIComponent(tag)}`), { credentials: 'same-origin' })
+          .then(response => (response.ok ? response.json() : Promise.reject(new Error(`HTTP ${response.status}`))))
+          .then(body => body.messages)
+        request.catch(() => messageRequests.delete(tag))
+        messageRequests.set(tag, request)
+      }
+      return messageRequests.get(tag)
     }
 
-    /** The client context, for the Web UI services the actions reach (set in apply). */
+    /** What a card writes for a person to read: a string, or a map of language id → string (`en` always there). */
+    function pickText(value, active) {
+      if (typeof value !== 'object' || value === null) return value
+      const byId = new Map(Object.entries(value).map(([id, text]) => [id.toLowerCase(), text]))
+      const tag = String(active ?? 'en').toLowerCase()
+      const primary = tag.split('-')[0]
+      return byId.get(tag) ?? byId.get(primary) ?? [...byId].find(([id]) => id.split('-')[0] === primary)?.[1] ?? byId.get('en') ?? [...byId.values()][0] ?? ''
+    }
+
+    /** A card copy whose texts are resolved: walks the whole tree, so every component sees plain strings. */
+    function pickCard(card, active) {
+      const walk = value => {
+        if (Array.isArray(value)) return value.map(walk)
+        if (typeof value !== 'object' || value === null) return value
+        const keys = Object.keys(value)
+        if (keys.length > 0 && 'en' in value && keys.every(key => /^[a-z]{2,3}(-[a-z0-9]{2,8})*$/.test(key)) && keys.every(key => typeof value[key] === 'string')) return pickText(value, active)
+        return Object.fromEntries(keys.map(key => [key, key === 'payload' ? value[key] : walk(value[key])]))
+      }
+      return walk(card)
+    }
+
+    const fill = (text, params) => String(text).replace(/\{(\w+)\}/g, (match, key) => (key in params ? String(params[key]) : match))
+
+    /** The language id as an Intl locale, when this browser knows it. */
+    function intlTag(active) {
+      try {
+        return Intl.DateTimeFormat.supportedLocalesOf(active).length > 0 ? active : 'en'
+      } catch {
+        return 'en'
+      }
+    }
+
+    const translator = messages => (key, params) => {
+      const text = messages[key] ?? key
+      return params ? fill(text, params) : text
+    }
+
+    /** The client context: the locale service and the Web UI services the actions reach (set in apply). */
     let clientCtx = null
+
+    /**
+     * DSH's active language, live (the same value `useLocale(s => s.active)` gives a TSX plugin), with the
+     * page's words for it. `ready` turns true when they have arrived; a switch keeps the old words until the new ones do.
+     */
+    function useActiveLocale() {
+      const subscribe = useCallback(listener => clientCtx.locale.subscribe(listener), [])
+      const active = React.useSyncExternalStore(subscribe, () => clientCtx.locale.getSnapshot().active)
+      const [loaded, setLoaded] = useState(null)
+      const [attempt, setAttempt] = useState(0)
+      useEffect(() => {
+        let live = true
+        let timer
+        fetchMessages(active).then(
+          messages => { if (live) setLoaded({ active, messages }) },
+          () => { if (live) timer = setTimeout(() => setAttempt(count => count + 1), 3000) })
+        return () => { live = false; clearTimeout(timer) }
+      }, [active, attempt])
+      return useMemo(() => ({ active: loaded?.active ?? active, ready: loaded !== null, intl: intlTag(loaded?.active ?? active), t: translator(loaded?.messages ?? {}) }), [loaded, active])
+    }
+
     /** The shared action buttons (client.actions.js), loaded with the page. */
     let actionsModule
     const loadActions = () => {
@@ -74,8 +110,6 @@ window.__ModuleLoader__.load({
       })
       return actionsModule
     }
-
-    const fill = (text, params) => String(text).replace(/\{(\w+)\}/g, (match, key) => (key in params ? String(params[key]) : match))
 
     // ---- numbers, dates, tones -------------------------------------------------
 
@@ -90,11 +124,10 @@ window.__ModuleLoader__.load({
       return new Intl.NumberFormat(locale, { maximumFractionDigits: max }).format(value)
     }
 
-    /** Short axis numbers: 18,240 → 18.2k. */
+    /** Short axis numbers in the language's own way: 18,240 → 18.2K, 1.8万. */
     function formatAxis(value, locale) {
       const abs = Math.abs(value)
-      if (abs >= 1e6) return `${formatNumber(value / 1e6, locale, 1)}M`
-      if (abs >= 1e4) return `${formatNumber(value / 1e3, locale, abs >= 1e5 ? 0 : 1)}k`
+      if (abs >= 1e4) return new Intl.NumberFormat(locale, { notation: 'compact', maximumFractionDigits: abs >= 1e5 ? 0 : 1 }).format(value)
       return formatNumber(value, locale, abs >= 100 ? 0 : 1)
     }
 
@@ -109,27 +142,36 @@ window.__ModuleLoader__.load({
 
     function formatDay(time, locale, spanDays) {
       const date = new Date(time)
-      if (spanDays > 120) return date.toLocaleDateString(locale, { month: 'short' })
-      return date.toLocaleDateString(locale, { month: 'numeric', day: 'numeric' })
+      if (spanDays > 120) return new Intl.DateTimeFormat(locale, { month: 'short' }).format(date)
+      return new Intl.DateTimeFormat(locale, { month: 'numeric', day: 'numeric' }).format(date)
     }
 
-    function formatAge(seconds, t) {
-      if (seconds < 3600) return fill(t('minutes'), { n: Math.max(1, Math.round(seconds / 60)) })
-      if (seconds < 86400 * 2) return fill(t('hours'), { n: Math.round(seconds / 3600) })
-      return fill(t('days'), { n: Math.round(seconds / 86400) })
+    /** How long ago, in the language's own units: 3 min, 5 h, 2 d. */
+    function formatAge(seconds, locale) {
+      const [unit, amount] = seconds < 3600 ? ['minute', Math.max(1, Math.round(seconds / 60))] : seconds < 86400 * 2 ? ['hour', Math.round(seconds / 3600)] : ['day', Math.round(seconds / 86400)]
+      return new Intl.NumberFormat(locale, { style: 'unit', unit, unitDisplay: 'short' }).format(amount)
     }
 
     function formatUpdated(time, locale) {
       const date = new Date(time)
       const today = new Date()
       const sameDay = date.toDateString() === today.toDateString()
-      return sameDay
-        ? date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' })
-        : date.toLocaleString(locale, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+      return new Intl.DateTimeFormat(locale, sameDay ? { hour: '2-digit', minute: '2-digit' } : { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(date)
     }
 
-    /** About this many pixels per character of 11px label text. */
-    const textWidth = text => String(text).length * 6.4
+    /** About this many pixels for 11px label text: CJK characters are about twice as wide. */
+    const textWidth = text => [...String(text)].reduce((sum, char) => sum + (char.charCodeAt(0) > 0x2e7f ? 11.5 : 6.4), 0)
+
+    /** `text` cut with an ellipsis to fit about `px` pixels of label text. */
+    function fit(text, px) {
+      if (textWidth(text) <= px) return String(text)
+      let out = ''
+      for (const char of String(text)) {
+        if (textWidth(`${out}${char}…`) > px) break
+        out += char
+      }
+      return `${out}…`
+    }
 
     /** Round tick values covering [min, max], about `count` of them. */
     function niceTicks(min, max, count) {
@@ -149,45 +191,54 @@ window.__ModuleLoader__.load({
       return Array.from({ length: count }, (_, i) => Math.round(i * step))
     }
 
+    /** A callback ref and the width of the element it is on, kept up to date as the element resizes (or appears later). */
     function useWidth() {
-      const ref = useRef(null)
+      const [element, setElement] = useState(null)
       const [width, setWidth] = useState(0)
       useLayoutEffect(() => {
-        const element = ref.current
         if (!element) return undefined
-        setWidth(Math.floor(element.clientWidth))
         const observer = new ResizeObserver(([entry]) => setWidth(Math.floor(entry.contentRect.width)))
         observer.observe(element)
         return () => observer.disconnect()
-      }, [])
-      return [ref, width]
+      }, [element])
+      return [setElement, width]
     }
 
     // ---- pieces shared by cards ------------------------------------------------
 
+    /** Text that shortens to fit; hover shows all of it, and a tap opens it up (or closes it again). */
+    function Trunc({ text, as = 'div', className = '', lines = 1 }) {
+      const [open, setOpen] = useState(false)
+      return h(as, {
+        className: `cb-trunc${lines > 1 ? ' cb-trunc2' : ''}${open ? ' cb-truncOpen' : ''} ${className}`.trim(),
+        title: text,
+        onClick: () => setOpen(value => !value),
+      }, text)
+    }
+
     function Chip({ text, tone }) {
-      return h('span', { className: 'cb-chip', 'data-tone': tone ?? 'muted' }, text)
+      return h('span', { className: 'cb-chip', 'data-tone': tone ?? 'muted', title: text }, text)
     }
 
     function Legend({ items, locale }) {
       return h('ul', { className: 'cb-legend' }, items.map((item, i) =>
         h('li', { key: i },
           h('i', { style: { background: item.color } }),
-          h('span', null, item.label),
+          h(Trunc, { as: 'span', text: item.label }),
           item.value !== undefined && h('b', null, formatNumber(item.value, locale)))))
     }
 
     function StatBlock({ data, locale, compact }) {
       return h('div', { className: `cb-stats${compact ? ' cb-statsCompact' : ''}` }, data.items.map((item, i) =>
         h('div', { key: i, className: 'cb-stat' },
-          !compact && h('div', { className: 'cb-statLabel' }, item.label),
+          !compact && h(Trunc, { className: 'cb-statLabel', text: item.label }),
           h('div', { className: 'cb-statValue', style: item.tone ? { color: toneColor(item.tone) } : undefined },
             h('span', null, formatNumber(item.value, locale)),
             item.unit && h('small', null, item.unit),
             item.delta && h('em', { className: 'cb-delta', style: { color: toneColor(item.delta.tone ?? 'muted') } },
               `${item.delta.value > 0 ? '▲' : item.delta.value < 0 ? '▼' : '•'} ${formatNumber(Math.abs(item.delta.value), locale)}${item.delta.unit ? ` ${item.delta.unit}` : ''}`)),
           (compact ? [item.label, item.sub].filter(Boolean).join(' · ') : item.sub) &&
-            h('div', { className: 'cb-statSub' }, compact ? [item.label, item.sub].filter(Boolean).join(' · ') : item.sub))))
+            h(Trunc, { className: 'cb-statSub', lines: 2, text: compact ? [item.label, item.sub].filter(Boolean).join(' · ') : item.sub }))))
     }
 
     // ---- line ----------------------------------------------------------------
@@ -227,14 +278,30 @@ window.__ModuleLoader__.load({
       const xLabel = x => (model.timeAxis ? formatDay(toTime(x), locale, spanDays) : typeof x === 'number' ? formatNumber(x, locale) : String(x))
 
       const longest = data.series.reduce((best, s) => (s.points.length > best.points.length ? s : best), data.series[0])
-      const labelCount = Math.max(2, Math.floor(plotW / 44))
+      const labelWidth = Math.max(36, ...longest.points.slice(0, 40).map(p => textWidth(xLabel(p.x)) + 12))
+      const labelCount = Math.max(2, Math.floor(plotW / labelWidth))
       // Evenly spaced labels, minus any that would print the same text or sit on top of the one before.
       const xTicks = []
       for (const x of spread(longest.points.length, labelCount).map(i => longest.points[i].x)) {
         const last = xTicks[xTicks.length - 1]
-        if (last !== undefined && (xLabel(last) === xLabel(x) || sx(x) - sx(last) < 36)) continue
+        if (last !== undefined && (xLabel(last) === xLabel(x) || sx(x) - sx(last) < labelWidth)) continue
         xTicks.push(x)
       }
+
+      // Marker labels sit just above the x axis, right of their line (left of it near the right edge), in up to two rows;
+      // one that finds no free spot shows only its line, and its text on hover.
+      const labelRows = [[], []]
+      const markerLabels = [...(data.markers ?? [])].sort((a, b) => model.xValue(a.x) - model.xValue(b.x)).map(marker => {
+        const x = sx(marker.x)
+        const room = left + plotW - x - 6
+        const flip = room < Math.min(textWidth(marker.label), 90) && x - left > room
+        const space = Math.max(20, Math.min(120, flip ? x - left - 6 : room))
+        const width = Math.min(textWidth(marker.label), space)
+        const span = flip ? [x - 4 - width, x - 4] : [x + 4, x + 4 + width]
+        const row = labelRows.findIndex(taken => taken.every(([from, to]) => span[0] > to + 4 || span[1] < from - 4))
+        if (row >= 0) labelRows[row].push(span)
+        return { marker, x, flip, space, label: row >= 0 ? row : null }
+      })
 
       const path = points => {
         let d = ''
@@ -256,16 +323,17 @@ window.__ModuleLoader__.load({
           h('line', { x1: left, x2: left + plotW, y1: sy(v), y2: sy(v), className: 'cb-rule' }),
           h('text', { x: left - 8, y: sy(v), className: 'cb-axis', textAnchor: 'end', dominantBaseline: 'middle' }, formatAxis(v, locale)))),
         xTicks.map((x, i) => h('text', { key: i, x: sx(x), y: height - 4, className: 'cb-axis', textAnchor: i === 0 && xTicks.length > 1 ? 'start' : i === xTicks.length - 1 && xTicks.length > 1 ? 'end' : 'middle' }, xLabel(x))),
-        (data.markers ?? []).map((m, i) => h('g', { key: `m${i}` },
-          h('line', { x1: sx(m.x), x2: sx(m.x), y1: top, y2: top + plotH, className: 'cb-marker' }),
-          h('text', { x: sx(m.x) + 4, y: top + 8, className: 'cb-markerLabel' }, m.label))),
+        markerLabels.map(({ marker, x, label, flip, space }, i) => h('g', { key: `m${i}` },
+          h('line', { x1: x, x2: x, y1: top, y2: top + plotH, className: 'cb-marker' }),
+          h('title', null, marker.label),
+          label !== null && h('text', { x: flip ? x - 4 : x + 4, y: top + plotH - 5 - label * 13, className: 'cb-markerLabel', textAnchor: flip ? 'end' : 'start' }, fit(marker.label, space)))),
         data.goal && (data.goal.points
           ? h('path', { d: path(data.goal.points), className: 'cb-goal' })
           : h('line', { x1: left, x2: left + plotW, y1: sy(data.goal.y), y2: sy(data.goal.y), className: 'cb-goal' })),
         data.goal?.label && (() => {
           const end = data.goal.points ? data.goal.points[data.goal.points.length - 1] : { x: null, y: data.goal.y }
           const x = end.x === null ? left + plotW : sx(end.x)
-          return h('text', { x: Math.min(x, left + plotW), y: sy(end.y) - 5, className: 'cb-goalLabel', textAnchor: 'end' }, data.goal.label)
+          return h('text', { x: Math.min(x, left + plotW), y: sy(end.y) - 5, className: 'cb-goalLabel', textAnchor: 'end' }, h('title', null, data.goal.label), fit(data.goal.label, plotW))
         })(),
         data.series.map((s, i) => {
           const color = toneColor(s.tone, i)
@@ -314,7 +382,7 @@ window.__ModuleLoader__.load({
         h('div', { ref, className: 'cb-chart', style: { height } }, width > 0 && h('svg', { width, height, role: 'img' },
           h('line', { x1: 0, x2: width, y1: top + plotH + 0.5, y2: top + plotH + 0.5, className: 'cb-rule' }),
           data.goal && h('line', { x1: 0, x2: width, y1: sy(data.goal.y), y2: sy(data.goal.y), className: 'cb-goal' }),
-          data.goal?.label && h('text', { x: width, y: sy(data.goal.y) - 4, className: 'cb-goalLabel', textAnchor: 'end' }, data.goal.label),
+          data.goal?.label && h('text', { x: width, y: sy(data.goal.y) - 4, className: 'cb-goalLabel', textAnchor: 'end' }, h('title', null, data.goal.label), fit(data.goal.label, width)),
           data.bars.map((bar, i) => {
             const cx = slot * i + slot / 2
             const tip = multi
@@ -341,7 +409,7 @@ window.__ModuleLoader__.load({
                 rx: Math.min(4, p.w / 3), fill: p.color, fillOpacity: multi ? 0.85 : 0.55,
               })),
               showValues && h('text', { x: cx, y: sy(peaks[i]) - 4, className: 'cb-barValue', textAnchor: 'middle' }, formatNumber(multi && !stacked ? peaks[i] : totals[i], locale, 1)),
-              i % labelEvery === 0 && h('text', { x: cx, y: height - 4, className: 'cb-axis', textAnchor: 'middle' }, label(bar.x)))
+              i % labelEvery === 0 && h('text', { x: Math.min(Math.max(cx, textWidth(label(bar.x)) / 2), width - textWidth(label(bar.x)) / 2), y: height - 4, className: 'cb-axis', textAnchor: 'middle' }, label(bar.x)))
           }))),
         multi && h(Legend, { items: keys.map((key, k) => ({ label: key, color: toneColor(undefined, k) })), locale }))
     }
@@ -383,7 +451,7 @@ window.__ModuleLoader__.load({
             data.centre.sub && h('span', null, data.centre.sub))),
         h('table', { className: 'cb-donutTable' }, h('tbody', null, segments.map((s, i) => h('tr', { key: i },
           h('td', null, h('i', { style: { background: s.color } })),
-          h('td', { className: 'cb-donutLabel' }, s.label),
+          h('td', { className: 'cb-donutLabel' }, h(Trunc, { text: s.label })),
           h('td', { className: 'cb-num' }, formatNumber(s.value, locale)),
           h('td', { className: 'cb-num cb-dim' }, total > 0 ? `${Math.round((s.value / total) * 100)}%` : '–'))))))
     }
@@ -418,13 +486,13 @@ window.__ModuleLoader__.load({
         ? h('p', { className: 'cb-muted' }, data.empty ?? t('listEmpty'))
         : h('ul', { className: 'cb-list' }, data.rows.map((row, i) =>
           h('li', { key: i, className: row.checked ? 'cb-done' : undefined },
-            checkable && h('span', { className: 'cb-checkBox', role: 'img', 'aria-label': row.checked ? '✓' : '○' }, h(CheckGlyph, { checked: row.checked === true })),
+            checkable && h('span', { className: 'cb-checkBox', role: 'img', 'aria-label': t(row.checked ? 'checked' : 'unchecked') }, h(CheckGlyph, { checked: row.checked === true })),
             h('div', { className: 'cb-listText' },
-              h('div', { className: 'cb-listTitle' }, row.title),
-              row.sub && h('div', { className: 'cb-listSub' }, row.sub)),
+              h(Trunc, { className: 'cb-listTitle', lines: 2, text: row.title }),
+              row.sub && h(Trunc, { className: 'cb-listSub', lines: 2, text: row.sub })),
             row.date && h('span', { className: 'cb-listDate' }, formatDay(toTime(row.date), locale, 0)),
             row.chip && h(Chip, row.chip),
-            rowActions && row.actions && rowActions(i, row.actions, listRowLine(row)))))
+            row.actions && rowActions && h('span', { className: 'cb-rowActions' }, rowActions(i, row.actions, listRowLine(row))))))
       if (!data.progress) return rows
       // Beside the rows when there is room for both, else a small ring with its count above them.
       const wide = width >= 460
@@ -488,7 +556,7 @@ window.__ModuleLoader__.load({
         now >= from && now <= to && h('line', { x1: sx(now), x2: sx(now), y1: tickH - 2, y2: height, className: 'cb-today' }),
         placed.map((p, i) => {
           const color = toneColor(p.tone ?? KIND_TONE[p.kind] ?? 'accent')
-          const text = p.label.length > 16 ? `${p.label.slice(0, 15)}…` : p.label
+          const text = fit(p.label, 90)
           return h('g', { key: i },
             h('title', null, `${formatDay(p.time, locale, 0)} · ${p.label}`),
             p.kind === 'travel' ? h(PlaneGlyph, { x: p.x, y: pointY, color }) : h('circle', { cx: p.x, cy: pointY, r: 5, fill: color }),
@@ -499,11 +567,11 @@ window.__ModuleLoader__.load({
           const x = sx(s.a)
           const w = Math.max(6, sx(s.b) - x)
           const y = spansTop + i * 36
+          const full = `${s.label} · ${formatDay(toTime(s.from), locale, 0)} – ${formatDay(toTime(s.to), locale, 0)}`
           return h('g', { key: `s${i}` },
-            h('title', null, `${s.label}: ${s.from} – ${s.to}`),
+            h('title', null, full),
             h('rect', { x, y, width: w, height: 12, rx: 6, fill: toneColor(s.tone ?? 'accent'), fillOpacity: 0.22 }),
-            h('text', { x: Math.min(Math.max(x + w / 2, pad + 30), width - pad - 30), y: y + 26, className: 'cb-spanLabel', textAnchor: 'middle' },
-              `${s.label} · ${formatDay(toTime(s.from), locale, 0)} – ${formatDay(toTime(s.to), locale, 0)}`))
+            h('text', { x: Math.min(Math.max(x + w / 2, pad + Math.min(plotW, textWidth(full) * 0.55) / 2), width - pad - Math.min(plotW, textWidth(full) * 0.55) / 2), y: y + 26, className: 'cb-spanLabel', textAnchor: 'middle' }, fit(full, plotW)))
         })))
     }
 
@@ -525,11 +593,11 @@ window.__ModuleLoader__.load({
       return h('ul', { className: `cb-status${sparks ? ' cb-statusSparks' : ''}${hasActions ? ' cb-statusActions' : ''}` }, data.rows.map((row, i) =>
         h('li', { key: i },
           h('i', { className: 'cb-dot', style: { background: toneColor(row.tone) } }),
-          h('span', { className: 'cb-statusLabel' }, row.label),
+          h(Trunc, { as: 'span', className: 'cb-statusLabel', text: row.label }),
           h('span', { className: 'cb-statusValue' },
-            h('span', { style: row.tone === 'bad' || row.tone === 'warn' ? { color: toneColor(row.tone) } : undefined }, formatNumber(row.value, locale)),
-            row.sub && h('small', null, row.sub)),
-          sparks && (row.spark ? h(Spark, { values: row.spark, color: toneColor(row.tone === 'ok' ? 'accent' : row.tone) }) : h('span', null)),
+            h('span', { className: 'cb-statusNum', style: row.tone === 'bad' || row.tone === 'warn' ? { color: toneColor(row.tone) } : undefined }, formatNumber(row.value, locale)),
+            row.sub && h(Trunc, { as: 'small', className: 'cb-statusSub', lines: 2, text: row.sub })),
+          sparks && (row.spark ? h(Spark, { values: row.spark, color: toneColor(row.tone === 'ok' ? 'accent' : row.tone) }) : h('span', { className: 'cb-spark' })),
           hasActions && h('span', { className: 'cb-rowActions' }, rowActions && row.actions ? rowActions(i, row.actions, statusRowLine(row, locale)) : null))))
     }
 
@@ -553,7 +621,7 @@ window.__ModuleLoader__.load({
     }
 
     /** A few plain lines saying what a card shows, for the agent. */
-    function summaryLines(card, locale) {
+    function summaryLines(card, locale, t) {
       const data = card.data
       const lines = card.stat ? statLines(card.stat, locale) : []
       switch (card.type) {
@@ -561,9 +629,9 @@ window.__ModuleLoader__.load({
         case 'line':
           for (const series of data.series) {
             const last = [...series.points].reverse().find(p => typeof p.y === 'number')
-            if (last) lines.push(`${series.name || 'latest'}: ${withUnit(last.y, data.unit, locale)} at ${last.x} (${series.points.length} points from ${series.points[0].x})`)
+            if (last) lines.push(t('summary.latest', { name: series.name || t('summary.latestName'), value: withUnit(last.y, data.unit, locale), x: last.x, n: series.points.length, from: series.points[0].x }))
           }
-          if (data.goal?.y !== undefined) lines.push(`goal: ${withUnit(data.goal.y, data.unit, locale)}`)
+          if (data.goal?.y !== undefined) lines.push(t('summary.goal', { value: withUnit(data.goal.y, data.unit, locale) }))
           return lines
         case 'bar':
           return lines.concat(data.bars.slice(-10).map(bar => `${bar.x}: ${bar.values ? Object.entries(bar.values).map(([k, v]) => `${k} ${formatNumber(v, locale)}`).join(', ') : withUnit(bar.value, data.unit, locale)}`))
@@ -572,7 +640,7 @@ window.__ModuleLoader__.load({
           return lines.concat(data.segments.map(s => `${s.label}: ${withUnit(s.value, data.unit, locale)}${total > 0 ? ` (${Math.round((s.value / total) * 100)}%)` : ''}`))
         }
         case 'list':
-          return lines.concat(data.progress ? [`progress: ${data.progress.done}/${data.progress.total}`] : [], data.rows.slice(0, 15).map(listRowLine))
+          return lines.concat(data.progress ? [t('summary.progress', data.progress)] : [], data.rows.slice(0, 15).map(listRowLine))
         case 'timeline':
           return lines.concat((data.points ?? []).map(p => `${p.date}: ${p.label}`), (data.spans ?? []).map(s => `${s.from} – ${s.to}: ${s.label}`))
         case 'status':
@@ -591,9 +659,11 @@ window.__ModuleLoader__.load({
     // ---- card frame ----------------------------------------------------------
 
     const CHART_HEIGHT = { 1: 150, 2: 360, 3: 560 }
+    /** One column (a phone): taller cards would only scroll further, so charts stay moderate. */
+    const CHART_HEIGHT_NARROW = { 1: 150, 2: 220, 3: 260 }
 
-    function CardBody({ card, size, locale, t, rowActions }) {
-      const height = CHART_HEIGHT[size.h] - (card.stat ? 40 : 0)
+    function CardBody({ card, size, narrow, locale, t, rowActions }) {
+      const height = (narrow ? CHART_HEIGHT_NARROW : CHART_HEIGHT)[size.h] - (card.stat ? 40 : 0)
       const data = card.data
       switch (card.type) {
         case 'stat': return h(StatBlock, { data, locale })
@@ -612,16 +682,16 @@ window.__ModuleLoader__.load({
         h('path', { d: 'M6 3.5H3.5v9h9V10M9 3h4v4M13 3 7.5 8.5' }))
     }
 
-    function Card({ entry, boardId, columns, now, locale, t, actions }) {
+    function Card({ entry, boardId, assistant, columns, now, active, locale, t, actions }) {
       const size = { w: Math.min(entry.w ?? 1, columns), h: entry.h ?? 1 }
-      const style = { gridColumn: `span ${size.w}`, gridRow: size.h > 1 ? `span ${size.h}` : undefined }
+      const style = { gridColumn: `span ${size.w}`, gridRow: size.h > 1 && columns > 1 ? `span ${size.h}` : undefined }
       if (!entry.card) {
         return h('section', { className: 'cb-card cb-cardError', style },
-          h('header', { className: 'cb-cardHead' }, h('h3', null, entry.id)),
+          h('header', { className: 'cb-cardHead' }, h('h3', { title: entry.id }, entry.id)),
           h('p', { className: 'cb-errorText' }, t('cardError')),
           h('ul', { className: 'cb-problems' }, (entry.problems ?? []).map((p, i) => h('li', { key: i }, p))))
       }
-      const card = entry.card
+      const card = pickCard(entry.card, active)
       const updated = Date.parse(card.updatedAt)
       const age = Math.max(0, (now - updated) / 1000)
       const stale = typeof card.staleAfter === 'number' && age > card.staleAfter
@@ -632,14 +702,16 @@ window.__ModuleLoader__.load({
         text: actions.chatText({
           prompt: action.payload?.prompt ?? '',
           title: card.title,
-          lines: row === undefined ? summaryLines(card, locale) : [rowLine],
+          lines: row === undefined ? summaryLines(card, locale, t) : [rowLine],
           context: action.payload?.context ?? context(row),
         }),
         session: action.payload?.session,
       })
-      const defaultChat = { kind: 'chat', id: '_chat', label: t('chatAbout') }
+      // A chat button without its own label says "Ask <assistant>" when the board names one.
+      const named = list => (assistant ? list?.map(action => (action.kind === 'chat' && action.label === undefined ? { ...action, label: t('action.chatNamed', { name: assistant }) } : action)) : list)
+      const defaultChat = { kind: 'chat', id: '_chat', label: assistant ? t('action.chatNamed', { name: assistant }) : t('action.chatAbout') }
       const rowActions = actions && ((row, list, line) => h(actions.ActionBar, {
-        actions: list,
+        actions: named(list),
         states: statesOf(entry.presses, row),
         compact: true,
         chat: action => chat(action, row, line),
@@ -647,14 +719,14 @@ window.__ModuleLoader__.load({
       }))
       return h('section', { className: `cb-card${stale ? ' cb-cardStale' : ''}`, style, 'data-type': card.type },
         h('header', { className: 'cb-cardHead' },
-          h('h3', null, card.title),
-          stale && h('span', { className: 'cb-staleChip', title: new Date(updated).toLocaleString(locale) }, fill(t('stale'), { age: formatAge(age, t) })),
+          h(Trunc, { as: 'h3', text: card.title }),
+          stale && h('span', { className: 'cb-staleChip', title: new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(updated) }, t('stale', { age: formatAge(age, locale) })),
           card.link && h('a', { className: 'cb-cardLink', href: card.link, title: t('open'), 'aria-label': t('open'), ...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {}) }, h(LinkIcon)),
           actions && h('span', { className: 'cb-cardChat' }, h(actions.ActionButton, { action: defaultChat, compact: true, chat: action => chat(action) }))),
         card.stat && h(StatBlock, { data: card.stat, locale, compact: true }),
-        h('div', { className: 'cb-cardBody' }, h(CardBody, { card, size, locale, t, rowActions })),
+        h('div', { className: 'cb-cardBody' }, h(CardBody, { card, size, narrow: columns === 1, locale, t, rowActions })),
         actions && card.actions && h('footer', { className: 'cb-cardActions' }, h(actions.ActionBar, {
-          actions: card.actions,
+          actions: named(card.actions),
           states: statesOf(entry.presses, undefined),
           chat: action => chat(action),
           onPress: (action, extra) => actions.press(action, extra, { card: entry.id }),
@@ -663,26 +735,32 @@ window.__ModuleLoader__.load({
 
     // ---- page ----------------------------------------------------------------
 
+    /** A failed request: its status says what went wrong; the server's own words stay out of the page. */
+    function requestError(status, body) {
+      const error = new Error(body?.error ?? `HTTP ${status}`)
+      error.status = status
+      return error
+    }
+
     async function getJson(path, etag) {
       const response = await fetch(api(path), { cache: 'no-store', credentials: 'same-origin', headers: etag ? { 'if-none-match': etag } : {} })
       if (response.status === 304) return { notModified: true }
       let body = null
       try { body = await response.json() } catch { /* not JSON */ }
-      if (!response.ok) {
-        const error = new Error(body?.error ?? `HTTP ${response.status}`)
-        error.status = response.status
-        throw error
-      }
+      if (!response.ok) throw requestError(response.status, body)
       return { body, etag: response.headers.get('etag') }
     }
 
+    const ERROR_KEYS = { 403: 'error.forbidden', 404: 'error.notFound', 409: 'error.gone', 503: 'error.noProvider' }
+    const errorText = (error, t) => (error.status === undefined ? error.message : t(ERROR_KEYS[error.status] ?? 'error.http', { status: error.status }))
+
     function useColumns() {
       const [ref, width] = useWidth()
-      return [ref, width >= 980 ? 3 : width >= 620 ? 2 : 1]
+      return [ref, width >= 1400 ? 4 : width >= 980 ? 3 : width >= 620 ? 2 : 1]
     }
 
-    function BoardsPage({ translate: t }) {
-      const locale = t('time.locale')
+    function BoardsPage() {
+      const { active, intl: locale, ready, t } = useActiveLocale()
       const [boards, setBoards] = useState(null)
       const [listError, setListError] = useState(null)
       const [selected, setSelected] = useState(() => { try { return localStorage.getItem(STORE_KEY) } catch { return null } })
@@ -695,6 +773,9 @@ window.__ModuleLoader__.load({
       const [gridRef, columns] = useColumns()
       const [actions, setActions] = useState(null)
       const currentRef = useRef(null)
+      // The buttons ask for words at render time, so a language switch reaches them without rebuilding them.
+      const translateRef = useRef(t)
+      translateRef.current = t
 
       const loadList = useCallback(async () => {
         try {
@@ -703,9 +784,9 @@ window.__ModuleLoader__.load({
           setPollSeconds(body.pollSeconds ?? 30)
           setListError(null)
         } catch (error) {
-          setListError(error.status === 503 ? t('noProvider') : error.message)
+          setListError(error)
         }
-      }, [t])
+      }, [])
 
       const current = boards?.some(b => b.id === selected) ? selected : boards?.[0]?.id ?? null
 
@@ -719,7 +800,7 @@ window.__ModuleLoader__.load({
           etag.current = result.etag
           setBoard(result.body)
         } catch (error) {
-          if (error.status === 403 || error.status === 404) { setBoard(null); setBoardError(error.message); loadList(); return }
+          if (error.status === 403 || error.status === 404) { setBoard(null); setBoardError(error); loadList(); return }
           setRefreshFailed(true)
         }
       }, [loadList])
@@ -739,15 +820,15 @@ window.__ModuleLoader__.load({
               body: JSON.stringify({ board: currentRef.current, ...target, id: action.id, ...extra }),
             })
             const body = await response.json().catch(() => null)
-            if (!response.ok) throw new Error(body?.error ?? `HTTP ${response.status}`)
+            if (!response.ok) throw new Error(errorText(requestError(response.status, body), translateRef.current))
             loadBoard(currentRef.current, false)
             return body
           }
-          const ui = createActions({ React, ctx: clientCtx, locale })
+          const ui = createActions({ React, ctx: clientCtx, t: (key, params) => translateRef.current(`action.${key}`, params) })
           setActions({ ...ui, press })
         }, error => console.warn('card-board: action buttons not loaded:', error))
         return () => { live = false }
-      }, [loadBoard, locale])
+      }, [loadBoard])
 
       useEffect(() => {
         currentRef.current = current
@@ -778,27 +859,30 @@ window.__ModuleLoader__.load({
         return Number.isFinite(time) && time > max ? time : max
       }, 0)
 
+      const titleOf = entry => pickText(entry.title, active)
       const tabs = boards && boards.length > 1 && h('div', { className: 'cb-tabs', role: 'tablist' }, boards.map(b =>
-        h('button', { key: b.id, type: 'button', role: 'tab', 'aria-selected': b.id === current, className: 'cb-tab', onClick: () => choose(b.id) }, b.title)))
+        h('button', { key: b.id, type: 'button', role: 'tab', 'aria-selected': b.id === current, className: 'cb-tab', title: titleOf(b), onClick: () => choose(b.id) }, h('span', null, titleOf(b)))))
+
+      if (!ready) return h('div', { className: 'cb-page' })
 
       let content
-      if (listError) content = h('p', { className: 'cb-notice' }, listError)
+      if (listError) content = h('p', { className: 'cb-notice' }, errorText(listError, t))
       else if (boards === null) content = h('p', { className: 'cb-muted' }, t('loading'))
       else if (boards.length === 0) content = h('div', { className: 'cb-empty' }, h('p', { className: 'cb-emptyTitle' }, t('emptyTitle')), h('p', { className: 'cb-muted' }, t('emptyHint')))
-      else if (boardError) content = h('p', { className: 'cb-notice' }, boardError)
+      else if (boardError) content = h('p', { className: 'cb-notice' }, errorText(boardError, t))
       else if (!board) content = h('p', { className: 'cb-muted' }, t('loading'))
       else content = h(React.Fragment, null,
         board.problems?.length > 0 && h('div', { className: 'cb-notice' }, t('boardProblems'), h('ul', { className: 'cb-problems' }, board.problems.map((p, i) => h('li', { key: i }, p)))),
         board.cards.length === 0 && h('p', { className: 'cb-muted' }, t('noCards')),
         h('div', { className: 'cb-grid', style: { gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` } },
-          board.cards.map(entry => h(Card, { key: entry.id, entry, boardId: board.id, columns, now, locale, t, actions }))))
+          board.cards.map(entry => h(Card, { key: entry.id, entry, boardId: board.id, assistant: board.assistant, columns, now, active, locale, t, actions }))))
 
       return h('div', { className: 'cb-page' },
         h('div', { className: 'cb-content', ref: gridRef },
           h('div', { className: 'cb-heading' },
-            h('h1', null, boards?.length === 1 ? boards[0].title : t('title')),
+            h('h1', null, boards?.length === 1 ? titleOf(boards[0]) : t('title')),
             h('p', { className: 'cb-sub' },
-              newest > 0 ? fill(t('updated'), { time: formatUpdated(newest, locale) }) : ' ',
+              newest > 0 ? t('updated', { time: formatUpdated(newest, locale) }) : ' ',
               refreshFailed && h('span', { className: 'cb-warnText' }, ` · ${t('refreshFailed')}`))),
           tabs,
           content))
@@ -814,30 +898,35 @@ window.__ModuleLoader__.load({
     }
 
     const CSS = `
-.cb-page{--cb-ok:var(--dsw-alias-state-success-primary,#22a06b);--cb-warn:var(--dsw-alias-state-warn-primary,#f5a524);--cb-bad:var(--dsw-alias-state-error-primary,#e5484d);--cb-muted:var(--dsw-alias-state-idle-primary,#b8bec9);--cb-accent:var(--dsw-alias-state-business-primary,#3b82f6);--cb-violet:var(--dsw-alias-state-done-primary,#8b5cf6);--cb-card:var(--dsw-alias-bg-base,#fff);--cb-track:var(--dsw-alias-border-l2,#0000001a);width:100%;height:100%;min-height:0;overflow:auto;color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-base);font-size:14px;line-height:1.5;scrollbar-gutter:stable}
-.cb-content{max-width:1240px;margin:0 auto;padding:0 clamp(16px,3.2vw,40px) 48px}
+.cb-page{overflow-x:hidden;--cb-ok:var(--dsw-alias-state-success-primary,#22a06b);--cb-warn:var(--dsw-alias-state-warn-primary,#f5a524);--cb-bad:var(--dsw-alias-state-error-primary,#e5484d);--cb-muted:var(--dsw-alias-state-idle-primary,#b8bec9);--cb-accent:var(--dsw-alias-state-business-primary,#3b82f6);--cb-violet:var(--dsw-alias-state-done-primary,#8b5cf6);--cb-card:var(--dsw-alias-bg-base,#fff);--cb-track:var(--dsw-alias-border-l2,#0000001a);width:100%;height:100%;min-height:0;overflow:auto;color:var(--dsw-alias-label-primary);background:var(--dsw-alias-bg-base);font-size:14px;line-height:1.5;scrollbar-gutter:stable}
+.cb-content{box-sizing:border-box;max-width:1680px;margin:0 auto;padding:0 clamp(16px,3.2vw,40px) 48px}
 .cb-heading{padding-top:28px;margin-bottom:14px}
 [data-platform=darwin] .cb-heading{padding-top:calc(28px + var(--dsh-frame-top-clearance,0px))}
 .cb-heading h1{margin:0;font-size:22px;font-weight:600;line-height:30px}
 .cb-sub{margin:2px 0 0;color:var(--dsw-alias-label-tertiary);font-size:13px;line-height:20px}
 .cb-warnText{color:var(--cb-warn)}
-.cb-tabs{display:flex;gap:4px;margin:0 0 18px;border-bottom:.5px solid var(--dsw-alias-border-l2);overflow-x:auto;scrollbar-width:none}
-.cb-tab{position:relative;flex:none;padding:8px 12px 10px;border:0;background:none;color:var(--dsw-alias-label-tertiary);font:inherit;font-size:14px;cursor:pointer;border-radius:8px 8px 0 0}
+.cb-tabs{display:flex;flex-wrap:wrap;gap:0 4px;margin:0 0 18px;border-bottom:.5px solid var(--dsw-alias-border-l2)}
+.cb-tab{position:relative;flex:0 1 auto;min-width:40px;justify-content:center;display:inline-flex;align-items:center;min-width:0;max-width:100%;min-height:40px;padding:8px 12px 10px;border:0;background:none;color:var(--dsw-alias-label-tertiary);font:inherit;font-size:14px;cursor:pointer;border-radius:8px 8px 0 0}
+.cb-tab span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:min(60vw,260px)}
 .cb-tab[aria-selected=true]{color:var(--dsw-alias-label-primary);font-weight:500}
 .cb-tab[aria-selected=true]:after{content:"";position:absolute;left:10px;right:10px;bottom:-.5px;height:2px;border-radius:2px;background:var(--cb-accent)}
 @media (hover:hover){.cb-tab:hover{color:var(--dsw-alias-label-primary);background:var(--dsw-alias-interactive-bg-hover)}}
 .cb-grid{display:grid;gap:14px;grid-auto-flow:row dense;align-items:stretch}
-.cb-card{box-sizing:border-box;min-width:0;display:flex;flex-direction:column;gap:10px;padding:16px 18px 18px;border-radius:16px;background:var(--cb-card);box-shadow:inset 0 0 0 .5px var(--dsw-alias-border-l2)}
+.cb-card{container-type:inline-size;box-sizing:border-box;min-width:0;display:flex;flex-direction:column;gap:10px;padding:16px 18px 18px;border-radius:16px;background:var(--cb-card);box-shadow:inset 0 0 0 .5px var(--dsw-alias-border-l2)}
 .cb-cardHead{display:flex;align-items:center;gap:8px;min-height:22px}
-.cb-cardHead h3{flex:1;min-width:0;margin:0;font-size:15px;font-weight:600;line-height:22px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.cb-cardChat{display:inline-flex;margin-right:-6px}
+.cb-cardHead h3{flex:1;min-width:0;margin:0;font-size:15px;font-weight:600;line-height:22px}
+.cb-trunc{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cb-trunc2{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:anywhere}
+.cb-truncOpen{white-space:normal;display:block;overflow:visible;overflow-wrap:anywhere}
+h3.cb-truncOpen{overflow:visible}
+.cb-cardChat{display:inline-flex;margin:-5px -8px -5px 0}
 .cb-cardActions{padding-top:4px}
-.cb-rowActions{display:inline-flex;justify-content:flex-end}
+.cb-rowActions{display:inline-flex;flex-wrap:wrap;justify-content:flex-end;min-width:0}
 .cb-statusActions{grid-template-columns:8px fit-content(45%) minmax(0,1fr) auto}
 .cb-statusSparks.cb-statusActions{grid-template-columns:8px fit-content(40%) minmax(0,1fr) minmax(56px,1.2fr) auto}
-.cb-cardLink{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:6px;color:var(--dsw-alias-label-tertiary)}
+.cb-cardLink{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;margin:-5px 0;border-radius:6px;color:var(--dsw-alias-label-tertiary)}
 @media (hover:hover){.cb-cardLink:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}}
-.cb-staleChip{flex:none;padding:1px 8px;border-radius:999px;font-size:11px;line-height:18px;color:var(--dsw-alias-state-warn-label,var(--cb-warn));background:color-mix(in srgb,var(--cb-warn) 14%,transparent)}
+.cb-staleChip{flex:0 1 auto;min-width:0;max-width:45%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:1px 8px;border-radius:999px;font-size:11px;line-height:18px;color:var(--dsw-alias-state-warn-label,var(--cb-warn));background:color-mix(in srgb,var(--cb-warn) 14%,transparent)}
 .cb-cardStale .cb-cardBody,.cb-cardStale .cb-stats{opacity:.62}
 .cb-cardBody{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:flex-start}
 .cb-cardError{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--cb-bad) 35%,transparent)}
@@ -870,7 +959,7 @@ window.__ModuleLoader__.load({
 .cb-delta{font-style:normal;font-size:12px;font-weight:500}
 .cb-statSub{color:var(--dsw-alias-label-tertiary);font-size:13px;line-height:20px}
 .cb-legend{display:flex;flex-wrap:wrap;gap:4px 14px;margin:8px 0 0;padding:0;list-style:none;color:var(--dsw-alias-label-secondary);font-size:12px}
-.cb-legend li{display:inline-flex;align-items:center;gap:6px}
+.cb-legend li{display:inline-flex;align-items:center;gap:6px;min-width:0;max-width:100%}
 .cb-legend i,.cb-donutTable i{display:inline-block;width:8px;height:8px;border-radius:50%}
 .cb-legend b{font-weight:500;color:var(--dsw-alias-label-tertiary)}
 .cb-donut{display:flex;align-items:center;gap:24px}
@@ -883,7 +972,7 @@ window.__ModuleLoader__.load({
 .cb-donutTable{flex:1;min-width:0;border-collapse:collapse;font-size:13px}
 .cb-donutTable td{padding:4px 0;white-space:nowrap}
 .cb-donutTable td:first-child{width:8px;padding-right:10px}
-.cb-donutLabel{overflow:hidden;text-overflow:ellipsis;max-width:0;width:100%}
+.cb-donutLabel{max-width:0;width:100%}
 .cb-num{text-align:right;padding-left:14px!important;font-variant-numeric:tabular-nums;color:var(--dsw-alias-label-secondary)}
 .cb-dim{color:var(--dsw-alias-label-tertiary)}
 .cb-list{list-style:none;margin:0;padding:0}
@@ -896,7 +985,6 @@ window.__ModuleLoader__.load({
 .cb-list li{display:flex;align-items:center;gap:10px;padding:8px 2px;border-top:.5px solid var(--dsw-alias-border-l2)}
 .cb-list li:first-child{border-top:0}
 .cb-listText{flex:1;min-width:0}
-.cb-listTitle{overflow-wrap:anywhere}
 .cb-listSub{color:var(--dsw-alias-label-tertiary);font-size:12px;line-height:18px}
 .cb-listDate{flex:none;color:var(--dsw-alias-label-tertiary);font-size:12px;font-variant-numeric:tabular-nums}
 .cb-done .cb-listTitle{color:var(--dsw-alias-label-tertiary)}
@@ -904,7 +992,7 @@ window.__ModuleLoader__.load({
 .cb-check rect{fill:none;stroke:var(--dsw-alias-border-l4,var(--dsw-alias-label-caption));stroke-width:1.3}
 .cb-check[data-checked=true] rect{fill:var(--cb-accent);stroke:var(--cb-accent)}
 .cb-check path{fill:none;stroke:#fff;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
-.cb-chip{flex:none;padding:1px 8px;border-radius:6px;font-size:12px;line-height:18px;color:var(--dsw-alias-label-secondary);background:var(--dsw-alias-interactive-bg-hover,#0000000d);font-variant-numeric:tabular-nums;white-space:nowrap}
+.cb-chip{flex:0 1 auto;max-width:11em;overflow:hidden;text-overflow:ellipsis;padding:1px 8px;border-radius:6px;font-size:12px;line-height:18px;color:var(--dsw-alias-label-secondary);background:var(--dsw-alias-interactive-bg-hover,#0000000d);font-variant-numeric:tabular-nums;white-space:nowrap}
 .cb-chip[data-tone=ok]{color:var(--cb-ok);background:color-mix(in srgb,var(--cb-ok) 12%,transparent)}
 .cb-chip[data-tone=warn]{color:var(--dsw-alias-state-warn-label,var(--cb-warn));background:color-mix(in srgb,var(--cb-warn) 14%,transparent)}
 .cb-chip[data-tone=bad]{color:var(--cb-bad);background:color-mix(in srgb,var(--cb-bad) 12%,transparent)}
@@ -919,18 +1007,60 @@ window.__ModuleLoader__.load({
 .cb-statusValue{min-width:0;display:flex;flex-direction:column;color:var(--dsw-alias-label-secondary);font-variant-numeric:tabular-nums}
 .cb-statusValue small{color:var(--dsw-alias-label-tertiary);font-size:12px;line-height:16px}
 .cb-spark{min-width:0}
+@container (width<380px){
+.cb-list li{flex-wrap:wrap}
+.cb-list li .cb-listText{flex:1 1 9em}
+.cb-list li .cb-rowActions{flex:1 0 100%;justify-content:flex-start;padding-left:28px}
+}
+@container (width<380px){
+.cb-status,.cb-statusSparks,.cb-statusActions,.cb-statusSparks.cb-statusActions{grid-template-columns:8px minmax(0,1fr) auto}
+.cb-statusValue{display:contents}
+.cb-status li>.cb-dot{grid-column:1;grid-row:1}
+.cb-statusLabel{grid-column:2;grid-row:1}
+.cb-statusNum{grid-column:3;grid-row:1;justify-self:end}
+.cb-statusSub{grid-column:2/-1;grid-row:2}
+.cb-status li>.cb-spark{grid-column:2/-1;grid-row:3}
+.cb-spark:empty{display:none}
+.cb-statusActions li .cb-rowActions{grid-column:2/-1;grid-row:4;justify-content:flex-start}
+}
 @media (width<=640px){.cb-heading{padding-top:18px}.cb-heading h1{font-size:20px}.cb-card{padding:14px 14px 16px;border-radius:14px}.cb-statValue{font-size:24px;line-height:30px}}
+@media (width<=768px),(pointer:coarse){
+.cb-cardLink{width:40px;height:40px;margin:-9px 0}
+.cb-cardChat{margin:-9px -10px -9px 0}
+.cb-tab{padding:8px 14px 10px}
+}
 `
 
     return {
       inject: ['slots', 'locale'],
       apply(ctx) {
         clientCtx = ctx
+        // The sidebar entry's name comes from the same locale files: fetched for the active language, then
+        // handed to DSH's own dictionary (which also makes the sidebar redraw).
+        let forget = () => {}
         ctx.effect(() => {
-          const disposers = [ctx.locale.register(NS, 'en', en), ctx.locale.register(NS, 'zh', zh)]
-          return () => { for (const dispose of disposers) dispose() }
-        }, 'card-board: dictionaries')
-        const t = ctx.locale.bind(NS)
+          let live = true
+          let loadedFor = null
+          const load = () => {
+            const active = ctx.locale.getSnapshot().active
+            // Registering the words is itself a locale change notification, so only a new language starts a load.
+            if (active === loadedFor) return
+            loadedFor = active
+            fetchMessages(active).then(messages => {
+              if (!live) return
+              forget()
+              try {
+                forget = ctx.locale.register(NS, active, { panel: messages.panel })
+              } catch (error) {
+                console.warn('card-board: sidebar name not registered:', error)
+              }
+            }, () => { if (live) { loadedFor = null; setTimeout(load, 3000) } })
+          }
+          load()
+          const stop = ctx.locale.subscribe(load)
+          return () => { live = false; stop(); forget() }
+        }, 'card-board: sidebar words')
+        const sidebarT = ctx.locale.bind(NS)
 
         ctx.effect(() => {
           if (typeof document === 'undefined' || document.getElementById(STYLE_ID)) return () => {}
@@ -946,14 +1076,16 @@ window.__ModuleLoader__.load({
           name: 'main',
           key: PANEL,
           locale: NS,
-          inject: () => ({ translate: t }),
         }, BoardsPage))
         ctx.slots.inject('sidebar.panellist', () => ctx.slots.register({
           name: 'sidebar.panellist',
           id: PANEL,
           order: 13,
           locale: NS,
-          label: () => t('panel'),
+          label: () => {
+            const text = sidebarT('panel')
+            return text === 'panel' ? '' : text
+          },
         }, SidebarIcon))
       },
     }

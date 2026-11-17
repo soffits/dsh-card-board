@@ -6,15 +6,18 @@
  *
  *   GET /api/card-board/boards          the boards this viewer may see
  *   GET /api/card-board/board?id=<id>   one board with its cards (ETag, 304)
+ *   GET /api/card-board/locale?tag=fr   the page's own words for a language (from locale/*.json)
  *   POST /api/card-board/action         press a done, snooze or event action
  */
 import { maySee, viewerOf } from './access.js'
+import { LANGUAGE_ID } from './messages.js'
 import { ID_PATTERN, PRESS_KINDS, findAction } from './schema.js'
 import { boardTag, cardPath, listBoards, readBoard, readCard, readCards, resolveDataDir } from './store.js'
 
 export const BOARDS_PATH = '/api/card-board/boards'
 export const BOARD_PATH = '/api/card-board/board'
 export const ACTION_PATH = '/api/card-board/action'
+export const LOCALE_PATH = '/api/card-board/locale'
 const DATE_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})$/
 
 const HEADERS = {
@@ -36,9 +39,16 @@ const NO_PROVIDER = 'This board needs a sign-in plugin that provides requestIden
  * @param {() => object | undefined} options.identity - the requestIdentity service right now, if any
  * @param {number} options.pollSeconds
  * @param {ReturnType<import('./presses.js').createPresses>} options.presses
+ * @param {(tag: string) => Promise<object>} options.messages - the page's words for a language
  * @param {string} [options.version] - mixed into ETags, so a plugin update refreshes open pages
  */
-export function createRoutes({ dataDir, people, identity, pollSeconds, presses, version = '' }) {
+export function createRoutes({ dataDir, people, identity, pollSeconds, presses, messages, version = '' }) {
+  async function locale(request) {
+    const tag = new URL(request.url).searchParams.get('tag') ?? 'en'
+    if (!LANGUAGE_ID.test(tag)) return json(400, { error: 'Not a language id.' })
+    return json(200, await messages(tag))
+  }
+
   async function boards() {
     const viewer = await viewerOf(people, identity())
     if (viewer.unavailable) return json(503, { error: NO_PROVIDER })
@@ -65,7 +75,7 @@ export function createRoutes({ dataDir, people, identity, pollSeconds, presses, 
     const tag = await boardTag(root, id, `${version}\0${viewer.mode}\0${viewer.person ?? ''}\0${JSON.stringify(states)}`)
     if (request.headers.get('if-none-match') === tag) return new Response(null, { status: 304, headers: { ...HEADERS, etag: tag } })
     const cards = (await readCards(root, id, entry.board)).map(card => (states[card.id] ? { ...card, presses: states[card.id] } : card))
-    return json(200, { id, title: entry.board?.title ?? id, problems: entry.problems, cards }, { etag: tag })
+    return json(200, { id, title: entry.board?.title ?? id, ...(entry.board?.assistant ? { assistant: entry.board.assistant } : {}), problems: entry.problems, cards }, { etag: tag })
   }
 
   /** Press states of every card on a board that has recent presses, by card id. */
@@ -115,6 +125,7 @@ export function createRoutes({ dataDir, people, identity, pollSeconds, presses, 
   return [
     { path: BOARDS_PATH, methods: ['GET'], requestBody: 'buffered', fetch: boards },
     { path: BOARD_PATH, methods: ['GET'], requestBody: 'buffered', fetch: board },
+    { path: LOCALE_PATH, methods: ['GET'], requestBody: 'buffered', fetch: locale },
     { path: ACTION_PATH, methods: ['POST'], requestBody: 'buffered', fetch: action },
   ]
 }

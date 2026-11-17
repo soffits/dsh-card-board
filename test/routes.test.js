@@ -8,6 +8,7 @@ import * as connectionPlugin from '@deepseek-ai/dsh-client-connection'
 import { WebServer } from '@deepseek-ai/dsh-host-webserver'
 import * as cardBoard from '../index.js'
 import { createPeople, maySee, personKey, viewerOf } from '../src/access.js'
+import { createMessages } from '../src/messages.js'
 import { createPresses } from '../src/presses.js'
 import { createRoutes } from '../src/routes.js'
 
@@ -30,6 +31,8 @@ after(async () => {
   await rm(outside, { recursive: true, force: true })
 })
 
+/** The example board names itself in two languages. */
+const HOME_TITLE = { en: 'Home', zh: '家' }
 const PEOPLE = { 'sub-alex': 'Alex', 'sub-robin': 'robin' }
 /** A stand-in identity provider whose current caller the test sets. */
 function identityFor(state) {
@@ -50,6 +53,7 @@ function routes({ people = PEOPLE, provider = true, state = {}, published = [], 
     identity: () => (provider ? identityFor(state) : undefined),
     pollSeconds: 30,
     presses,
+    messages: createMessages(new URL('../locale', import.meta.url).pathname),
     version: 'test',
   })
   const call = async (path, headers = {}, body) => {
@@ -100,7 +104,7 @@ describe('routes', () => {
   it('lists only the boards a person may see', async () => {
     const { call, state } = routes()
     state.id = 'sub-alex'
-    assert.deepEqual((await call('/api/card-board/boards')).body.boards, [{ id: 'home', title: 'Home' }])
+    assert.deepEqual((await call('/api/card-board/boards')).body.boards, [{ id: 'home', title: HOME_TITLE }])
     state.id = 'sub-robin'
     assert.deepEqual((await call('/api/card-board/boards')).body.boards, [{ id: 'garden', title: 'Garden' }])
     state.id = 'sub-stranger'
@@ -168,6 +172,30 @@ describe('routes', () => {
     assert.notEqual(second.etag, first.etag)
     assert.ok(second.body.cards.some(c => c.id === 'extra'))
     await rm(join(dir, 'home', 'cards', 'extra.json'))
+  })
+})
+
+describe('locale route', () => {
+  it('answers with the words for the asked language, falling back to its primary tag and English', async () => {
+    const { call } = routes()
+    const fr = await call('/api/card-board/locale?tag=fr-CA')
+    assert.equal(fr.status, 200)
+    assert.equal(fr.body.tag, 'fr')
+    assert.equal(fr.body.messages.panel, 'Tableaux')
+    const unknown = await call('/api/card-board/locale?tag=sw')
+    assert.equal(unknown.body.tag, 'en')
+    assert.equal(unknown.body.messages.panel, 'Boards')
+    assert.equal((await call('/api/card-board/locale')).body.tag, 'en')
+  })
+
+  it('refuses a tag that is not a language id', async () => {
+    const { call } = routes()
+    assert.equal((await call('/api/card-board/locale?tag=../../x')).status, 400)
+  })
+
+  it('needs nobody signed in: it is the page’s own text', async () => {
+    const { call } = routes({ provider: false })
+    assert.equal((await call('/api/card-board/locale?tag=zh')).status, 200)
   })
 })
 
@@ -278,7 +306,7 @@ describe('as a DSH plugin, behind the real Connection', () => {
         const response = await fetch(`${origin}${path}`, { headers: { cookie, ...(user ? { 'x-test-user': user } : {}) } })
         return { status: response.status, body: await response.json() }
       }
-      assert.deepEqual((await get('/api/card-board/boards', 'sub-alex')).body.boards, [{ id: 'home', title: 'Home' }])
+      assert.deepEqual((await get('/api/card-board/boards', 'sub-alex')).body.boards, [{ id: 'home', title: HOME_TITLE }])
       assert.equal((await get('/api/card-board/board?id=home', 'sub-alex')).status, 200)
       assert.equal((await get('/api/card-board/board?id=home', 'sub-robin')).status, 403)
       assert.deepEqual((await get('/api/card-board/boards')).body.boards, [])

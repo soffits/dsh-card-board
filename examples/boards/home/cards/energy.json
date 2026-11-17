@@ -1,17 +1,62 @@
 {
   "type": "bar",
-  "title": "Electricity this week",
+  "title": {
+    "en": "Electricity this week",
+    "zh": "本周用电"
+  },
   "updatedAt": "2026-03-02T08:00:00Z",
   "staleAfter": 7200,
   "data": {
     "bars": [
-      { "x": "Mon", "values": { "Day": 5.2, "Night": 2.1 } },
-      { "x": "Tue", "values": { "Day": 4.8, "Night": 2.4 } },
-      { "x": "Wed", "values": { "Day": 6.1, "Night": 1.9 } },
-      { "x": "Thu", "values": { "Day": 5.5, "Night": 2.2 } },
-      { "x": "Fri", "values": { "Day": 4.2, "Night": 3.0 } },
-      { "x": "Sat", "values": { "Day": 7.4, "Night": 2.6 } },
-      { "x": "Sun", "values": { "Day": 6.8, "Night": 2.3 } }
+      {
+        "x": "Mon",
+        "values": {
+          "Day": 5.2,
+          "Night": 2.1
+        }
+      },
+      {
+        "x": "Tue",
+        "values": {
+          "Day": 4.8,
+          "Night": 2.4
+        }
+      },
+      {
+        "x": "Wed",
+        "values": {
+          "Day": 6.1,
+          "Night": 1.9
+        }
+      },
+      {
+        "x": "Thu",
+        "values": {
+          "Day": 5.5,
+          "Night": 2.2
+        }
+      },
+      {
+        "x": "Fri",
+        "values": {
+          "Day": 4.2,
+          "Night": 3.0
+        }
+      },
+      {
+        "x": "Sat",
+        "values": {
+          "Day": 7.4,
+          "Night": 2.6
+        }
+      },
+      {
+        "x": "Sun",
+        "values": {
+          "Day": 6.8,
+          "Night": 2.3
+        }
+      }
     ],
     "stacked": true,
     "unit": "kWh"
