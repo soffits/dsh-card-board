@@ -9,7 +9,7 @@
 - `src/routes.js`: the routes; every answer is decided per request from `requestIdentity`.
 - `src/presses.js`: action presses: log, publish, pending/done/unhandled.
 - `src/messages.js` and `locale/<tag>.json`: the page's own words, one file per language (`ui`, next to DSH's `meta`), merged exact tag → primary language → `en` and served by `/api/card-board/locale`.
-- `client.js`: the Web UI page (DSH Client module format, no build). `client.actions.js`: the shared action buttons, loaded as a package-local client chunk with `require.async('./client.actions.js')`. It is meant to be replaced by the shared `@soffits/dsh-ui-actions` package, so keep it as it is.
+- `client.js`: the Web UI page (DSH Client module format, no build). The action buttons are not here: they come from `@soffits/dsh-ui-actions` (`ctx.uiActions`, listed in `dsh.client.inject`), used when present.
 - `bin/dsh-card-board.js`: the CLI.
 
 ## Rules

@@ -225,7 +225,7 @@ A card, a list row or a status row can carry up to six buttons:
 ]
 ```
 
-- `chat` opens a new conversation (or the session named in `payload.session`) with a draft that quotes the card or row and carries its ids as JSON, after `payload.prompt` if you gave one. Nothing is sent until the person sends it, so the message comes from them like any other. Every card also has a chat button in its corner without declaring one; when the board names an `assistant` the button says who it asks. A `label` and `payload.prompt` can be text in several languages.
+- `chat` opens a new conversation (or the session named in `payload.session`) with a draft that quotes the card or row and carries its ids as JSON, after `payload.prompt` if you gave one. Nothing is sent until the person sends it, so the message comes from them like any other. Every card also has a chat button in its corner without declaring one ("Chat about this"); when the board names an `assistant` the buttons say who they ask ("Ask Robin"). A `label` and `payload.prompt` can be text in several languages.
 - `done`, `snooze` and `event` are pressed on the server. A snooze without `payload.until` asks: in 3 hours, tomorrow at 9:00, or a time.
 - `link` opens `payload.url`.
 
@@ -250,7 +250,7 @@ It's appended to the action log, emitted in-process as the Cordis event `card-bo
 
 The button shows the press as pending until the card file is written again, then done. If nothing rewrites the card within `actionTimeoutSeconds`, it says nothing picked the press up. So a handler should rewrite the card when it has acted, even if only `updatedAt` changes.
 
-The buttons come from [`client.actions.js`](client.actions.js), loaded with the page. On a phone they are at least 40 px, and a snooze picker opens as a sheet at the bottom of the screen.
+The buttons come from [`@soffits/dsh-ui-actions`](https://github.com/soffits/dsh-ui-actions), a separate plugin the board uses when it is installed (`dsh plugin --profile web add @soffits/dsh-ui-actions`; DSH 0.2.2-rc.1 or later). Without it cards show no buttons. A chat button opens a new conversation with the card or row attached to the message box as a small card, and the person writes beside it; a chat button's words ("Ask", "Chat about this") and the done and snooze buttons' words come from that plugin, in the person's language. On a phone the buttons are at least 40 px, and a snooze picker opens as a sheet at the bottom of the screen.
 
 ## Writing cards: the CLI
 
