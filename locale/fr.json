@@ -16,7 +16,6 @@
     "open": "Ouvrir",
     "listEmpty": "Rien ici.",
     "checked": "Fait",
-    "unchecked": "Pas fait",
     "error.forbidden": "Vous n’avez pas accès à ce tableau.",
     "error.notFound": "Ce tableau n’existe plus.",
     "error.gone": "Cette action n’est plus sur la carte.",
@@ -36,6 +35,11 @@
     "dayPart.evening": "soir",
     "dayPart.night": "nuit",
     "showMore": "{n} de plus",
-    "showFewer": "Afficher moins"
+    "showFewer": "Afficher moins",
+    "details": "Détails",
+    "close": "Fermer",
+    "history": "Historique",
+    "markDone": "Marquer comme fait",
+    "rowGone": "Cet élément n’est plus sur la carte."
   }
 }

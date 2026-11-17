@@ -3,24 +3,34 @@
  * DSH's own Tag and StateDot; icons, tiles, rings, sparklines, progress and ticking time come from the kit.
  */
 import { createElement as h, useState } from 'react'
-import { Button, StateDot, Tag } from '@deepseek-ai/dsh-client-ui-primitives'
-import { CheckBox, Trunc } from './pieces.js'
+import { Button, Checkbox, StateDot, Tag } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Trunc } from './pieces.js'
 import { formatClock, formatNumber, isActive, toTime } from './format.js'
 import { useKit } from './services.js'
+import { useEased } from './motion.js'
+import { onControl, openLink } from './links.js'
 import { stepTimes } from './steps.js'
 import { LIST_ROWS, shownRows } from './layout.js'
 
 const STATE_OF_TONE = { ok: 'done', warn: 'warning', bad: 'error' }
 const DIRECTION_ICON = { up: 'trending-up', down: 'trending-down' }
 
+/** A number that eases to its new value, drawn with as many decimals as the value itself has. */
+function EasedNumber({ value, locale }) {
+  const shown = useEased(value)
+  if (typeof value !== 'number') return formatNumber(value, locale)
+  const decimals = Math.min(3, (String(value).split('.')[1] ?? '').length)
+  return formatNumber(shown === value ? value : Number(shown.toFixed(decimals)), locale)
+}
+
 /** The numbers of a stat card, or the headline numbers above a chart or rows. */
 export function StatBlock({ data, locale, compact, wash }) {
   const kit = useKit()
   return h('div', { className: `cb-stats${compact ? ' cb-statsCompact' : ''}` }, data.items.map((item, i) =>
-    h('div', { key: i, className: `cb-stat${item.strip ? ' cb-statWide' : ''}` },
+    h(item.link ? 'a' : 'div', { key: i, className: `cb-stat${item.strip ? ' cb-statWide' : ''}${item.link ? ' cb-statLink' : ''}`, ...(item.link ? linkProps(item.link) : {}) },
       h('div', { className: 'cb-statLabel' }, h(Trunc, { as: 'span', text: item.label }), i === 0 && wash && h(kit.JustNow)),
       h('div', { className: 'cb-statValue', style: item.tone ? { color: kit.toneColor(item.tone) } : undefined },
-        h('span', null, formatNumber(item.value, locale)),
+        h('span', null, h(EasedNumber, { value: item.value, locale })),
         item.unit && h('small', null, item.unit)),
       item.delta && h('div', { className: 'cb-delta', style: { color: kit.toneColor(item.delta.tone ?? 'muted') } },
         DIRECTION_ICON[item.delta.dir] && h(kit.Icon, { name: DIRECTION_ICON[item.delta.dir], size: 13 }),
@@ -35,6 +45,11 @@ export function StatBlock({ data, locale, compact, wash }) {
           h('b', null, formatNumber(cell.value, locale, 1)),
           cell.icon && h(kit.Icon, { name: cell.icon, size: 14 }),
           h('span', null, cell.label)))))))
+}
+
+function linkProps(link) {
+  const external = /^https?:/i.test(link)
+  return { href: link, ...(external ? { target: '_blank', rel: 'noopener noreferrer' } : { onClick: event => { event.preventDefault(); openLink(link) } }) }
 }
 
 /** "now" or "from 18:00" for a row with an active window, else its day relative to today. */
@@ -53,11 +68,20 @@ function RowWhen({ row, locale, t }) {
  * One list or status row: its lead (checkbox, tile or dot), its words, its facts and its buttons. It washes when its
  * own version changes, and carries a dot while it is new since you last looked.
  */
-function Row({ lead, title, sub, meta, value, spark, row, index, washCount, fresh, rowActions, className }) {
+function Row({ lead, title, sub, meta, value, spark, row, index, washCount, fresh, rowActions, className, onOpenRow }) {
   const kit = useKit()
   const now = kit.useNow()
   const wash = kit.useWash(washCount, row.key)
-  return h('li', { className: ['cb-row', className, row.checked && 'cb-done', isActive(row.active, now) && 'cb-rowNow', wash].filter(Boolean).join(' ') },
+  // A row with a link goes there when tapped; one with a detail opens it; its own buttons keep theirs.
+  const go = row.link ? () => openLink(row.link) : row.detail && row.key !== undefined && onOpenRow ? () => onOpenRow(row.key) : null
+  const opens = go && {
+    'data-opens': 'true',
+    role: row.link ? 'link' : 'button',
+    tabIndex: 0,
+    onClick: event => { if (!onControl(event)) { event.stopPropagation(); go() } },
+    onKeyDown: event => { if ((event.key === 'Enter' || event.key === ' ') && event.target === event.currentTarget) { event.preventDefault(); go() } },
+  }
+  return h('li', { className: ['cb-row', className, row.checked && 'cb-done', isActive(row.active, now) && 'cb-rowNow', go && 'cb-rowOpens', wash].filter(Boolean).join(' '), ...opens },
     lead,
     h('div', { className: 'cb-rowText' },
       h('div', { className: 'cb-rowTitle' }, fresh && h(kit.NewDot), h(Trunc, { as: 'span', lines: 2, text: title })),
@@ -65,19 +89,36 @@ function Row({ lead, title, sub, meta, value, spark, row, index, washCount, fres
     spark,
     meta,
     value,
-    row.actions && rowActions && h('span', { className: 'cb-rowActions' }, rowActions(index, row.actions, 'buttons')),
-    row.actions?.some(action => action.kind === 'step') && rowActions && h('div', { className: 'cb-rowSteps' }, rowActions(index, row.actions, 'steps')))
+    // The row's own buttons on the right: its steps first (a step starts the work on one tap), then the others.
+    row.actions && rowActions && h('span', { className: 'cb-rowActions' },
+      row.actions.some(action => action.kind === 'step') && rowActions(index, row.actions, 'steps'),
+      rowActions(index, row.actions, 'buttons')))
+}
+
+/** A row's done action as a checkbox: ticked when the row says so or once the press went through. */
+function DoneBox({ row, index, done, rowControls, t }) {
+  const state = rowControls.state(index, done.id)
+  const checked = row.checked === true || state === 'done' || state === 'pending'
+  return h('span', { className: 'cb-doneBox', onClick: event => event.stopPropagation() },
+    h(Checkbox, {
+      checked,
+      disabled: checked,
+      title: t(checked ? 'checked' : 'markDone'),
+      label: h('span', { className: 'cb-visuallyHidden' }, t(checked ? 'checked' : 'markDone')),
+      onChange: value => { if (value) rowControls.press(index, done) },
+    }))
 }
 
 /** What is new and what just changed in one keyed row. */
 const rowLive = (live, row) => ({ washCount: live.rows?.[row.key] ?? 0, fresh: row.key !== undefined && live.freshRows.has(row.key) })
 
-export function ListCard({ data, live, locale, t, rowActions }) {
+export function ListCard({ data, live, locale, t, rowActions, all = false, onOpenRow, rowControls }) {
   const kit = useKit()
   const [open, setOpen] = useState(false)
-  const rows = shownRows(data.rows, open, LIST_ROWS, live)
+  const rows = shownRows(data.rows, open || all, LIST_ROWS, live)
   const hidden = data.rows.length - rows.length
-  const checkable = data.rows.some(row => 'checked' in row)
+  // A checkbox only where ticking it does something: a row with a `done` action (the box is that action).
+  const doneOf = row => row.actions?.find(action => action.kind === 'done')
   const progress = data.progress
   return h('div', { className: 'cb-list' },
     progress && h('div', { className: 'cb-progress' },
@@ -89,9 +130,9 @@ export function ListCard({ data, live, locale, t, rowActions }) {
     data.rows.length === 0
       ? h('p', { className: 'cb-muted' }, data.empty ?? t('listEmpty'))
       : h('ul', { className: 'cb-rows' }, rows.map((row, i) => h(Row, {
-        key: row.key ?? i, index: i, row, rowActions, ...rowLive(live, row),
+        key: row.key ?? i, index: data.rows.indexOf(row), row: doneOf(row) && rowControls ? { ...row, actions: row.actions.filter(a => a.kind !== 'done') } : row, rowActions, onOpenRow, className: i >= LIST_ROWS ? 'cb-rowLate' : undefined, ...rowLive(live, row),
         lead: [
-          checkable && h(CheckBox, { key: 'check', checked: row.checked === true, label: t(row.checked ? 'checked' : 'unchecked') }),
+          doneOf(row) && rowControls && h(DoneBox, { key: 'check', row, index: data.rows.indexOf(row), done: doneOf(row), rowControls, t }),
           row.icon && h(kit.Tile, { key: 'tile', icon: row.icon, tone: row.tone ?? 'muted', size: 30 }),
         ],
         title: row.title,
@@ -100,14 +141,14 @@ export function ListCard({ data, live, locale, t, rowActions }) {
           row.chip && h(Tag, { tone: kit.tagTone(row.chip.tone ?? 'muted') }, row.chip.text),
           h(RowWhen, { row, locale, t })),
       }))),
-    (hidden > 0 || open) && data.rows.length > LIST_ROWS + 1 && h(Button, { variant: 'ghost', size: 'sm', className: 'cb-more', onClick: () => setOpen(value => !value) },
+    !all && (hidden > 0 || open) && data.rows.length > LIST_ROWS + 1 && h(Button, { variant: 'ghost', size: 'sm', className: 'cb-more', onClick: () => setOpen(value => !value) },
       open ? t('showFewer') : t('showMore', { n: hidden })))
 }
 
-export function StatusCard({ data, live, locale, rowActions }) {
+export function StatusCard({ data, live, locale, rowActions, onOpenRow }) {
   const kit = useKit()
   return h('ul', { className: 'cb-rows' }, data.rows.map((row, i) => h(Row, {
-    key: row.key ?? i, index: i, row, rowActions, ...rowLive(live, row), className: 'cb-statusRow',
+    key: row.key ?? i, index: i, row, rowActions, onOpenRow, ...rowLive(live, row), className: 'cb-statusRow',
     lead: row.icon ? h(kit.Tile, { icon: row.icon, tone: row.tone, size: 28 }) : h('span', { className: 'cb-dotSlot' }, h(StateDot, { state: STATE_OF_TONE[row.tone] ?? 'idle' })),
     title: row.label,
     sub: row.sub,

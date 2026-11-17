@@ -340,6 +340,9 @@ describe('actions', () => {
     assert.equal(published[0].channel, 'ui.action.step')
     assert.equal(published[0].data.person, 'alex')
     assert.equal(published[0].data.id, 'library-books:renew')
+    // a step is carried out by sending it, so it is done at once, not pending until the card is written
+    const chores = (await call('/api/card-board/board?id=home')).body.cards.find(c => c.id === 'chores')
+    assert.equal(chores.presses.find(p => p.id === 'library-books:renew').state, 'done')
   })
 
   it('takes the picked time for a snooze without one', async () => {

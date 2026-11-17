@@ -13,7 +13,9 @@ import { GAP, ROW } from './layout.js'
 import { useWidth } from './format.js'
 import { liveOf, nextLive, seenReport, withCard } from './live-state.js'
 import { api, useKit } from './services.js'
-import { pickText, useActiveLocale } from './words.js'
+import { pickCard, pickText, useActiveLocale } from './words.js'
+import { readNav, writeNav } from './nav.js'
+import { Sheet } from './sheet.js'
 
 const STORE_KEY = 'dsh-card-board:board'
 /** How long a page shows a board before it counts as seen. */
@@ -52,7 +54,10 @@ export function BoardsPage() {
   const { active, intl: locale, ready, t } = useActiveLocale()
   const [boards, setBoards] = useState(null)
   const [listError, setListError] = useState(null)
-  const [selected, setSelected] = useState(() => { try { return localStorage.getItem(STORE_KEY) } catch { return null } })
+  // The card (or row) open in the sheet, kept in the URL so a link opens it and Back closes it.
+  const [opened, setOpened] = useState(() => (typeof location === 'undefined' ? {} : readNav(location.search)))
+  const pushed = useRef(false)
+  const [selected, setSelected] = useState(() => { if (opened.board) return opened.board; try { return localStorage.getItem(STORE_KEY) } catch { return null } })
   // The board and what the page remembers about its cards change together.
   const [view, setView] = useState({ board: null, live: {} })
   const [boardError, setBoardError] = useState(null)
@@ -177,6 +182,23 @@ export function BoardsPage() {
     return () => clearTimeout(timer)
   }, [board])
 
+  useEffect(() => {
+    const onPop = () => { pushed.current = false; setOpened(readNav(location.search)) }
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [])
+  const openCard = useCallback((boardId, card, row) => {
+    const nav = { board: boardId, card, ...(row === undefined ? {} : { row }) }
+    window.history[pushed.current ? 'replaceState' : 'pushState'](window.history.state, '', `${location.pathname}${writeNav(location.search, nav)}${location.hash}`)
+    pushed.current = true
+    setOpened(nav)
+  }, [])
+  const closeCard = useCallback(() => {
+    setOpened({})
+    if (pushed.current) { pushed.current = false; window.history.back() }
+    else window.history.replaceState(window.history.state, '', `${location.pathname}${writeNav(location.search, {})}${location.hash}`)
+  }, [])
+
   const choose = id => {
     setSelected(id)
     try { localStorage.setItem(STORE_KEY, id) } catch { /* private mode */ }
@@ -200,7 +222,17 @@ export function BoardsPage() {
     board.problems?.length > 0 && h('div', { className: 'cb-notice' }, t('boardProblems'), h('ul', { className: 'cb-problems' }, board.problems.map((p, i) => h('li', { key: i }, p)))),
     board.cards.length === 0 && h('p', { className: 'cb-muted' }, t('noCards')),
     h('div', { className: 'cb-grid', style: { gridTemplateColumns: `repeat(${tracks}, minmax(0, 1fr))`, gridAutoRows: `${ROW}px`, columnGap: GAP } },
-      board.cards.map(entry => h(Card, { key: entry.id, entry, live: liveOf(view.live, entry.id), boardId: board.id, assistant: board.assistant, tracks, active, locale, t, press }))))
+      board.cards.map(entry => h(Card, { key: entry.id, entry, live: liveOf(view.live, entry.id), boardId: board.id, assistant: board.assistant, tracks, active, locale, t, press, onOpen: row => openCard(board.id, entry.id, row) }))))
+
+  const openEntry = opened.card && board && (!opened.board || opened.board === board.id) ? board.cards.find(entry => entry.id === opened.card && entry.card) : undefined
+  const openCardData = openEntry && pickCard(openEntry.card, active)
+  const openRow = openCardData && opened.row !== undefined ? openCardData.data.rows?.find(r => r.key === opened.row) : undefined
+  const sheet = h(Sheet, {
+    open: Boolean(openEntry),
+    onClose: closeCard,
+    title: openRow ? (openRow.title ?? openRow.label) : openCardData?.title,
+    closeLabel: t('close'),
+  }, openEntry && h(Card, { entry: openEntry, live: liveOf(view.live, openEntry.id), boardId: board.id, assistant: board.assistant, tracks: 1, active, locale, t, press, sheet: true, row: opened.row }))
 
   return h('div', { className: 'cb-page' },
     h('div', { className: 'cb-content', ref: gridRef },
@@ -209,5 +241,6 @@ export function BoardsPage() {
         board && h('div', { className: 'cb-sub' }, h(kit.LiveStatus, { status, updatedAt: newest || undefined }))),
       boards && boards.length > 1 && h('div', { className: 'cb-tabs', role: 'tablist' }, boards.map(b =>
         h(Pill, { key: b.id, active: b.id === current, role: 'tab', 'aria-selected': b.id === current, title: titleOf(b), onClick: () => choose(b.id) }, titleOf(b)))),
-      content))
+      content),
+    board && sheet)
 }

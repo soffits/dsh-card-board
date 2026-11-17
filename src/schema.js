@@ -210,12 +210,56 @@ function actions(c, list, path) {
   })
 }
 
+/**
+ * The more a card or a row shows when it is opened: some text, facts (label and value), a chart (a line or bar card's
+ * data) and a history, newest first. Every part is optional; the opened view also shows the whole body and all actions.
+ * Exported so other row shapes can check theirs the same way.
+ */
+export function checkDetail(c, detail, path) {
+  if (!c.object(detail, path, [], ['text', 'facts', 'chart', 'history'])) return
+  c.optional(detail, 'text', v => c.label(v, join(path, 'text'), { max: 2000 }))
+  c.optional(detail, 'facts', facts => {
+    if (!c.array(facts, join(path, 'facts'), { max: 24 })) return
+    facts.forEach((fact, i) => {
+      const fp = join(join(path, 'facts'), i)
+      if (!c.object(fact, fp, ['label', 'value'])) return
+      c.label(fact.label, join(fp, 'label'), { max: 60 })
+      c.labelOrNumber(fact.value, join(fp, 'value'))
+    })
+  })
+  c.optional(detail, 'chart', chart => {
+    const cp = join(path, 'chart')
+    if (!c.object(chart, cp, ['type', 'data'])) return
+    if (!c.oneOf(chart.type, join(cp, 'type'), ['line', 'bar'])) return
+    DATA[chart.type](c, chart.data, join(cp, 'data'))
+  })
+  c.optional(detail, 'history', history => {
+    if (!c.array(history, join(path, 'history'), { max: 100 })) return
+    history.forEach((entry, i) => {
+      const hp = join(join(path, 'history'), i)
+      if (!c.object(entry, hp, ['at', 'text'])) return
+      c.dateTime(entry.at, join(hp, 'at'))
+      c.label(entry.text, join(hp, 'text'), { max: 400 })
+    })
+  })
+}
+
+/** A row's `link` (where a tap goes) and `detail` (what opening it shows; the row needs a `key` to be opened). */
+function rowOpen(c, row, path) {
+  c.optional(row, 'link', v => isSafeLink(v) || c.fail(join(path, 'link'), 'must be an http(s) URL or a path starting with /'))
+  c.optional(row, 'detail', v => {
+    checkDetail(c, v, join(path, 'detail'))
+    if (row.key === undefined) c.fail(join(path, 'key'), 'is required on a row with a detail: it is how the row is opened')
+  })
+}
+
 function statData(c, data, path) {
   if (!c.object(data, path, ['items'])) return
   if (!c.array(data.items, join(path, 'items'), { min: 1, max: 6 })) return
   data.items.forEach((item, i) => {
     const p = join(join(path, 'items'), i)
-    if (!c.object(item, p, ['label', 'value'], ['unit', 'delta', 'sub', 'tone', 'spark', 'progress', 'strip'])) return
+    if (!c.object(item, p, ['label', 'value'], ['unit', 'delta', 'sub', 'tone', 'spark', 'progress', 'strip', 'link'])) return
+    c.optional(item, 'link', v => isSafeLink(v) || c.fail(join(p, 'link'), 'must be an http(s) URL or a path starting with /'))
     c.label(item.label, join(p, 'label'))
     c.labelOrNumber(item.value, join(p, 'value'))
     c.optional(item, 'unit', v => c.label(v, join(p, 'unit'), { max: 20 }))
@@ -350,7 +394,8 @@ function listData(c, data, path) {
   if (c.array(data.rows, join(path, 'rows'), { max: 100 }))
     data.rows.forEach((row, i) => {
       const p = join(join(path, 'rows'), i)
-      if (!c.object(row, p, ['title'], ['sub', 'chip', 'checked', 'date', 'actions', 'icon', 'tone', 'key', 'active'])) return
+      if (!c.object(row, p, ['title'], ['sub', 'chip', 'checked', 'date', 'actions', 'icon', 'tone', 'key', 'active', 'link', 'detail'])) return
+      rowOpen(c, row, p)
       rowLook(c, row, p, keys)
       c.optional(row, 'actions', v => actions(c, v, join(p, 'actions')))
       c.label(row.title, join(p, 'title'))
@@ -412,7 +457,8 @@ function statusData(c, data, path) {
   const keys = new Set()
   data.rows.forEach((row, i) => {
     const p = join(join(path, 'rows'), i)
-    if (!c.object(row, p, ['label', 'value', 'tone'], ['sub', 'spark', 'actions', 'icon', 'key', 'active'])) return
+    if (!c.object(row, p, ['label', 'value', 'tone'], ['sub', 'spark', 'actions', 'icon', 'key', 'active', 'link', 'detail'])) return
+    rowOpen(c, row, p)
     rowLook(c, row, p, keys, { toneRequired: true })
     c.optional(row, 'actions', v => actions(c, v, join(p, 'actions')))
     c.label(row.label, join(p, 'label'))
@@ -491,7 +537,8 @@ export function isSafeLink(value) {
 /** Problems with one card file's parsed content. */
 export function checkCard(card) {
   const c = new Check()
-  if (!c.object(card, '', ['type', 'title', 'updatedAt', 'data'], ['staleAfter', 'link', 'stat', 'actions', 'icon', 'tone'])) return c.problems
+  if (!c.object(card, '', ['type', 'title', 'updatedAt', 'data'], ['staleAfter', 'link', 'stat', 'actions', 'icon', 'tone', 'detail'])) return c.problems
+  c.optional(card, 'detail', v => checkDetail(c, v, 'detail'))
   if (!c.oneOf(card.type, 'type', CARD_TYPES)) return c.problems
   c.label(card.title, 'title', { max: 120 })
   c.dateTime(card.updatedAt, 'updatedAt')

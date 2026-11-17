@@ -107,6 +107,7 @@ A card:
 | `link` | An `http(s)` URL or a `/path` the title row links to. |
 | `stat` | Headline numbers above a chart or rows (beside a chart when the card is wide): the same shape as a `stat` card's `data`. |
 | `actions` | Buttons on the card; see [Actions](#actions). |
+| `detail` | More to show when the card is opened; see [Opening a card](#opening-a-card). |
 | `data` | Depends on the type, below. |
 
 Unknown fields are errors, so a typo fails when the file is written instead of quietly not showing. A card that doesn't parse or fails the schema shows as a small error card with the reason; the rest of the board is unaffected.
@@ -221,9 +222,9 @@ Each bar has a single `value` or named `values`; with `values` and no `stacked`,
 }
 ```
 
-`checked` draws a checkbox (display only). `progress` draws a ring above the rows, with its `label` and an optional `sub`.
+A row with a `done` action shows a checkbox, and ticking it presses that action (the row's separate done button then goes); `checked: true` shows it ticked. A row without a `done` action shows no checkbox. `progress` draws a ring above the rows, with its `label` and an optional `sub`.
 
-Rows (of lists and status cards) may also have an `icon` and a `tone` (a tile before the row), a `key` (a stable id, so the page can tell which row changed) and `active: { from, to }`: during that window the row is highlighted and says "now", earlier the same day it says "from 18:00". The page decides when, so nobody has to rewrite the file at noon. A row's `date` shows relative to today ("tomorrow", "in 3 days") and moves on by itself.
+Rows (of lists and status cards) may also have an `icon` and a `tone` (a tile before the row), a `key` (a stable id, so the page can tell which row changed) and `active: { from, to }`: during that window the row is highlighted and says "now", earlier the same day it says "from 18:00". The page decides when, so nobody has to rewrite the file at noon. A row's `date` shows relative to today ("tomorrow", "in 3 days") and moves on by itself. A row may have a `link` (an `http(s)` URL, opened in a new tab, or a `/path` of this app, opened in place): tapping the row goes there. A keyed row may have a `detail` (below): tapping it opens it. Stat items take a `link` too.
 
 ### timeline
 
@@ -256,6 +257,23 @@ The [examples](examples/boards/home) folder has a complete board with one card o
 
 Nothing to write for these. Each card has a content version (a hash of the card without `updatedAt`, so rewriting the same data changes nothing), and each keyed row its own. The server remembers, per person, which versions they have seen, so a dot marks what changed since they last looked, on any device. A card or row that changes while the page is open gets a short wash and "just now" first (only the dot with reduced motion).
 
+### Opening a card
+
+Tapping a card (anywhere that isn't one of its buttons, links or rows that open themselves), or its open button, opens it over the page in DSH's own dialog: the whole list, a taller chart, all its buttons, and its `detail` when it has one. Rows open the same way, with just that row, its `detail` and its buttons. The URL follows (`?board=home&card=chores`, `&row=<key>` for a row), so a link opens the board page with the card open, and Back closes it.
+
+```json
+"detail": {
+  "text": "Three books, due at the branch on Elm Street.",
+  "facts": [{ "label": "Renewals left", "value": 1 }, { "label": "Fine per day", "value": "0.25 EUR" }],
+  "chart": { "type": "bar", "data": { "bars": [{ "x": "2026-02", "value": 4 }, { "x": "2026-03", "value": 3 }] } },
+  "history": [{ "at": "2026-02-20T15:10:00+01:00", "text": "Borrowed" }]
+}
+```
+
+Every part is optional: `text`, `facts` (label and value, up to 24), `chart` (a `line` or `bar` card's `data`) and `history` (newest first, up to 100). A row needs a `key` to carry a `detail`.
+
+On a chart, hovering or tapping shows the value and date of the point under the pointer. Cards and rows answer a hover and a press; a row's buttons show on hover with a mouse and are always there on touch. A card that changes settles into place, numbers ease to their new value and rows that a list opens fade in; nothing moves with reduced motion. Buttons, tags, axes and other chrome aren't selectable; titles, notes and numbers are.
+
 ## Actions
 
 A card, a list row or a status row can carry up to six buttons:
@@ -272,7 +290,7 @@ A card, a list row or a status row can carry up to six buttons:
 ```
 
 - `chat` opens a new conversation (or the session named in `payload.session`) with a draft that quotes the card or row and carries its ids as JSON, after `payload.prompt` if you gave one. Nothing is sent until the person sends it, so the message comes from them like any other. Every card also has a chat button in its corner without declaring one ("Chat about this"); when the board names an `assistant` the buttons say who they ask ("Ask Robin"). A `label` and `payload.prompt` can be text in several languages.
-- `step` is a suggested next step the assistant starts on one tap: the label says the step plainly ("Renew the books online") and the tap is the person's go-ahead for exactly that. The press is recorded on the server like `done`, then the page sends the step (`payload.prompt` when it needs more words than the label, never more than it authorises; otherwise the label) with the card or row into a new session (or `payload.session`) as the person, with no draft to confirm, and the button links to that session. At most 3 steps per card or row; add one only where the data has a clear next step. The label (up to 80 characters) is required.
+- `step` is a suggested next step the assistant starts on one tap (on a row it sits with the row's other buttons, "Start" for instance): the label says the step plainly ("Renew the books online") and the tap is the person's go-ahead for exactly that. The press is recorded on the server like `done`, then the page sends the step (`payload.prompt` when it needs more words than the label, never more than it authorises; otherwise the label) with the card or row into a new session (or `payload.session`) as the person, with no draft to confirm, and the button links to that session. At most 3 steps per card or row; add one only where the data has a clear next step. The label (up to 80 characters) is required.
 - `done`, `snooze` and `event` are pressed on the server. A snooze without `payload.until` asks: in 3 hours, tomorrow at 9:00, or a time.
 - `link` opens `payload.url`.
 
@@ -295,7 +313,7 @@ The plugin doesn't act on a press itself. It checks that the person may see the 
 
 It's appended to the action log, emitted in-process as the Cordis event `card-board/action`, and published on channel `ui.action.<kind>` through [dsh-cron-jobs](https://github.com/soffits/dsh-cron-jobs) when that's installed, so a job subscribed to `ui.action.done` can mark the thing done wherever it lives. `person` is `owner` on a single-person DSH.
 
-The button shows the press as pending until the card file is written again, then done. If nothing rewrites the card within `actionTimeoutSeconds`, it says nothing picked the press up. So a handler should rewrite the card when it has acted, even if only `updatedAt` changes.
+The button shows the press as pending until the card file is written again, then done (a step is done once recorded, since sending it is the whole job). If nothing rewrites the card within `actionTimeoutSeconds`, it says nothing picked the press up. So a handler should rewrite the card when it has acted, even if only `updatedAt` changes.
 
 The buttons come from [`@soffits/dsh-ui-actions`](https://github.com/soffits/dsh-ui-actions), a separate plugin the board uses when it is installed (`dsh plugin --profile web add @soffits/dsh-ui-actions`; DSH 0.2.2-rc.1 or later). Without it cards show no buttons. A chat button opens a new conversation with the card or row attached to the message box as a small card, and the person writes beside it; a chat button's words ("Ask", "Chat about this") and the done and snooze buttons' words come from that plugin, in the person's language. On a phone the buttons are at least 40 px, and a snooze picker opens as a sheet at the bottom of the screen.
 

@@ -108,7 +108,9 @@ export function createPresses({ logPath, publisher, notify = () => {}, timeoutSe
     const at = now()
     return events.map(event => {
       const time = Date.parse(event.at)
-      const state = written > time ? 'done' : at - time > timeoutSeconds * 1000 ? 'unhandled' : 'pending'
+      // A step is carried out by sending it to the assistant (dsh-ui-actions does that right after the press), so it
+      // is done once recorded; the others wait for their owner to write the card again.
+      const state = event.action === 'step' || written > time ? 'done' : at - time > timeoutSeconds * 1000 ? 'unhandled' : 'pending'
       return { press: event.press, id: event.id, ...(event.source.row === undefined ? {} : { row: event.source.row }), at: event.at, state }
     })
   }

@@ -7,6 +7,7 @@ import { createElement as h } from 'react'
 import { CSS, STYLE_ID } from './look.js'
 import { BoardsPage } from './page.js'
 import { OWNER, buttonsStore, kitStore, useKit } from './services.js'
+import { hasNav } from './nav.js'
 import { fetchMessages, setClientContext } from './words.js'
 
 const NS = 'dsh-card-board'
@@ -81,6 +82,23 @@ export function apply(ctx) {
     document.head.appendChild(tag)
     return () => tag.remove()
   }, 'card-board: styles')
+
+  // A link to a card (?board=…&card=…) opens this page once DSH's layout is there.
+  ctx.effect(() => {
+    if (typeof location === 'undefined' || !hasNav(location.search)) return () => {}
+    let tries = 0
+    const timer = setInterval(() => {
+      const layout = ctx.get('layout')
+      try {
+        layout?.selectPanel(PANEL)
+        if (layout) clearInterval(timer)
+      } catch {
+        // the page isn't registered yet
+      }
+      if (++tries > 50) clearInterval(timer)
+    }, 100)
+    return () => clearInterval(timer)
+  }, 'card-board: card link')
 
   ctx.slots.inject('main', () => ctx.slots.register({ name: 'main', key: PANEL, locale: NS }, Page))
   ctx.slots.inject('sidebar.panellist', () => ctx.slots.register({

@@ -3,7 +3,7 @@
  * type, its suggested next steps and its other buttons.
  */
 import { createElement as h, useLayoutEffect, useRef, useState } from 'react'
-import { IconRightUpOutlineRegular, Tag } from '@deepseek-ai/dsh-client-ui-primitives'
+import { IconFullscreenOutlineRegular, IconRightUpOutlineRegular, Tag } from '@deepseek-ai/dsh-client-ui-primitives'
 import { BarChart, Donut, LineChart, Timeline } from './charts.js'
 import { CountdownBody, ListCard, StatBlock, StatusCard, SummaryBody } from './cards.js'
 import { formatAge } from './format.js'
@@ -11,6 +11,8 @@ import { listRowLine, statusRowLine, summaryLines } from './quote.js'
 import { OWNER, useButtons, useKit } from './services.js'
 import { Trunc } from './pieces.js'
 import { pickCard } from './words.js'
+import { DetailParts } from './detail.js'
+import { onControl } from './links.js'
 import { GAP, ROW, spanOf } from './layout.js'
 
 const CHART_HEIGHT = 150
@@ -37,17 +39,17 @@ function statesOf(presses, row) {
   return states
 }
 
-function Body({ card, live, wash, locale, t, rowActions }) {
+function Body({ card, live, wash, locale, t, rowActions, all, onOpenRow, rowControls }) {
   const data = card.data
   switch (card.type) {
     case 'stat': return h(StatBlock, { data, locale, wash })
-    case 'list': return h(ListCard, { data, live, locale, t, rowActions })
-    case 'status': return h(StatusCard, { data, live, locale, rowActions })
+    case 'list': return h(ListCard, { data, live, locale, t, rowActions, all, onOpenRow, rowControls })
+    case 'status': return h(StatusCard, { data, live, locale, rowActions, onOpenRow })
     case 'countdown': return h(CountdownBody, { card, locale })
     default: {
       const Chart = CHARTS[card.type]
       if (Chart === undefined) return null
-      return h(Chart, { data, locale, height: card.type === 'bar' ? 130 : card.type === 'donut' ? 160 : CHART_HEIGHT })
+      return h(Chart, { data, locale, height: all ? (card.type === 'donut' ? 200 : 240) : card.type === 'bar' ? 130 : card.type === 'donut' ? 160 : CHART_HEIGHT })
     }
   }
 }
@@ -58,13 +60,18 @@ function Body({ card, live, wash, locale, t, rowActions }) {
  * @param {{ wash: number, rows: Record<string, number>, fresh: boolean, freshRows: Set<string> }} props.live - what just
  *   changed (counts that go up with each change) and what is new since the viewer last looked
  */
-export function Card({ entry, live, boardId, assistant, tracks, active, locale, t, press }) {
+/**
+ * `onOpen(rowKey?)` opens the card (or one of its rows) in the sheet; `sheet` draws the card inside it: no head (the
+ * sheet has the title), the whole list, a taller chart and the card's `detail`; with `row`, just that row and its
+ * detail and buttons.
+ */
+export function Card({ entry, live, boardId, assistant, tracks, active, locale, t, press, onOpen, sheet = false, row: openRow }) {
   const kit = useKit()
   const actions = useButtons()
   const now = kit.useNow()
   const wash = kit.useWash(live.wash, entry.id)
   const [ref, rows] = useRowSpan()
-  const style = { gridColumn: `span ${spanOf(entry.card?.type, entry.size, tracks)}`, gridRowEnd: rows > 0 ? `span ${rows}` : undefined }
+  const style = sheet ? undefined : { gridColumn: `span ${spanOf(entry.card?.type, entry.size, tracks)}`, gridRowEnd: rows > 0 ? `span ${rows}` : undefined }
   if (!entry.card) {
     return h('section', { ref, className: 'cb-card cb-cardError', style },
       h('header', { className: 'cb-cardHead' }, h('h3', { title: entry.id }, entry.id)),
@@ -94,6 +101,10 @@ export function Card({ entry, live, boardId, assistant, tracks, active, locale, 
   const rowActions = actions && ((row, list, part) => h(actions.ActionBar, {
     actions: named(list), part, states: statesOf(entry.presses, row), compact: true, about: about(row, rowLine(row)), onPress: onPress({ row }),
   }))
+  const rowControls = {
+    press: (row, action) => onPress({ row })(action),
+    state: (row, id) => statesOf(entry.presses, row)[id],
+  }
   const chat = actions && h('span', { className: 'cb-cardChat' }, h(actions.ActionButton, { action: { kind: 'chat', id: '_chat', label: askName }, compact: true, about: about() }))
   const others = card.actions?.filter(action => action.kind !== 'step') ?? []
   const steps = card.actions?.some(action => action.kind === 'step')
@@ -101,7 +112,21 @@ export function Card({ entry, live, boardId, assistant, tracks, active, locale, 
   const footer = actions && others.length > 0 && h('footer', { className: 'cb-cardActions' }, h(actions.ActionBar, {
     actions: named(others), part: 'buttons', states: statesOf(entry.presses, undefined), about: about(), onPress: onPress({}),
   }))
-  const className = ['cb-card', `cb-card-${card.type}`, stale && 'cb-cardStale', wash].filter(Boolean).join(' ')
+  const openable = !sheet && onOpen && card.type !== 'summary'
+  const className = ['cb-card', `cb-card-${card.type}`, stale && 'cb-cardStale', openable && 'cb-cardOpenable', sheet && 'cb-cardInSheet', wash].filter(Boolean).join(' ')
+  // Tapping the card's own surface (not one of its buttons, links or rows that open themselves) opens it.
+  const openOnTap = openable ? { onClick: event => { if (!onControl(event) && !event.target.closest?.('[data-opens]') && !window.getSelection?.()?.toString()) onOpen() } } : {}
+  const onOpenRow = onOpen && (key => onOpen(key))
+
+  if (sheet && openRow !== undefined) {
+    const index = card.data.rows?.findIndex(r => r.key === openRow) ?? -1
+    const target = index >= 0 ? card.data.rows[index] : null
+    if (!target) return h('p', { className: 'cb-muted' }, t('rowGone'))
+    return h('div', { className: 'cb-rowSheet' },
+      h(Body, { card: { ...card, data: { ...card.data, rows: [target], progress: undefined } }, live, wash: false, locale, t, rowActions: rowActions && ((_, list, part) => rowActions(index, list, part)), all: true,
+        rowControls: { press: (_, action) => rowControls.press(index, action), state: (_, id) => rowControls.state(index, id) } }),
+      h(DetailParts, { detail: target.detail, locale, t }))
+  }
 
   if (card.type === 'summary') {
     return h('section', { ref, className, style, 'data-type': card.type },
@@ -110,9 +135,9 @@ export function Card({ entry, live, boardId, assistant, tracks, active, locale, 
   }
 
   const statBlock = card.stat && h(StatBlock, { data: card.stat, locale, compact: true, wash: wash !== '' })
-  const body = h(Body, { card, live, wash: wash !== '', locale, t, rowActions })
-  return h('section', { ref, className, style, 'data-type': card.type },
-    h('header', { className: 'cb-cardHead' },
+  const body = h(Body, { card, live, wash: wash !== '', locale, t, rowActions, all: sheet, onOpenRow, rowControls })
+  return h('section', { ref, className, style, 'data-type': card.type, ...openOnTap },
+    !sheet && h('header', { className: 'cb-cardHead' },
       card.icon && h(kit.Tile, { icon: card.icon, tone: card.tone ?? 'muted', size: 30 }),
       h(Trunc, { as: 'h3', text: card.title }),
       live.fresh && h(kit.NewDot),
@@ -120,10 +145,13 @@ export function Card({ entry, live, boardId, assistant, tracks, active, locale, 
       stale && h('span', { className: 'cb-stale', title: new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(updated) },
         h(Tag, { tone: 'warning' }, t('stale', { age: formatAge(age, locale) }))),
       card.link && h('a', { className: 'cb-cardLink', href: card.link, title: t('open'), 'aria-label': t('open'), ...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {}) }, h(IconRightUpOutlineRegular, { size: 14 })),
+      openable && h('button', { type: 'button', className: 'cb-cardLink cb-cardOpen', title: t('details'), 'aria-label': t('details'), onClick: () => onOpen() }, h(IconFullscreenOutlineRegular, { size: 14 })),
       chat),
     statBlock && ['line', 'bar', 'donut'].includes(card.type)
       ? h('div', { className: 'cb-split' }, statBlock, h('div', { className: 'cb-cardBody' }, body))
       : [statBlock && h('div', { key: 'stat' }, statBlock), h('div', { key: 'body', className: 'cb-cardBody' }, body)],
+    sheet && h(DetailParts, { detail: card.detail, locale, t }),
     steps,
-    footer)
+    footer,
+    sheet && chat && h('div', { className: 'cb-sheetChat' }, chat))
 }

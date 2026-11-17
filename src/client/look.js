@@ -99,8 +99,8 @@ h3.cb-truncOpen{overflow:visible}
 .cb-when{flex:none;color:var(--dsw-alias-label-tertiary);font-size:12px;font-variant-numeric:tabular-nums}
 .cb-rowActions{display:inline-flex;flex-wrap:wrap;justify-content:flex-end;min-width:0}
 .cb-rowSteps{flex-basis:100%;min-width:0;padding-left:41px}
-.cb-check{flex:none;display:inline-grid;place-items:center;width:18px;height:18px;border-radius:5px;color:#fff;box-shadow:inset 0 0 0 1.5px var(--dsw-alias-border-l4,var(--dsw-alias-border-l3))}
-.cb-check[data-checked=true]{background:var(--dsw-alias-state-success-primary);box-shadow:none}
+.cb-doneBox{flex:none;display:inline-flex;align-items:center;min-width:28px;min-height:28px;justify-content:center}
+.cb-visuallyHidden{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .cb-dotSlot{flex:none;display:inline-grid;place-items:center;width:28px}
 .cb-statusSpark{flex:0 1 90px;min-width:48px}
 .cb-statusValue{flex:none;color:var(--dsw-alias-label-secondary);font-variant-numeric:tabular-nums}
@@ -147,7 +147,7 @@ h3.cb-truncOpen{overflow:visible}
 .cb-row>.cb-statusValue{grid-column:3;grid-row:1}
 .cb-statusRow>.cb-rowActions{grid-row:2}
 .cb-row>.cb-rowSteps{grid-column:2/-1;padding-left:0}
-.cb-row>.cb-check+.uk-tile{display:none}
+.cb-row>.cb-doneBox+.uk-tile{display:none}
 }
 @container (width<520px){
 .cb-track{grid-auto-flow:row;grid-auto-columns:auto;gap:10px}
@@ -165,6 +165,56 @@ h3.cb-truncOpen{overflow:visible}
 .cb-summaryText{font-size:16px;line-height:24px}
 .cb-statValue{font-size:24px;line-height:30px}
 }
+/* Touch and pointer: cards and rows answer a hover and a press, in DSH's own interactive colours and motion. */
+.cb-card{transition:box-shadow var(--ds-transition-duration,.2s) var(--ds-ease-in-out,ease),transform var(--ds-transition-duration,.2s) var(--ds-ease-in-out,ease)}
+.cb-cardOpenable{cursor:pointer}
+button.cb-cardOpen{border:0;background:transparent;padding:0;font:inherit;cursor:pointer}
+@media (hover:hover) and (pointer:fine){.cb-cardOpen{opacity:0;transition:opacity var(--ds-transition-duration,.2s) var(--ds-ease-in-out,ease)}.cb-card:hover .cb-cardOpen,.cb-cardOpen:focus-visible{opacity:1}}
+.cb-cardOpenable:active{transform:scale(.995)}
+.cb-rowOpens{cursor:pointer}
+.cb-row{transition:background-color var(--ds-transition-duration,.2s) var(--ds-ease-in-out,ease)}
+.cb-rowOpens:active{background:var(--dsw-alias-interactive-bg-active,var(--dsw-alias-interactive-bg-hover))}
+.cb-rowOpens:focus-visible,.cb-cardOpen:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:1px}
+.cb-statLink{color:inherit;text-decoration:none;border-radius:10px;margin:-4px -6px;padding:4px 6px;transition:background-color var(--ds-transition-duration,.2s) var(--ds-ease-in-out,ease)}
+.cb-statLink:active{background:var(--dsw-alias-interactive-bg-active,var(--dsw-alias-interactive-bg-hover))}
+@media (hover:hover) and (pointer:fine){
+.cb-cardOpenable:hover{box-shadow:inset 0 0 0 .5px var(--dsw-alias-border-l3),0 2px 10px color-mix(in srgb,var(--dsw-alias-label-primary) 6%,transparent)}
+.cb-row:hover,.cb-statLink:hover{background:var(--dsw-alias-interactive-bg-hover)}
+/* a row's buttons show on hover or focus; on touch they are always there */
+.cb-row .cb-rowActions{opacity:0;transition:opacity var(--ds-transition-duration,.2s) var(--ds-ease-in-out,ease)}
+.cb-row:hover .cb-rowActions,.cb-row:focus-within .cb-rowActions{opacity:1}
+}
+/* Motion: a changed card settles, rows that open in a list fade in, numbers ease (motion.js). */
+@keyframes cb-settle{from{transform:translateY(3px);opacity:.55}to{transform:none;opacity:1}}
+@keyframes cb-in{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+.cb-card.uk-wash .cb-cardBody,.cb-card.uk-wash .cb-stats{animation:cb-settle var(--ds-transition-duration,.2s) var(--ds-ease-in-out,ease) both}
+.cb-rowLate{animation:cb-in var(--ds-transition-duration,.2s) var(--ds-ease-in-out,ease) both}
+@media (prefers-reduced-motion:reduce){.cb-card,.cb-row,.cb-statLink{transition:none}.cb-card.uk-wash .cb-cardBody,.cb-card.uk-wash .cb-stats,.cb-rowLate{animation:none}.cb-cardOpenable:active{transform:none}}
+/* What is chrome is not selectable (heads, tags, axes, legends, strips, buttons, times); titles, notes and numbers are. */
+.cb-cardHead,.cb-tabs,.cb-heading .cb-sub,.cb-rowMeta,.cb-rowActions,.cb-statLabel,.cb-strip,.cb-chart svg,.cb-legend,.cb-track b,.cb-more,.cb-doneBox,.cb-delta,.cb-when,.cb-progress small,.cb-bubble{-webkit-user-select:none;user-select:none}
+.cb-cardHead h3{-webkit-user-select:text;user-select:text}
+.cb-card svg,.cb-card img{-webkit-user-drag:none}
+/* The point under the pointer on a chart */
+.cb-chart{position:relative}
+.cb-plot{touch-action:pan-y}
+.cb-hoverRule{stroke:var(--dsw-alias-border-l3);stroke-width:1}
+.cb-bubble{position:absolute;top:4px;z-index:1;pointer-events:none;padding:5px 8px;border-radius:8px;background:var(--dsw-alias-bg-base);box-shadow:0 2px 10px color-mix(in srgb,var(--dsw-alias-label-primary) 14%,transparent),inset 0 0 0 .5px var(--dsw-alias-border-l2);color:var(--dsw-alias-label-primary);font-size:12px;line-height:17px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.cb-bubbleHead{color:var(--dsw-alias-label-tertiary)}
+/* The opened card */
+.cb-sheetModal.cb-sheetModal{width:min(720px,calc(100vw - 32px));max-width:none}
+.cb-sheet{min-width:0}
+.cb-cardInSheet{padding:0;box-shadow:none;background:transparent;border-radius:0}
+.cb-detail{display:flex;flex-direction:column;gap:14px;margin-top:4px}
+.cb-detailText{margin:0;color:var(--dsw-alias-label-secondary);font-size:14px;line-height:21px;white-space:pre-wrap}
+.cb-facts{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:6px 18px;margin:0;font-size:13px;line-height:19px}
+.cb-facts dt{color:var(--dsw-alias-label-tertiary);-webkit-user-select:none;user-select:none}
+.cb-facts dd{margin:0;color:var(--dsw-alias-label-primary);overflow-wrap:anywhere}
+.cb-detailHistory h4{margin:0 0 6px;font-size:12px;font-weight:500;color:var(--dsw-alias-label-tertiary);-webkit-user-select:none;user-select:none}
+.cb-sheetChat{display:flex;justify-content:flex-end}
+.cb-rowSheet{display:flex;flex-direction:column;gap:12px}
+/* the opened view shows every word: nothing is cut to a line or two */
+.cb-sheet .cb-trunc{white-space:normal;display:block;-webkit-line-clamp:unset;overflow:visible;text-overflow:clip}
+@media (width<=640px){.cb-sheetModal.cb-sheetModal{width:calc(100vw - 16px)}}
 @media (width<=768px),(pointer:coarse){
 .cb-cardLink{width:40px;height:40px;margin:-9px 0}
 .cb-cardChat{margin:-9px -10px -9px 0}
