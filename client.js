@@ -1,4 +1,4 @@
-/* @soffits/dsh-card-board 0.9.1: built by scripts/build.mjs from src/client/. Do not edit. */
+/* @soffits/dsh-card-board 0.10.0: built by scripts/build.mjs from src/client/. Do not edit. */
 window.__ModuleLoader__.load({
   id: "@soffits/dsh-card-board",
   factory: (require) => {
@@ -121,13 +121,14 @@ h3.cb-truncOpen{overflow:visible}
 .cb-rowText{flex:1;min-width:0}
 .cb-rowTitle{display:flex;align-items:center;gap:6px;min-width:0;font-size:14px;line-height:20px}
 .cb-rowSub{color:var(--dsw-alias-label-tertiary);font-size:12px;line-height:18px}
-.cb-done .cb-rowTitle{color:var(--dsw-alias-label-tertiary)}
+.cb-done .cb-rowTitle{color:var(--dsw-alias-label-tertiary);text-decoration:line-through}
 .cb-rowMeta{display:flex;align-items:center;gap:8px;min-width:0;max-width:45%}
 .cb-rowMeta>*{min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cb-when{flex:none;color:var(--dsw-alias-label-tertiary);font-size:12px;font-variant-numeric:tabular-nums}
 .cb-rowActions{display:inline-flex;flex-wrap:wrap;justify-content:flex-end;min-width:0}
 .cb-rowSteps{flex-basis:100%;min-width:0;padding-left:41px}
 .cb-doneBox{flex:none;display:inline-flex;align-items:center;min-width:28px;min-height:28px;justify-content:center}
+.cb-toastUndo{display:inline-block;min-width:40px;min-height:40px;margin:-12px -6px;padding:0 6px;line-height:40px;text-align:center;-webkit-user-select:none;user-select:none;touch-action:manipulation}
 .cb-visuallyHidden{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .cb-dotSlot{flex:none;display:inline-grid;place-items:center;width:28px}
 .cb-statusSpark{flex:0 1 90px;min-width:48px}
@@ -245,6 +246,8 @@ button.cb-cardOpen{border:0;background:transparent;padding:0;font:inherit;cursor
 @media (width<=640px){.cb-sheetModal.cb-sheetModal{width:calc(100vw - 16px)}}
 @media (width<=768px),(pointer:coarse){
 .cb-cardLink{width:40px;height:40px;margin:-9px 0}
+.cb-doneBox{min-width:40px;min-height:40px;margin:-6px -6px -6px -10px}
+.cb-doneBox label{display:inline-flex;align-items:center;justify-content:center;min-width:40px;min-height:40px}
 .cb-cardChat{margin:-9px -10px -9px 0}
 }
 `;
@@ -842,6 +845,27 @@ function shownRows(rows, open, limit, live) {
   return rows.filter((row, i) => i < limit || row.key !== void 0 && (live?.freshRows?.has(row.key) || live?.rows?.[row.key] > 0));
 }
 
+// src/client/ticks.js
+var doneOf = (row) => row?.actions?.find((action) => action.kind === "done");
+function keepOf(row, index) {
+  const done = doneOf(row);
+  return done === void 0 ? void 0 : { id: done.id, index, row: { ...row, checked: true, actions: [done] } };
+}
+function keepTicked(rows, kept = []) {
+  const present = new Set(rows.map((row) => doneOf(row)?.id));
+  const missing = kept.filter((entry) => !present.has(entry.id)).sort((a, b) => a.index - b.index);
+  if (missing.length === 0) return rows;
+  const merged = [...rows];
+  for (const entry of missing) merged.splice(Math.min(entry.index, merged.length), 0, entry.row);
+  return merged;
+}
+function doneState(row, latest) {
+  const state = latest?.state;
+  const checked = state === "undone" ? false : row.checked === true || state === "done" || state === "pending";
+  return { checked, undo: checked && latest?.undoable ? latest.press : void 0 };
+}
+var withKept = (kept = [], entry) => [...kept.filter((other) => other.id !== entry.id), entry];
+
 // src/client/cards.js
 var STATE_OF_TONE = { ok: "done", warn: "warning", bad: "error" };
 var DIRECTION_ICON = { up: "trending-up", down: "trending-down" };
@@ -927,7 +951,7 @@ function Row({ lead, title, sub, meta, value, spark, row, index, washCount, fres
   };
   return (0, import_react6.createElement)(
     "li",
-    { className: ["cb-row", className, row.checked && "cb-done", isActive(row.active, now) && "cb-rowNow", go && "cb-rowOpens", wash].filter(Boolean).join(" "), ...opens },
+    { className: ["cb-row", className, isActive(row.active, now) && "cb-rowNow", go && "cb-rowOpens", wash].filter(Boolean).join(" "), ...opens },
     lead,
     (0, import_react6.createElement)(
       "div",
@@ -948,18 +972,19 @@ function Row({ lead, title, sub, meta, value, spark, row, index, washCount, fres
   );
 }
 function DoneBox({ row, index, done, rowControls, t }) {
-  const state = rowControls.state(index, done.id);
-  const checked = row.checked === true || state === "done" || state === "pending";
+  const { checked, undo } = doneState(row, rowControls.latest(index, done.id));
+  const label = t(checked ? undo ? "markNotDone" : "checked" : "markDone");
   return (0, import_react6.createElement)(
     "span",
     { className: "cb-doneBox", onClick: (event) => event.stopPropagation() },
     (0, import_react6.createElement)(import_dsh_client_ui_primitives.Checkbox, {
       checked,
-      disabled: checked,
-      title: t(checked ? "checked" : "markDone"),
-      label: (0, import_react6.createElement)("span", { className: "cb-visuallyHidden" }, t(checked ? "checked" : "markDone")),
+      disabled: checked ? undo === void 0 : index < 0,
+      title: label,
+      label: (0, import_react6.createElement)("span", { className: "cb-visuallyHidden" }, label),
       onChange: (value) => {
         if (value) rowControls.press(index, done);
+        else if (undo) rowControls.undo(undo);
       }
     })
   );
@@ -968,9 +993,13 @@ var rowLive = (live, row) => ({ washCount: live.rows?.[row.key] ?? 0, fresh: row
 function ListCard({ data, live, locale, t, rowActions, all = false, onOpenRow, rowControls }) {
   const kit = useKit();
   const [open, setOpen] = (0, import_react6.useState)(false);
-  const rows = shownRows(data.rows, open || all, LIST_ROWS, live);
-  const hidden = data.rows.length - rows.length;
-  const doneOf = (row) => row.actions?.find((action) => action.kind === "done");
+  const listed = keepTicked(data.rows, rowControls?.kept);
+  const rows = shownRows(listed, open || all, LIST_ROWS, live);
+  const hidden = listed.length - rows.length;
+  const ticked = (row) => {
+    const done = doneOf(row);
+    return done !== void 0 && rowControls !== void 0 ? doneState(row, rowControls.latest(data.rows.indexOf(row), done.id)).checked : row.checked === true;
+  };
   const progress = data.progress;
   return (0, import_react6.createElement)(
     "div",
@@ -991,13 +1020,13 @@ function ListCard({ data, live, locale, t, rowActions, all = false, onOpenRow, r
         progress.sub && (0, import_react6.createElement)("div", { className: "cb-rowSub" }, progress.sub)
       )
     ),
-    data.rows.length === 0 ? (0, import_react6.createElement)("p", { className: "cb-muted" }, data.empty ?? t("listEmpty")) : (0, import_react6.createElement)("ul", { className: "cb-rows" }, rows.map((row, i) => (0, import_react6.createElement)(Row, {
+    listed.length === 0 ? (0, import_react6.createElement)("p", { className: "cb-muted" }, data.empty ?? t("listEmpty")) : (0, import_react6.createElement)("ul", { className: "cb-rows" }, rows.map((row, i) => (0, import_react6.createElement)(Row, {
       key: row.key ?? i,
       index: data.rows.indexOf(row),
       row: doneOf(row) && rowControls ? { ...row, actions: row.actions.filter((a) => a.kind !== "done") } : row,
       rowActions,
       onOpenRow,
-      className: i >= LIST_ROWS ? "cb-rowLate" : void 0,
+      className: [i >= LIST_ROWS && "cb-rowLate", ticked(row) && "cb-done"].filter(Boolean).join(" ") || void 0,
       ...rowLive(live, row),
       lead: [
         doneOf(row) && rowControls && (0, import_react6.createElement)(DoneBox, { key: "check", row, index: data.rows.indexOf(row), done: doneOf(row), rowControls, t }),
@@ -1012,7 +1041,7 @@ function ListCard({ data, live, locale, t, rowActions, all = false, onOpenRow, r
         (0, import_react6.createElement)(RowWhen, { row, locale, t })
       )
     }))),
-    !all && (hidden > 0 || open) && data.rows.length > LIST_ROWS + 1 && (0, import_react6.createElement)(
+    !all && (hidden > 0 || open) && listed.length > LIST_ROWS + 1 && (0, import_react6.createElement)(
       import_dsh_client_ui_primitives.Button,
       { variant: "ghost", size: "sm", className: "cb-more", onClick: () => setOpen((value) => !value) },
       open ? t("showFewer") : t("showMore", { n: hidden })
@@ -1249,6 +1278,9 @@ function statesOf(presses, row) {
   for (const press of presses ?? []) if (press.row === row) states[press.id] = press.state;
   return states;
 }
+function latestOf(presses, row, id) {
+  return (presses ?? []).findLast((press) => press.id === id && (row < 0 || press.row === row));
+}
 function Body({ card, live, wash, locale, t, rowActions, all, onOpenRow, rowControls }) {
   const data = card.data;
   switch (card.type) {
@@ -1267,7 +1299,7 @@ function Body({ card, live, wash, locale, t, rowActions, all, onOpenRow, rowCont
     }
   }
 }
-function Card({ entry, live, boardId, assistant, tracks, active, locale, t, press, onOpen, sheet = false, row: openRow }) {
+function Card({ entry, live, boardId, assistant, tracks, active, locale, t, press, undo, kept, onOpen, sheet = false, row: openRow }) {
   const kit = useKit();
   const actions = useButtons();
   const now = kit.useNow();
@@ -1298,7 +1330,7 @@ function Card({ entry, live, boardId, assistant, tracks, active, locale, t, pres
   const rowLine = (row) => card.type === "status" ? statusRowLine(card.data.rows[row], locale) : listRowLine(card.data.rows[row]);
   const askName = assistant ? t("action.chatNamed", { name: assistant }) : void 0;
   const named = (list) => assistant ? list?.map((action) => action.kind === "chat" && action.label === void 0 ? { ...action, label: askName } : action) : list;
-  const onPress = (target) => (action, extra) => press(action, extra, { card: entry.id, ...target });
+  const onPress = (target) => (action, extra) => press(action, extra, { card: entry.id, ...target }, target.row === void 0 ? void 0 : card.data.rows?.[target.row]);
   const rowActions = actions && ((row, list, part2) => (0, import_react9.createElement)(actions.ActionBar, {
     actions: named(list),
     part: part2,
@@ -1309,7 +1341,10 @@ function Card({ entry, live, boardId, assistant, tracks, active, locale, t, pres
   }));
   const rowControls = {
     press: (row, action) => onPress({ row })(action),
-    state: (row, id) => statesOf(entry.presses, row)[id]
+    state: (row, id) => statesOf(entry.presses, row)[id],
+    latest: (row, id) => latestOf(entry.presses, row, id),
+    kept,
+    undo: (pressId) => undo(pressId, entry.id)
   };
   const chat = actions && (0, import_react9.createElement)("span", { className: "cb-cardChat" }, (0, import_react9.createElement)(actions.ActionButton, { action: { kind: "chat", id: "_chat", label: askName }, compact: true, about: about() }));
   const others = card.actions?.filter((action) => action.kind !== "step") ?? [];
@@ -1342,7 +1377,7 @@ function Card({ entry, live, boardId, assistant, tracks, active, locale, t, pres
         t,
         rowActions: rowActions && ((_, list, part2) => rowActions(index, list, part2)),
         all: true,
-        rowControls: { press: (_, action) => rowControls.press(index, action), state: (_, id) => rowControls.state(index, id) }
+        rowControls: { ...rowControls, kept: [], press: (_, action) => rowControls.press(index, action), state: (_, id) => rowControls.state(index, id), latest: (_, id) => rowControls.latest(index, id) }
       }),
       (0, import_react9.createElement)(DetailParts, { detail: target.detail, locale, t })
     );
@@ -1445,6 +1480,8 @@ function Sheet({ open, onClose, title, closeLabel, children }) {
 // src/client/page.js
 var STORE_KEY = "dsh-card-board:board";
 var SEEN_AFTER_MS = 2500;
+var UNDO_HOLD_MS = 7e3;
+var TOAST_KEYS = { done: "toast.done", snooze: "toast.snooze" };
 function requestError(status, body) {
   const error = new Error(body?.error ?? `HTTP ${status}`);
   error.status = status;
@@ -1491,6 +1528,9 @@ function BoardsPage() {
   const currentRef = (0, import_react11.useRef)(null);
   const translateRef = (0, import_react11.useRef)(t);
   translateRef.current = t;
+  const [kept, setKept] = (0, import_react11.useState)({});
+  const [toast, setToast] = (0, import_react11.useState)(null);
+  const toasts = (0, import_react11.useRef)(0);
   const board = view.board;
   const boardRef = (0, import_react11.useRef)(null);
   boardRef.current = board;
@@ -1551,18 +1591,36 @@ function BoardsPage() {
     }
   }, [loadBoard, loadCard, loadList, show]);
   const status = kit.useEventStream(current ? `api/card-board/events?board=${encodeURIComponent(current)}` : null, onEvent);
-  const press = (0, import_react11.useCallback)(async (action, extra, target) => {
+  const post = (0, import_react11.useCallback)(async (body) => {
     const response = await fetch(api("action"), {
       method: "POST",
       credentials: "same-origin",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ board: currentRef.current, ...target, id: action.id, ...extra })
+      body: JSON.stringify({ board: currentRef.current, ...body })
     });
-    const body = await response.json().catch(() => null);
-    if (!response.ok) throw new Error(errorText(requestError(response.status, body), translateRef.current));
+    const answer = await response.json().catch(() => null);
+    if (!response.ok) throw new Error(errorText(requestError(response.status, answer), translateRef.current));
     loadBoard(currentRef.current, false);
-    return body;
+    return answer;
   }, [loadBoard]);
+  const showToast = (0, import_react11.useCallback)((next) => setToast({ seq: ++toasts.current, ...next }), []);
+  const undo = (0, import_react11.useCallback)(async (pressId, card) => {
+    try {
+      await post({ card, undo: pressId });
+      showToast({ text: "toast.undone" });
+    } catch {
+      showToast({ text: "toast.undoFailed" });
+    }
+  }, [post, showToast]);
+  const press = (0, import_react11.useCallback)(async (action, extra, target, row) => {
+    const answer = await post({ ...target, id: action.id, ...extra });
+    if (answer?.undoable) {
+      showToast({ text: TOAST_KEYS[action.kind] ?? "toast.event", undo: () => undo(answer.press, target.card) });
+      const keep = action.kind === "done" && row !== void 0 ? keepOf(row, target.row) : void 0;
+      if (keep) setKept((prev) => ({ ...prev, [target.card]: withKept(prev[target.card], keep) }));
+    }
+    return answer;
+  }, [post, showToast, undo]);
   (0, import_react11.useEffect)(() => {
     loadList();
   }, [loadList]);
@@ -1570,6 +1628,8 @@ function BoardsPage() {
     currentRef.current = current;
     if (!current) return;
     etag.current = null;
+    setKept({});
+    setToast(null);
     setView((prev) => prev.board?.id === current ? prev : { board: null, live: {} });
     loadBoard(current, true);
   }, [current, loadBoard]);
@@ -1657,7 +1717,7 @@ function BoardsPage() {
     (0, import_react11.createElement)(
       "div",
       { className: "cb-grid", style: { gridTemplateColumns: `repeat(${tracks}, minmax(0, 1fr))`, gridAutoRows: `${ROW}px`, columnGap: GAP } },
-      board.cards.map((entry) => (0, import_react11.createElement)(Card, { key: entry.id, entry, live: liveOf(view.live, entry.id), boardId: board.id, assistant: board.assistant, tracks, active, locale, t, press, onOpen: (row) => openCard(board.id, entry.id, row) }))
+      board.cards.map((entry) => (0, import_react11.createElement)(Card, { key: entry.id, entry, live: liveOf(view.live, entry.id), boardId: board.id, assistant: board.assistant, tracks, active, locale, t, press, undo, kept: kept[entry.id], onOpen: (row) => openCard(board.id, entry.id, row) }))
     )
   );
   const openEntry = opened.card && board && (!opened.board || opened.board === board.id) ? board.cards.find((entry) => entry.id === opened.card && entry.card) : void 0;
@@ -1668,7 +1728,7 @@ function BoardsPage() {
     onClose: closeCard,
     title: openRow ? openRow.title ?? openRow.label : openCardData?.title,
     closeLabel: t("close")
-  }, openEntry && (0, import_react11.createElement)(Card, { entry: openEntry, live: liveOf(view.live, openEntry.id), boardId: board.id, assistant: board.assistant, tracks: 1, active, locale, t, press, sheet: true, row: opened.row }));
+  }, openEntry && (0, import_react11.createElement)(Card, { entry: openEntry, live: liveOf(view.live, openEntry.id), boardId: board.id, assistant: board.assistant, tracks: 1, active, locale, t, press, undo, kept: kept[openEntry.id], sheet: true, row: opened.row }));
   return (0, import_react11.createElement)(
     "div",
     { className: "cb-page" },
@@ -1684,7 +1744,17 @@ function BoardsPage() {
       boards && boards.length > 1 && (0, import_react11.createElement)("div", { className: "cb-tabs", role: "tablist" }, boards.map((b) => (0, import_react11.createElement)(import_dsh_client_ui_primitives4.Pill, { key: b.id, active: b.id === current, role: "tab", "aria-selected": b.id === current, title: titleOf(b), onClick: () => choose(b.id) }, titleOf(b)))),
       content
     ),
-    board && sheet
+    board && sheet,
+    toast && (0, import_react11.createElement)(import_dsh_client_ui_primitives4.Toast, {
+      key: toast.seq,
+      text: t(toast.text),
+      tone: "success",
+      ...toast.undo ? { holdMs: UNDO_HOLD_MS, actions: [{ label: (0, import_react11.createElement)("span", { className: "cb-toastUndo" }, t("undo")), onClick: () => {
+        setToast(null);
+        toast.undo();
+      } }] } : {},
+      onDone: () => setToast(null)
+    })
   );
 }
 

@@ -20,6 +20,14 @@ describe('checkCard', () => {
     assert.deepEqual([...types].sort(), ['bar', 'countdown', 'donut', 'line', 'list', 'stat', 'status', 'summary', 'timeline'])
   })
 
+  it('checks an action\'s inverse: a name and a small payload, on actions a press can undo', () => {
+    const list = actions => ({ ...base, type: 'list', data: { rows: [{ title: 'x', actions }] } })
+    assert.deepEqual(checkCard(list([{ kind: 'done', id: 'a', inverse: { kind: 'reopen', payload: { id: 1 } } }])), [])
+    assert.deepEqual(checkCard(list([{ kind: 'done', id: 'a', inverse: { payload: {} } }])), ['data.rows[0].actions[0].inverse.kind: is required'])
+    assert.deepEqual(checkCard(list([{ kind: 'done', id: 'a', inverse: { kind: 'bad kind' } }])), ['data.rows[0].actions[0].inverse.kind: must be letters, digits and . _ : - (up to 100), starting with a letter or digit'])
+    assert.deepEqual(checkCard(list([{ kind: 'step', id: 'a', label: 'Go', inverse: { kind: 'stop' } }])), ["data.rows[0].actions[0].inverse: isn't allowed on a step action"])
+  })
+
   it('names the path of each problem', () => {
     const problems = checkCard({ ...base, type: 'stat', data: { items: [{ label: 'x', value: 1, lable: 'typo' }] } })
     assert.deepEqual(problems, ['data.items[0].lable: is not a known field'])

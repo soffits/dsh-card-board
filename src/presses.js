@@ -9,10 +9,16 @@
  * A press is pending until its card file is written again after it (done),
  * or until the timeout passes with no write (unhandled). Recent presses are
  * kept in memory and reloaded from the log's tail after a restart.
+ *
+ * An action that declares an `inverse` can be taken back: the press keeps the
+ * inverse as the card offered it, and an undo press (`action: 'undo'`, naming
+ * the press it takes back in `undoes`) becomes the event of the way back. The
+ * log is append-only, so "undone" is the later record that points at the press.
  */
 import { randomUUID } from 'node:crypto'
 import { appendFile, mkdir, open, stat } from 'node:fs/promises'
 import { dirname } from 'node:path'
+import { UNDO_KIND } from './schema.js'
 
 const KEEP_MS = 24 * 3600 * 1000
 const TAIL_BYTES = 1024 * 1024
@@ -71,19 +77,25 @@ export function createPresses({ logPath, publisher, notify = () => {}, timeoutSe
   async function press({ action, person, user, board, card, row, payload }) {
     const events = await list()
     const at = now()
-    const twin = events.find(event => event.id === action.id && event.person === person && event.source.board === board && event.source.card === card && event.source.row === row && at - Date.parse(event.at) < DOUBLE_TAP_MS)
+    const twin = events.find(event => event.action !== UNDO_KIND && !events.some(later => later.undoes === event.press) && event.id === action.id && event.person === person && event.source.board === board && event.source.card === card && event.source.row === row && at - Date.parse(event.at) < DOUBLE_TAP_MS)
     if (twin) return twin
     const event = {
       press: randomUUID(),
       action: action.kind,
       id: action.id,
       ...(action.label ? { label: action.label } : {}),
+      ...(action.inverse ? { inverse: action.inverse } : {}),
       payload,
       person,
       ...(user ? { user } : {}),
       at: new Date(at).toISOString(),
       source: { plugin: 'dsh-card-board', board, card, ...(row === undefined ? {} : { row }) },
     }
+    return record(event)
+  }
+
+  /** Append one event to the log and the recent list, tell in-process listeners and publish it. */
+  async function record(event) {
     await mkdir(dirname(logPath), { recursive: true })
     await appendFile(logPath, `${JSON.stringify(event)}\n`, { mode: 0o600 })
     recent.push(event)
@@ -98,22 +110,54 @@ export function createPresses({ logPath, publisher, notify = () => {}, timeoutSe
   }
 
   /**
+   * Take one press back. Whoever pressed may; the way back is the inverse the card offered when it was pressed, so
+   * nothing the browser says decides what happens. Undoing twice returns the first undo.
+   * @returns {Promise<{ event: object } | { problem: 'unknown' | 'forbidden' | 'no-inverse' }>}
+   */
+  async function undo({ press: id, person, user, board, card }) {
+    const events = await list()
+    const original = events.find(event => event.press === id && event.action !== UNDO_KIND)
+    if (original === undefined || original.source.board !== board || original.source.card !== card) return { problem: 'unknown' }
+    if (original.person !== person) return { problem: 'forbidden' }
+    if (!original.inverse) return { problem: 'no-inverse' }
+    const earlier = events.find(event => event.action === UNDO_KIND && event.undoes === id)
+    if (earlier) return { event: earlier }
+    // The press's own additions (a snooze time the person picked) don't belong to the way back.
+    const { until: _picked, ...own } = original.payload ?? {}
+    const event = {
+      press: randomUUID(),
+      action: UNDO_KIND,
+      of: original.action,
+      id: original.id,
+      undoes: original.press,
+      inverse: original.inverse.kind,
+      payload: { ...own, ...(original.inverse.payload ?? {}) },
+      person,
+      ...(user ? { user } : {}),
+      at: new Date(now()).toISOString(),
+      source: original.source,
+    }
+    return { event: await record(event) }
+  }
+
+  /**
    * The presses on one card with their state: done once the card file was
    * written after the press, unhandled after the timeout, else pending.
    */
   async function statesFor(board, card, cardPath) {
     const events = (await list()).filter(event => event.source.board === board && event.source.card === card)
     if (events.length === 0) return []
+    const undone = new Set(events.filter(event => event.action === UNDO_KIND).map(event => event.undoes))
     const written = await stat(cardPath).then(info => info.mtimeMs, () => 0)
     const at = now()
-    return events.map(event => {
+    return events.filter(event => event.action !== UNDO_KIND).map(event => {
       const time = Date.parse(event.at)
       // A step is carried out by sending it to the assistant (dsh-ui-actions does that right after the press), so it
       // is done once recorded; the others wait for their owner to write the card again.
-      const state = event.action === 'step' || written > time ? 'done' : at - time > timeoutSeconds * 1000 ? 'unhandled' : 'pending'
-      return { press: event.press, id: event.id, ...(event.source.row === undefined ? {} : { row: event.source.row }), at: event.at, state }
+      const state = undone.has(event.press) ? 'undone' : event.action === 'step' || written > time ? 'done' : at - time > timeoutSeconds * 1000 ? 'unhandled' : 'pending'
+      return { press: event.press, id: event.id, ...(event.source.row === undefined ? {} : { row: event.source.row }), at: event.at, state, ...(event.inverse && state !== 'undone' ? { undoable: true } : {}) }
     })
   }
 
-  return { press, statesFor, list }
+  return { press, undo, statesFor, list }
 }

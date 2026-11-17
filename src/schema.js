@@ -18,6 +18,10 @@ export const ICON_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/
 export const ACTION_KINDS = Object.freeze(['chat', 'step', 'done', 'snooze', 'event', 'link'])
 /** Kinds the server records as events; chat and link happen in the browser only. */
 export const PRESS_KINDS = Object.freeze(['step', 'done', 'snooze', 'event'])
+/** Kinds that may declare an `inverse`, the way back the page offers as Undo. A step has none: sending it is the whole job. */
+export const INVERSE_KINDS = Object.freeze(['done', 'snooze', 'event'])
+/** The kind of the press that takes another back; its channel is `ui.action.undo`. */
+export const UNDO_KIND = 'undo'
 /** Suggested steps per card or row: a few clear next moves, not a menu. */
 export const MAX_STEPS = 3
 export const ACTION_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,99}$/
@@ -177,6 +181,18 @@ function rowLook(c, row, path, keys, { toneRequired = false } = {}) {
   c.optional(row, 'active', v => timeWindow(c, v, join(path, 'active')))
 }
 
+/** Problems with an action's `inverse`: the name its owner knows the way back by, and what that press carries. */
+function inverse(c, value, path, kind) {
+  if (!INVERSE_KINDS.includes(kind)) return c.fail(path, `isn't allowed on a ${kind} action`)
+  if (!c.object(value, path, ['kind'], ['payload'])) return
+  if ('kind' in value && (typeof value.kind !== 'string' || !ACTION_ID_PATTERN.test(value.kind))) c.fail(join(path, 'kind'), 'must be letters, digits and . _ : - (up to 100), starting with a letter or digit')
+  if ('payload' in value) {
+    const payload = value.payload
+    if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) c.fail(join(path, 'payload'), 'must be an object')
+    else if (Buffer.byteLength(JSON.stringify(payload)) > MAX_PAYLOAD_BYTES) c.fail(join(path, 'payload'), `is larger than ${MAX_PAYLOAD_BYTES} bytes`)
+  }
+}
+
 /** Problems with an `actions` list (on a card, a list row or a status row). */
 function actions(c, list, path) {
   if (!c.array(list, path, { max: MAX_ACTIONS })) return
@@ -184,7 +200,7 @@ function actions(c, list, path) {
   const seen = new Set()
   list.forEach((action, i) => {
     const p = join(path, i)
-    if (!c.object(action, p, ['kind', 'id'], ['label', 'payload'])) return
+    if (!c.object(action, p, ['kind', 'id'], ['label', 'payload', 'inverse'])) return
     const kindOk = c.oneOf(action.kind, join(p, 'kind'), ACTION_KINDS)
     if (typeof action.id !== 'string' || !ACTION_ID_PATTERN.test(action.id)) c.fail(join(p, 'id'), 'must be letters, digits and . _ : - (up to 100), starting with a letter or digit')
     else if (seen.has(action.id)) c.fail(join(p, 'id'), 'repeats another action id here')
@@ -198,6 +214,7 @@ function actions(c, list, path) {
       if (Buffer.byteLength(JSON.stringify(payload)) > MAX_PAYLOAD_BYTES) c.fail(pp, `is larger than ${MAX_PAYLOAD_BYTES} bytes`)
     }
     if (!kindOk) return
+    c.optional(action, 'inverse', v => inverse(c, v, join(p, 'inverse'), action.kind))
     if (action.kind === 'link') {
       if (!isSafeLink(payload?.url)) c.fail(join(join(p, 'payload'), 'url'), 'is required: an http(s) URL or a path starting with /')
     }

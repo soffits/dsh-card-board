@@ -7,7 +7,7 @@
  * looked" follow them across devices.
  */
 import { createElement as h, Fragment, useCallback, useEffect, useRef, useState } from 'react'
-import { Pill } from '@deepseek-ai/dsh-client-ui-primitives'
+import { Pill, Toast } from '@deepseek-ai/dsh-client-ui-primitives'
 import { Card } from './card.js'
 import { GAP, ROW } from './layout.js'
 import { useWidth } from './format.js'
@@ -16,10 +16,15 @@ import { api, useKit } from './services.js'
 import { pickCard, pickText, useActiveLocale } from './words.js'
 import { readNav, writeNav } from './nav.js'
 import { Sheet } from './sheet.js'
+import { keepOf, withKept } from './ticks.js'
 
 const STORE_KEY = 'dsh-card-board:board'
 /** How long a page shows a board before it counts as seen. */
 const SEEN_AFTER_MS = 2500
+/** How long Undo stays on offer: the toast holds this long, then fades for a second. */
+const UNDO_HOLD_MS = 7000
+/** The toast's words for a press, by the kind of action it was. */
+const TOAST_KEYS = { done: 'toast.done', snooze: 'toast.snooze' }
 
 /** A failed request: its status says what went wrong; the server's own words stay out of the page. */
 function requestError(status, body) {
@@ -67,6 +72,10 @@ export function BoardsPage() {
   const currentRef = useRef(null)
   const translateRef = useRef(t)
   translateRef.current = t
+  // Rows ticked this visit (by card) and the toast that offers to take a press back; both end with the visit.
+  const [kept, setKept] = useState({})
+  const [toast, setToast] = useState(null)
+  const toasts = useRef(0)
   const board = view.board
   const boardRef = useRef(null)
   boardRef.current = board
@@ -128,19 +137,43 @@ export function BoardsPage() {
   }, [loadBoard, loadCard, loadList, show])
   const status = kit.useEventStream(current ? `api/card-board/events?board=${encodeURIComponent(current)}` : null, onEvent)
 
-  // A press of done, snooze, event or a step goes to this plugin's server, which checks it and records it.
-  const press = useCallback(async (action, extra, target) => {
+  /** One request to the plugin's server, which checks it and records it. */
+  const post = useCallback(async body => {
     const response = await fetch(api('action'), {
       method: 'POST',
       credentials: 'same-origin',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ board: currentRef.current, ...target, id: action.id, ...extra }),
+      body: JSON.stringify({ board: currentRef.current, ...body }),
     })
-    const body = await response.json().catch(() => null)
-    if (!response.ok) throw new Error(errorText(requestError(response.status, body), translateRef.current))
+    const answer = await response.json().catch(() => null)
+    if (!response.ok) throw new Error(errorText(requestError(response.status, answer), translateRef.current))
     loadBoard(currentRef.current, false)
-    return body
+    return answer
   }, [loadBoard])
+
+  const showToast = useCallback(next => setToast({ seq: ++toasts.current, ...next }), [])
+
+  /** Take a press back, and say so. */
+  const undo = useCallback(async (pressId, card) => {
+    try {
+      await post({ card, undo: pressId })
+      showToast({ text: 'toast.undone' })
+    } catch {
+      showToast({ text: 'toast.undoFailed' })
+    }
+  }, [post, showToast])
+
+  // A press of done, snooze, event or a step goes to this plugin's server. One the card can take back offers Undo for a
+  // few seconds, and a done row stays in view, ticked, in the place it had.
+  const press = useCallback(async (action, extra, target, row) => {
+    const answer = await post({ ...target, id: action.id, ...extra })
+    if (answer?.undoable) {
+      showToast({ text: TOAST_KEYS[action.kind] ?? 'toast.event', undo: () => undo(answer.press, target.card) })
+      const keep = action.kind === 'done' && row !== undefined ? keepOf(row, target.row) : undefined
+      if (keep) setKept(prev => ({ ...prev, [target.card]: withKept(prev[target.card], keep) }))
+    }
+    return answer
+  }, [post, showToast, undo])
 
   useEffect(() => { loadList() }, [loadList])
 
@@ -148,6 +181,8 @@ export function BoardsPage() {
     currentRef.current = current
     if (!current) return
     etag.current = null
+    setKept({})
+    setToast(null)
     setView(prev => (prev.board?.id === current ? prev : { board: null, live: {} }))
     loadBoard(current, true)
   }, [current, loadBoard])
@@ -222,7 +257,7 @@ export function BoardsPage() {
     board.problems?.length > 0 && h('div', { className: 'cb-notice' }, t('boardProblems'), h('ul', { className: 'cb-problems' }, board.problems.map((p, i) => h('li', { key: i }, p)))),
     board.cards.length === 0 && h('p', { className: 'cb-muted' }, t('noCards')),
     h('div', { className: 'cb-grid', style: { gridTemplateColumns: `repeat(${tracks}, minmax(0, 1fr))`, gridAutoRows: `${ROW}px`, columnGap: GAP } },
-      board.cards.map(entry => h(Card, { key: entry.id, entry, live: liveOf(view.live, entry.id), boardId: board.id, assistant: board.assistant, tracks, active, locale, t, press, onOpen: row => openCard(board.id, entry.id, row) }))))
+      board.cards.map(entry => h(Card, { key: entry.id, entry, live: liveOf(view.live, entry.id), boardId: board.id, assistant: board.assistant, tracks, active, locale, t, press, undo, kept: kept[entry.id], onOpen: row => openCard(board.id, entry.id, row) }))))
 
   const openEntry = opened.card && board && (!opened.board || opened.board === board.id) ? board.cards.find(entry => entry.id === opened.card && entry.card) : undefined
   const openCardData = openEntry && pickCard(openEntry.card, active)
@@ -232,7 +267,7 @@ export function BoardsPage() {
     onClose: closeCard,
     title: openRow ? (openRow.title ?? openRow.label) : openCardData?.title,
     closeLabel: t('close'),
-  }, openEntry && h(Card, { entry: openEntry, live: liveOf(view.live, openEntry.id), boardId: board.id, assistant: board.assistant, tracks: 1, active, locale, t, press, sheet: true, row: opened.row }))
+  }, openEntry && h(Card, { entry: openEntry, live: liveOf(view.live, openEntry.id), boardId: board.id, assistant: board.assistant, tracks: 1, active, locale, t, press, undo, kept: kept[openEntry.id], sheet: true, row: opened.row }))
 
   return h('div', { className: 'cb-page' },
     h('div', { className: 'cb-content', ref: gridRef },
@@ -242,5 +277,12 @@ export function BoardsPage() {
       boards && boards.length > 1 && h('div', { className: 'cb-tabs', role: 'tablist' }, boards.map(b =>
         h(Pill, { key: b.id, active: b.id === current, role: 'tab', 'aria-selected': b.id === current, title: titleOf(b), onClick: () => choose(b.id) }, titleOf(b)))),
       content),
-    board && sheet)
+    board && sheet,
+    toast && h(Toast, {
+      key: toast.seq,
+      text: t(toast.text),
+      tone: 'success',
+      ...(toast.undo ? { holdMs: UNDO_HOLD_MS, actions: [{ label: h('span', { className: 'cb-toastUndo' }, t('undo')), onClick: () => { setToast(null); toast.undo() } }] } : {}),
+      onDone: () => setToast(null),
+    }))
 }

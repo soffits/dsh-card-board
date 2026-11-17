@@ -59,11 +59,13 @@
           },
           {
             "kind": "done",
-            "id": "library-books:done"
+            "id": "library-books:done",
+            "inverse": { "kind": "reopen" }
           },
           {
             "kind": "snooze",
-            "id": "library-books:snooze"
+            "id": "library-books:snooze",
+            "inverse": { "kind": "unsnooze", "payload": { "until": "2026-03-02T09:00:00Z" } }
           }
         ],
         "key": "chore-2",

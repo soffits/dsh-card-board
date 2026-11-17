@@ -40,6 +40,13 @@
     "close": "Fermer",
     "history": "Historique",
     "markDone": "Marquer comme fait",
-    "rowGone": "Cet élément n’est plus sur la carte."
+    "rowGone": "Cet élément n’est plus sur la carte.",
+    "toast.done": "Marqué comme fait.",
+    "toast.snooze": "Reporté.",
+    "toast.event": "C’est fait.",
+    "toast.undone": "Annulé.",
+    "toast.undoFailed": "Impossible d’annuler.",
+    "undo": "Annuler",
+    "markNotDone": "Marquer comme non fait"
   }
 }

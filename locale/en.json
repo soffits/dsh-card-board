@@ -40,6 +40,13 @@
     "close": "Close",
     "history": "History",
     "markDone": "Mark done",
-    "rowGone": "This item is no longer on the card."
+    "rowGone": "This item is no longer on the card.",
+    "toast.done": "Marked done.",
+    "toast.snooze": "Snoozed.",
+    "toast.event": "Done.",
+    "toast.undone": "Undone.",
+    "toast.undoFailed": "Couldn’t undo that.",
+    "undo": "Undo",
+    "markNotDone": "Mark not done"
   }
 }

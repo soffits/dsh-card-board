@@ -93,13 +93,14 @@ h3.cb-truncOpen{overflow:visible}
 .cb-rowText{flex:1;min-width:0}
 .cb-rowTitle{display:flex;align-items:center;gap:6px;min-width:0;font-size:14px;line-height:20px}
 .cb-rowSub{color:var(--dsw-alias-label-tertiary);font-size:12px;line-height:18px}
-.cb-done .cb-rowTitle{color:var(--dsw-alias-label-tertiary)}
+.cb-done .cb-rowTitle{color:var(--dsw-alias-label-tertiary);text-decoration:line-through}
 .cb-rowMeta{display:flex;align-items:center;gap:8px;min-width:0;max-width:45%}
 .cb-rowMeta>*{min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cb-when{flex:none;color:var(--dsw-alias-label-tertiary);font-size:12px;font-variant-numeric:tabular-nums}
 .cb-rowActions{display:inline-flex;flex-wrap:wrap;justify-content:flex-end;min-width:0}
 .cb-rowSteps{flex-basis:100%;min-width:0;padding-left:41px}
 .cb-doneBox{flex:none;display:inline-flex;align-items:center;min-width:28px;min-height:28px;justify-content:center}
+.cb-toastUndo{display:inline-block;min-width:40px;min-height:40px;margin:-12px -6px;padding:0 6px;line-height:40px;text-align:center;-webkit-user-select:none;user-select:none;touch-action:manipulation}
 .cb-visuallyHidden{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 .cb-dotSlot{flex:none;display:inline-grid;place-items:center;width:28px}
 .cb-statusSpark{flex:0 1 90px;min-width:48px}
@@ -217,6 +218,8 @@ button.cb-cardOpen{border:0;background:transparent;padding:0;font:inherit;cursor
 @media (width<=640px){.cb-sheetModal.cb-sheetModal{width:calc(100vw - 16px)}}
 @media (width<=768px),(pointer:coarse){
 .cb-cardLink{width:40px;height:40px;margin:-9px 0}
+.cb-doneBox{min-width:40px;min-height:40px;margin:-6px -6px -6px -10px}
+.cb-doneBox label{display:inline-flex;align-items:center;justify-content:center;min-width:40px;min-height:40px}
 .cb-cardChat{margin:-9px -10px -9px 0}
 }
 `

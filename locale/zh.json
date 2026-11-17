@@ -40,6 +40,13 @@
     "close": "关闭",
     "history": "记录",
     "markDone": "标为完成",
-    "rowGone": "这一项已经不在卡片上了。"
+    "rowGone": "这一项已经不在卡片上了。",
+    "toast.done": "已标为完成。",
+    "toast.snooze": "已推迟。",
+    "toast.event": "已完成。",
+    "toast.undone": "已撤销。",
+    "toast.undoFailed": "没能撤销。",
+    "undo": "撤销",
+    "markNotDone": "标为未完成"
   }
 }
