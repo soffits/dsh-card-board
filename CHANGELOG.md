@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.7.1
+
+- A countdown step in another zone shows the wall-clock time of its own offset (`…T14:20:00-07:00` reads 14:20), and the zone's short name only when the browser's zone data agrees; otherwise it shows the offset ("GMT−7"). A browser with older zone rules no longer moves a ticket's time by an hour.
+
 ## 0.7.0
 
 - The board is live: changes arrive over a Server-Sent Events route (`/api/card-board/events`), the page fetches only the card that changed, and a card or row that changes in front of you gets a short wash and "just now". Polling stays as the fallback while the stream is down.
