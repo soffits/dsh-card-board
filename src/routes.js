@@ -9,6 +9,7 @@
  *   GET  /api/card-board/card?board=<id>&id=<card>   one card (ETag, 304)
  *   GET  /api/card-board/events?board=<id>      Server-Sent Events: which card or board.json changed
  *   POST /api/card-board/seen                   the card versions the viewer has seen
+ *   POST /api/card-board/arrange                the viewer's own pins and order for a board, or `reset` back to the board's
  *   GET  /api/card-board/locale?tag=fr          the page's own words for a language (from locale/*.json)
  *   POST /api/card-board/action                 press a step, done, snooze or event action, or take a press back (`undo`)
  *
@@ -17,6 +18,7 @@
  */
 import { join } from 'node:path'
 import { maySee, viewerOf } from './access.js'
+import { parseArrangement } from './arrange.js'
 import { LANGUAGE_ID } from './messages.js'
 import { ID_PATTERN, PRESS_KINDS, findAction } from './schema.js'
 import { cardVersions, freshness, parseSeen } from './seen.js'
@@ -27,6 +29,7 @@ export const BOARD_PATH = '/api/card-board/board'
 export const CARD_PATH = '/api/card-board/card'
 export const EVENTS_PATH = '/api/card-board/events'
 export const SEEN_PATH = '/api/card-board/seen'
+export const ARRANGE_PATH = '/api/card-board/arrange'
 export const ACTION_PATH = '/api/card-board/action'
 export const LOCALE_PATH = '/api/card-board/locale'
 const DATE_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})$/
@@ -53,12 +56,13 @@ const NO_PROVIDER = 'This board needs a sign-in plugin that provides requestIden
  * @param {number} options.pollSeconds
  * @param {ReturnType<import('./presses.js').createPresses>} options.presses
  * @param {ReturnType<import('./seen.js').createSeenStore>} options.seen
+ * @param {ReturnType<import('./arrange-store.js').createArrangeStore>} options.arrange
  * @param {ReturnType<import('./watch.js').createWatches>} options.watches
  * @param {(tag: string) => Promise<object>} options.messages - the page's words for a language
  * @param {string} [options.version] - mixed into ETags, so a plugin update refreshes open pages
  * @param {number} [options.heartbeatMs]
  */
-export function createRoutes({ dataDir, people, identity, pollSeconds, presses, seen, watches, messages, version = '', heartbeatMs = HEARTBEAT_MS }) {
+export function createRoutes({ dataDir, people, identity, pollSeconds, presses, seen, arrange, watches, messages, version = '', heartbeatMs = HEARTBEAT_MS }) {
   /** The viewer and their board, or the Response that refuses them. */
   async function access(board) {
     const viewer = await viewerOf(people, identity())
@@ -106,11 +110,12 @@ export function createRoutes({ dataDir, people, identity, pollSeconds, presses, 
     if (found.refused) return found.refused
     const { viewer, root, entry, person } = found
     const states = await pressStates(root, id)
-    const tag = await boardTag(root, id, `${version}\0${viewer.mode}\0${person ?? ''}\0${await seen.tag(person)}\0${JSON.stringify(states)}`)
+    const tag = await boardTag(root, id, `${version}\0${viewer.mode}\0${person ?? ''}\0${await seen.tag(person)}\0${await arrange.tag(person)}\0${JSON.stringify(states)}`)
     if (request.headers.get('if-none-match') === tag) return new Response(null, { status: 304, headers: { ...HEADERS, etag: tag } })
     const seenBoard = await seen.board(person, id)
     const cards = (await readCards(root, id, entry.board)).map(card => decorate(card, states, seenBoard))
-    return json(200, { id, title: entry.board?.title ?? id, ...(entry.board?.assistant ? { assistant: entry.board.assistant } : {}), problems: entry.problems, cards }, { etag: tag })
+    const arrangement = await arrange.get(person, id)
+    return json(200, { id, title: entry.board?.title ?? id, ...(entry.board?.assistant ? { assistant: entry.board.assistant } : {}), ...(arrangement ? { arrangement } : {}), problems: entry.problems, cards }, { etag: tag })
   }
 
   async function card(request) {
@@ -142,16 +147,20 @@ export function createRoutes({ dataDir, people, identity, pollSeconds, presses, 
         const send = text => { if (open) controller.enqueue(encoder.encode(text)) }
         const data = value => send(`data: ${JSON.stringify(value)}\n\n`)
         let unwatch = () => {}
+        let unarrange = () => {}
         const heartbeat = setInterval(() => send(': ping\n\n'), heartbeatMs)
         finish = () => {
           if (!open) return
           open = false
           clearInterval(heartbeat)
           unwatch()
+          unarrange()
           request.signal?.removeEventListener?.('abort', finish)
         }
         request.signal?.addEventListener?.('abort', finish)
         send(': connected\n\n')
+        // The viewer's own arrangement changing elsewhere (another device) reaches this page too.
+        unarrange = arrange.subscribe((who, board) => { if (who === found.person && board === id) data({ type: 'arrange' }) })
         unwatch = await watches.watch(join(found.root, id), async change => {
           if (change.type === 'board') {
             // Viewers may have changed: someone who may no longer see the board hears that and nothing else.
@@ -200,6 +209,24 @@ export function createRoutes({ dataDir, people, identity, pollSeconds, presses, 
       states[card] = await presses.statesFor(board, card, cardPath(root, board, card))
     }
     return states
+  }
+
+  /** The viewer's own pins and order for a board (`{ board, pinned, order }`), or back to the board's (`{ board, reset: true }`). */
+  async function arrangeRoute(request) {
+    let body
+    try {
+      body = await request.json()
+    } catch {
+      return json(400, { error: 'The body must be JSON.' })
+    }
+    const board = body?.board
+    const arrangement = body?.reset === true ? null : parseArrangement(body)
+    if (typeof board !== 'string' || !ID_PATTERN.test(board) || arrangement === undefined) return json(400, { error: 'The body must be { board, pinned: [card], order: [card] } or { board, reset: true }.' })
+    const found = await access(board)
+    if (found.refused) return found.refused
+    if (arrangement === null) await arrange.reset(found.person, board)
+    else await arrange.set(found.person, board, arrangement)
+    return json(200, { ok: true })
   }
 
   async function action(request) {
@@ -257,6 +284,7 @@ export function createRoutes({ dataDir, people, identity, pollSeconds, presses, 
     { path: CARD_PATH, methods: ['GET'], requestBody: 'buffered', fetch: card },
     { path: EVENTS_PATH, methods: ['GET'], requestBody: 'buffered', fetch: events },
     { path: SEEN_PATH, methods: ['POST'], requestBody: 'buffered', fetch: seenRoute },
+    { path: ARRANGE_PATH, methods: ['POST'], requestBody: 'buffered', fetch: arrangeRoute },
     { path: LOCALE_PATH, methods: ['GET'], requestBody: 'buffered', fetch: locale },
     { path: ACTION_PATH, methods: ['POST'], requestBody: 'buffered', fetch: action },
   ]

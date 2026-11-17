@@ -169,6 +169,20 @@ function timeWindow(c, value, path) {
   if (fromOk && toOk && Date.parse(value.to) <= Date.parse(value.from)) c.fail(join(path, 'to'), 'must be after from')
 }
 
+/**
+ * A card's `raise`: during this window the card floats above the rest of the board. `from` and `until` are each
+ * optional, but at least one is needed: a card raised until a time, from a time on (until its producer rewrites it), or
+ * between the two. `label` says why in a few words.
+ */
+function raiseWindow(c, value, path) {
+  if (!c.object(value, path, [], ['from', 'until', 'label'])) return
+  if (!('from' in value) && !('until' in value)) return c.fail(path, 'needs from, until or both')
+  const fromOk = !('from' in value) || c.dateTime(value.from, join(path, 'from'))
+  const untilOk = !('until' in value) || c.dateTime(value.until, join(path, 'until'))
+  if (fromOk && untilOk && 'from' in value && 'until' in value && Date.parse(value.until) <= Date.parse(value.from)) c.fail(join(path, 'until'), 'must be after from')
+  c.optional(value, 'label', v => c.label(v, join(path, 'label'), { max: 40 }))
+}
+
 /** The optional icon, tone, key and active window of a list or status row; keys must not repeat within a card. */
 function rowLook(c, row, path, keys, { toneRequired = false } = {}) {
   icon(c, row, path)
@@ -554,7 +568,8 @@ export function isSafeLink(value) {
 /** Problems with one card file's parsed content. */
 export function checkCard(card) {
   const c = new Check()
-  if (!c.object(card, '', ['type', 'title', 'updatedAt', 'data'], ['staleAfter', 'link', 'stat', 'actions', 'icon', 'tone', 'detail'])) return c.problems
+  if (!c.object(card, '', ['type', 'title', 'updatedAt', 'data'], ['staleAfter', 'link', 'stat', 'actions', 'icon', 'tone', 'detail', 'raise'])) return c.problems
+  c.optional(card, 'raise', v => raiseWindow(c, v, 'raise'))
   c.optional(card, 'detail', v => checkDetail(c, v, 'detail'))
   if (!c.oneOf(card.type, 'type', CARD_TYPES)) return c.problems
   c.label(card.title, 'title', { max: 120 })

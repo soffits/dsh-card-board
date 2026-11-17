@@ -12,6 +12,7 @@ import { isAbsolute, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import z from '@deepseek-ai/schemastery'
 import { createPeople, expandHome } from './src/access.js'
+import { createArrangeStore } from './src/arrange-store.js'
 import { createMessages } from './src/messages.js'
 import { createPresses } from './src/presses.js'
 import { createRoutes } from './src/routes.js'
@@ -76,6 +77,7 @@ export function apply(ctx, config) {
     pollSeconds: config.pollSeconds ?? 30,
     presses,
     seen: createSeenStore(join(dataDir, '.seen')),
+    arrange: createArrangeStore(join(dataDir, '.arrange')),
     watches,
     messages: createMessages(fileURLToPath(new URL('./locale', import.meta.url))),
     version,

@@ -1,4 +1,4 @@
-/* @soffits/dsh-card-board 0.10.1: built by scripts/build.mjs from src/client/. Do not edit. */
+/* @soffits/dsh-card-board 0.11.0: built by scripts/build.mjs from src/client/. Do not edit. */
 window.__ModuleLoader__.load({
   id: "@soffits/dsh-card-board",
   factory: (require) => {
@@ -29,7 +29,7 @@ __export(index_exports, {
   inject: () => inject
 });
 module.exports = __toCommonJS(index_exports);
-var import_react12 = require("react");
+var import_react16 = require("react");
 
 // src/client/look.js
 var STYLE_ID = "dsh-card-board-style";
@@ -223,6 +223,25 @@ button.cb-cardOpen{border:0;background:transparent;padding:0;font:inherit;cursor
 .cb-chips,.cb-summaryLine,.cb-summaryAside,.cb-cardHead,.cb-tabs,.cb-heading .cb-sub,.cb-rowMeta,.cb-rowActions,.cb-statLabel,.cb-strip,.cb-chart svg,.cb-legend,.cb-track b,.cb-more,.cb-doneBox,.cb-delta,.cb-when,.cb-progress small,.cb-bubble,.cb-page .uk-chip,.cb-page .uk-tile,.cb-page .uk-icon,.cb-page .uk-newDot,.cb-page .uk-justNow,.cb-page .uk-ringText small{-webkit-user-select:none;user-select:none}
 .cb-cardHead h3{-webkit-user-select:text;user-select:text}
 .cb-card svg,.cb-card img{-webkit-user-drag:none}
+/* Arranging: a card's own place (drag, pin, move), and the cue on a card a producer has raised for now */
+.cb-card{position:relative}
+.cb-cardRaised{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--dsw-alias-state-business-primary) 38%,transparent)}
+.cb-raisedCue{flex:0 1 auto;min-width:0;display:inline-flex}
+button.cb-cardMore{border:0;background:transparent;padding:0;font:inherit;cursor:pointer}
+.cb-pinMark{flex:none;display:inline-flex;color:var(--dsw-alias-state-business-primary)}
+.cb-cardMore.cb-open{background:var(--dsw-alias-interactive-bg-active,var(--dsw-alias-interactive-bg-hover));color:var(--dsw-alias-label-primary)}
+.cb-cardMore:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:1px}
+@media (hover:hover) and (pointer:fine){.cb-cardMore{cursor:grab;opacity:0;transition:opacity var(--ds-transition-duration,.2s) var(--ds-ease-in-out,ease)}.cb-cardMore:active{cursor:grabbing}.cb-card:hover .cb-cardMore,.cb-card:focus-within .cb-cardMore,.cb-cardMore.cb-open{opacity:1}}
+@media (hover:none),(pointer:coarse){.cb-cardHead,.cb-cardHead h3{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}}
+.cb-cardDragging{z-index:6;pointer-events:none;opacity:.94;cursor:grabbing;box-shadow:0 14px 36px color-mix(in srgb,var(--dsw-alias-label-primary) 22%,transparent),inset 0 0 0 .5px var(--dsw-alias-border-l3)}
+.cb-card[data-drop]::after{content:"";position:absolute;z-index:5;pointer-events:none;border-radius:3px;background:var(--dsw-alias-state-business-primary);animation:cb-in var(--ds-transition-duration,.2s) var(--ds-ease-in-out,ease) both}
+.cb-card[data-axis=x][data-drop=before]::after{left:-9px;top:6px;bottom:6px;width:3px}
+.cb-card[data-axis=x][data-drop=after]::after{right:-9px;top:6px;bottom:6px;width:3px}
+.cb-card[data-axis=y][data-drop=before]::after{top:-9px;left:6px;right:6px;height:3px}
+.cb-card[data-axis=y][data-drop=after]::after{bottom:-9px;left:6px;right:6px;height:3px}
+.cb-heading .cb-sub{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px}
+.cb-reset{margin:-4px 0}
+.cb-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 /* The point under the pointer on a chart */
 .cb-chart{position:relative}
 .cb-plot{touch-action:pan-y}
@@ -249,16 +268,92 @@ button.cb-cardOpen{border:0;background:transparent;padding:0;font:inherit;cursor
 .cb-doneBox{min-width:40px;min-height:40px;margin:-6px -6px -6px -10px}
 .cb-doneBox label{display:inline-flex;align-items:center;justify-content:center;min-width:40px;min-height:40px}
 .cb-cardChat{margin:-9px -10px -9px 0}
+.cb-reset{min-height:40px}
 }
 `;
 
 // src/client/page.js
-var import_react11 = require("react");
-var import_dsh_client_ui_primitives4 = require("@deepseek-ai/dsh-client-ui-primitives");
+var import_react15 = require("react");
+var import_dsh_client_ui_primitives5 = require("@deepseek-ai/dsh-client-ui-primitives");
+
+// src/schema.js
+var SIZES = Object.freeze(["small", "medium", "large", "wide"]);
+var CARD_TYPES = Object.freeze(["summary", "countdown", "stat", "line", "bar", "donut", "list", "timeline", "status"]);
+var TONES = Object.freeze(["ok", "warn", "bad", "muted", "accent", "violet"]);
+var ACTION_KINDS = Object.freeze(["chat", "step", "done", "snooze", "event", "link"]);
+var PRESS_KINDS = Object.freeze(["step", "done", "snooze", "event"]);
+var INVERSE_KINDS = Object.freeze(["done", "snooze", "event"]);
+var DIRECTIONS = Object.freeze(["up", "down", "flat"]);
+var TIMELINE_KINDS = Object.freeze(["travel", "due", "event", "health", "home", "money"]);
+var MAX_CARD_BYTES = 256 * 1024;
+
+// src/arrange.js
+function arranged(ids, arrangement) {
+  if (arrangement === void 0) return { pinned: [], order: [...ids] };
+  const present = new Set(ids);
+  const pinned = arrangement.pinned.filter((id) => present.has(id));
+  const taken = new Set(pinned);
+  const order = arrangement.order.filter((id) => present.has(id) && !taken.has(id));
+  const placed = new Set(order);
+  ids.forEach((id, i) => {
+    if (taken.has(id) || placed.has(id)) return;
+    let after = -1;
+    for (let before = i - 1; before >= 0 && after < 0; before--) after = order.indexOf(ids[before]);
+    order.splice(after + 1, 0, id);
+  });
+  return { pinned, order };
+}
+var sequenceOf = ({ pinned, order }) => [...pinned, ...order];
+function visibleOrder(state, raised) {
+  const all = sequenceOf(state);
+  return [...all.filter((id) => raised.has(id)), ...all.filter((id) => !raised.has(id))];
+}
+function pinCard({ pinned, order }, id) {
+  return { pinned: [...pinned.filter((p) => p !== id), id], order: order.filter((o) => o !== id) };
+}
+function unpinCard({ pinned, order }, id) {
+  return { pinned: pinned.filter((p) => p !== id), order: [id, ...order.filter((o) => o !== id)] };
+}
+function shiftCard({ pinned, order }, id, delta) {
+  const shift = (list) => {
+    const from = list.indexOf(id);
+    const to = from + delta;
+    if (from < 0 || to < 0 || to >= list.length) return list;
+    const next = [...list];
+    next.splice(from, 1);
+    next.splice(to, 0, id);
+    return next;
+  };
+  return { pinned: shift(pinned), order: shift(order) };
+}
+function canShift({ pinned, order }, id, delta) {
+  const list = pinned.includes(id) ? pinned : order;
+  const to = list.indexOf(id) + delta;
+  return list.includes(id) && to >= 0 && to < list.length;
+}
+function dropCard(state, id, target, after) {
+  if (id === target) return state;
+  const wasPinned = state.pinned.includes(id);
+  const rest = sequenceOf(state).filter((card) => card !== id);
+  const pinsLeft = state.pinned.filter((card) => card !== id).length;
+  const at2 = rest.indexOf(target) + (after ? 1 : 0);
+  if (at2 < 0 || rest.indexOf(target) < 0) return state;
+  const next = [...rest.slice(0, at2), id, ...rest.slice(at2)];
+  const pinCount = at2 < pinsLeft ? pinsLeft + 1 : at2 > pinsLeft ? pinsLeft : pinsLeft + (wasPinned ? 1 : 0);
+  return { pinned: next.slice(0, pinCount), order: next.slice(pinCount) };
+}
+var at = (time, fallback) => time === void 0 ? fallback : Date.parse(time);
+function isRaised(raise, now) {
+  return raise !== void 0 && at(raise.from, -Infinity) <= now && now < at(raise.until, Infinity);
+}
+function nextRaiseChange(raises, now) {
+  const times = raises.flatMap((raise) => [at(raise?.from, NaN), at(raise?.until, NaN)]).filter((time) => time > now);
+  return times.length > 0 ? Math.min(...times) : void 0;
+}
 
 // src/client/card.js
-var import_react9 = require("react");
-var import_dsh_client_ui_primitives2 = require("@deepseek-ai/dsh-client-ui-primitives");
+var import_react10 = require("react");
+var import_dsh_client_ui_primitives3 = require("@deepseek-ai/dsh-client-ui-primitives");
 
 // src/client/charts.js
 var import_react4 = require("react");
@@ -373,12 +468,12 @@ var useButtons = () => (0, import_react3.useSyncExternalStore)(buttonsStore.subs
 var PALETTE = ["accent", "ok", "warn", "violet", "bad", "muted"];
 var toneColor = (tone, index = 0) => kitStore.get().toneColor(tone ?? PALETTE[index % PALETTE.length]);
 function usePointer(pick) {
-  const [at, setAt] = (0, import_react4.useState)(null);
+  const [at2, setAt] = (0, import_react4.useState)(null);
   const fromEvent = (event) => {
     const box = event.currentTarget.getBoundingClientRect();
     return pick(event.clientX - box.left);
   };
-  return [at, {
+  return [at2, {
     onPointerMove: (event) => setAt(fromEvent(event)),
     onPointerDown: (event) => setAt(fromEvent(event)),
     onPointerLeave: (event) => {
@@ -794,8 +889,8 @@ function onControl(event) {
 }
 
 // src/client/steps.js
-function ownOffset(at) {
-  const m = /(?:([+-])(\d{2}):?(\d{2})|Z)$/.exec(String(at));
+function ownOffset(at2) {
+  const m = /(?:([+-])(\d{2}):?(\d{2})|Z)$/.exec(String(at2));
   if (!m) return null;
   return m[1] ? (m[1] === "-" ? -1 : 1) * (Number(m[2]) * 60 + Number(m[3])) : 0;
 }
@@ -843,6 +938,11 @@ var LIST_ROWS = 6;
 function shownRows(rows, open, limit, live) {
   if (open || rows.length <= limit + 1) return rows;
   return rows.filter((row, i) => i < limit || row.key !== void 0 && (live?.freshRows?.has(row.key) || live?.rows?.[row.key] > 0));
+}
+function dropAfter(rect, x, y, single) {
+  const across = (x - (rect.left + rect.width / 2)) / Math.max(1, rect.width);
+  const down = (y - (rect.top + rect.height / 2)) / Math.max(1, rect.height);
+  return single || Math.abs(down) > Math.abs(across) ? down > 0 : across > 0;
 }
 
 // src/client/ticks.js
@@ -1256,12 +1356,53 @@ function DetailParts({ detail, locale, t }) {
   );
 }
 
+// src/client/arrange-ui.js
+var import_react9 = require("react");
+var import_dsh_client_ui_primitives2 = require("@deepseek-ai/dsh-client-ui-primitives");
+function ArrangeControls({ t, arrange }) {
+  const [open, setOpen] = (0, import_react9.useState)(false);
+  const items = [
+    { id: "pin", label: t(arrange.pinned ? "arrange.unpin" : "arrange.pin"), icon: (0, import_react9.createElement)(import_dsh_client_ui_primitives2.IconPinOutlineRegular, { size: 14 }) },
+    { id: "up", label: t("arrange.up"), icon: (0, import_react9.createElement)(import_dsh_client_ui_primitives2.IconChevronUpOutlineRegular, { size: 14 }), disabled: !arrange.canUp },
+    { id: "down", label: t("arrange.down"), icon: (0, import_react9.createElement)(import_dsh_client_ui_primitives2.IconChevronDownOutlineRegular, { size: 14 }), disabled: !arrange.canDown }
+  ];
+  const choose = (id) => {
+    setOpen(false);
+    if (id === "pin") arrange.onPin();
+    else arrange.onMove(id === "up" ? -1 : 1);
+  };
+  const onKeyDown = (event) => {
+    if (!event.altKey || event.key !== "ArrowUp" && event.key !== "ArrowDown") return;
+    event.preventDefault();
+    const delta = event.key === "ArrowUp" ? -1 : 1;
+    if (delta < 0 ? arrange.canUp : arrange.canDown) arrange.onMove(delta);
+  };
+  const onPointerDown = (event) => {
+    if (event.pointerType === "mouse") arrange.onGrip(event);
+  };
+  return [
+    arrange.pinned && (0, import_react9.createElement)("span", { key: "pin", className: "cb-pinMark", role: "img", title: t("arrange.pinned"), "aria-label": t("arrange.pinned") }, (0, import_react9.createElement)(import_dsh_client_ui_primitives2.IconPinFillRegular, { size: 14 })),
+    (0, import_react9.createElement)(import_dsh_client_ui_primitives2.Menu, {
+      key: "menu",
+      open,
+      onClose: () => setOpen(false),
+      onSelect: choose,
+      items,
+      align: "end",
+      portal: true,
+      compact: true,
+      className: "cb-cardMenu",
+      anchor: (0, import_react9.createElement)("button", { type: "button", className: `cb-cardLink cb-cardMore${open ? " cb-open" : ""}`, title: t("arrange.menu"), "aria-label": t("arrange.menu"), "aria-haspopup": "menu", "aria-expanded": open, onPointerDown, onClick: () => setOpen((value) => !value), onKeyDown }, (0, import_react9.createElement)(import_dsh_client_ui_primitives2.IconDragHandleOutlineRegular, { size: 14 }))
+    })
+  ];
+}
+
 // src/client/card.js
 var CHART_HEIGHT = 150;
 function useRowSpan() {
-  const ref = (0, import_react9.useRef)(null);
-  const [rows, setRows] = (0, import_react9.useState)(0);
-  (0, import_react9.useLayoutEffect)(() => {
+  const ref = (0, import_react10.useRef)(null);
+  const [rows, setRows] = (0, import_react10.useState)(0);
+  (0, import_react10.useLayoutEffect)(() => {
     const el = ref.current;
     if (!el || typeof ResizeObserver === "undefined") return void 0;
     const measure = () => setRows(Math.ceil((el.getBoundingClientRect().height + GAP) / ROW));
@@ -1285,34 +1426,39 @@ function Body({ card, live, wash, locale, t, rowActions, all, onOpenRow, rowCont
   const data = card.data;
   switch (card.type) {
     case "stat":
-      return (0, import_react9.createElement)(StatBlock, { data, locale, wash });
+      return (0, import_react10.createElement)(StatBlock, { data, locale, wash });
     case "list":
-      return (0, import_react9.createElement)(ListCard, { data, live, locale, t, rowActions, all, onOpenRow, rowControls });
+      return (0, import_react10.createElement)(ListCard, { data, live, locale, t, rowActions, all, onOpenRow, rowControls });
     case "status":
-      return (0, import_react9.createElement)(StatusCard, { data, live, locale, rowActions, onOpenRow });
+      return (0, import_react10.createElement)(StatusCard, { data, live, locale, rowActions, onOpenRow });
     case "countdown":
-      return (0, import_react9.createElement)(CountdownBody, { card, locale });
+      return (0, import_react10.createElement)(CountdownBody, { card, locale });
     default: {
       const Chart = CHARTS2[card.type];
       if (Chart === void 0) return null;
-      return (0, import_react9.createElement)(Chart, { data, locale, height: all ? card.type === "donut" ? 200 : 240 : card.type === "bar" ? 130 : card.type === "donut" ? 160 : CHART_HEIGHT });
+      return (0, import_react10.createElement)(Chart, { data, locale, height: all ? card.type === "donut" ? 200 : 240 : card.type === "bar" ? 130 : card.type === "donut" ? 160 : CHART_HEIGHT });
     }
   }
 }
-function Card({ entry, live, boardId, assistant, tracks, active, locale, t, press, undo, kept, onOpen, sheet = false, row: openRow }) {
+function Card({ entry, live, boardId, assistant, tracks, active, locale, t, press, undo, kept, onOpen, sheet = false, row: openRow, arrange, raised = false, dragging = null, drop }) {
   const kit = useKit();
   const actions = useButtons();
   const now = kit.useNow();
   const wash = kit.useWash(live.wash, entry.id);
   const [ref, rows] = useRowSpan();
-  const style = sheet ? void 0 : { gridColumn: `span ${spanOf(entry.card?.type, entry.size, tracks)}`, gridRowEnd: rows > 0 ? `span ${rows}` : void 0 };
+  const style = sheet ? void 0 : {
+    gridColumn: `span ${spanOf(entry.card?.type, entry.size, tracks)}`,
+    gridRowEnd: rows > 0 ? `span ${rows}` : void 0,
+    ...dragging ? { transform: `translate(${dragging.dx}px, ${dragging.dy}px) scale(1.015)`, transition: "box-shadow var(--ds-transition-duration,.2s) var(--ds-ease-in-out,ease)" } : {}
+  };
+  const placing = { "data-card": sheet ? void 0 : entry.id, "data-drop": drop, "data-axis": tracks === 1 ? "y" : "x" };
   if (!entry.card) {
-    return (0, import_react9.createElement)(
+    return (0, import_react10.createElement)(
       "section",
-      { ref, className: "cb-card cb-cardError", style },
-      (0, import_react9.createElement)("header", { className: "cb-cardHead" }, (0, import_react9.createElement)("h3", { title: entry.id }, entry.id)),
-      (0, import_react9.createElement)("p", { className: "cb-errorText" }, t("cardError")),
-      (0, import_react9.createElement)("ul", { className: "cb-problems" }, (entry.problems ?? []).map((p, i) => (0, import_react9.createElement)("li", { key: i }, p)))
+      { ref, className: `cb-card cb-cardError${dragging ? " cb-cardDragging" : ""}`, style, ...placing },
+      (0, import_react10.createElement)("header", { className: "cb-cardHead" }, (0, import_react10.createElement)("h3", { title: entry.id }, entry.id)),
+      (0, import_react10.createElement)("p", { className: "cb-errorText" }, t("cardError")),
+      (0, import_react10.createElement)("ul", { className: "cb-problems" }, (entry.problems ?? []).map((p, i) => (0, import_react10.createElement)("li", { key: i }, p)))
     );
   }
   const card = pickCard(entry.card, active);
@@ -1331,7 +1477,7 @@ function Card({ entry, live, boardId, assistant, tracks, active, locale, t, pres
   const askName = assistant ? t("action.chatNamed", { name: assistant }) : void 0;
   const named = (list) => assistant ? list?.map((action) => action.kind === "chat" && action.label === void 0 ? { ...action, label: askName } : action) : list;
   const onPress = (target) => (action, extra) => press(action, extra, { card: entry.id, ...target }, target.row === void 0 ? void 0 : card.data.rows?.[target.row]);
-  const rowActions = actions && ((row, list, part2) => (0, import_react9.createElement)(actions.ActionBar, {
+  const rowActions = actions && ((row, list, part2) => (0, import_react10.createElement)(actions.ActionBar, {
     actions: named(list),
     part: part2,
     states: statesOf(entry.presses, row),
@@ -1346,10 +1492,10 @@ function Card({ entry, live, boardId, assistant, tracks, active, locale, t, pres
     kept,
     undo: (pressId) => undo(pressId, entry.id)
   };
-  const chat = actions && (0, import_react9.createElement)("span", { className: "cb-cardChat" }, (0, import_react9.createElement)(actions.ActionButton, { action: { kind: "chat", id: "_chat", label: askName }, compact: true, about: about() }));
+  const chat = actions && (0, import_react10.createElement)("span", { className: "cb-cardChat" }, (0, import_react10.createElement)(actions.ActionButton, { action: { kind: "chat", id: "_chat", label: askName }, compact: true, about: about() }));
   const others = card.actions?.filter((action) => action.kind !== "step") ?? [];
-  const steps = card.actions?.some((action) => action.kind === "step") && (0, import_react9.createElement)(kit.Suggested, { actions: card.actions, about: about(), states: statesOf(entry.presses, void 0), onPress: onPress({}) });
-  const footer = actions && others.length > 0 && (0, import_react9.createElement)("footer", { className: "cb-cardActions" }, (0, import_react9.createElement)(actions.ActionBar, {
+  const steps = card.actions?.some((action) => action.kind === "step") && (0, import_react10.createElement)(kit.Suggested, { actions: card.actions, about: about(), states: statesOf(entry.presses, void 0), onPress: onPress({}) });
+  const footer = actions && others.length > 0 && (0, import_react10.createElement)("footer", { className: "cb-cardActions" }, (0, import_react10.createElement)(actions.ActionBar, {
     actions: named(others),
     part: "buttons",
     states: statesOf(entry.presses, void 0),
@@ -1357,7 +1503,7 @@ function Card({ entry, live, boardId, assistant, tracks, active, locale, t, pres
     onPress: onPress({})
   }));
   const openable = !sheet && onOpen && card.type !== "summary";
-  const className = ["cb-card", `cb-card-${card.type}`, stale && "cb-cardStale", openable && "cb-cardOpenable", sheet && "cb-cardInSheet", wash].filter(Boolean).join(" ");
+  const className = ["cb-card", `cb-card-${card.type}`, stale && "cb-cardStale", openable && "cb-cardOpenable", sheet && "cb-cardInSheet", raised && "cb-cardRaised", dragging && "cb-cardDragging", wash].filter(Boolean).join(" ");
   const openOnTap = openable ? { onClick: (event) => {
     if (!onControl(event) && !event.target.closest?.("[data-opens]") && !window.getSelection?.()?.toString()) onOpen();
   } } : {};
@@ -1365,11 +1511,11 @@ function Card({ entry, live, boardId, assistant, tracks, active, locale, t, pres
   if (sheet && openRow !== void 0) {
     const index = card.data.rows?.findIndex((r) => r.key === openRow) ?? -1;
     const target = index >= 0 ? card.data.rows[index] : null;
-    if (!target) return (0, import_react9.createElement)("p", { className: "cb-muted" }, t("rowGone"));
-    return (0, import_react9.createElement)(
+    if (!target) return (0, import_react10.createElement)("p", { className: "cb-muted" }, t("rowGone"));
+    return (0, import_react10.createElement)(
       "div",
       { className: "cb-rowSheet" },
-      (0, import_react9.createElement)(Body, {
+      (0, import_react10.createElement)(Body, {
         card: { ...card, data: { ...card.data, rows: [target], progress: void 0 } },
         live,
         wash: false,
@@ -1379,44 +1525,212 @@ function Card({ entry, live, boardId, assistant, tracks, active, locale, t, pres
         all: true,
         rowControls: { ...rowControls, kept: [], press: (_, action) => rowControls.press(index, action), state: (_, id) => rowControls.state(index, id), latest: (_, id) => rowControls.latest(index, id) }
       }),
-      (0, import_react9.createElement)(DetailParts, { detail: target.detail, locale, t })
+      (0, import_react10.createElement)(DetailParts, { detail: target.detail, locale, t })
     );
   }
   if (card.type === "summary") {
-    return (0, import_react9.createElement)(
+    return (0, import_react10.createElement)(
       "section",
-      { ref, className, style, "data-type": card.type },
-      (0, import_react9.createElement)("div", { className: "cb-summaryMain" }, (0, import_react9.createElement)(SummaryBody, { card, locale, t, wash: wash !== "" }), steps, footer),
-      (0, import_react9.createElement)("div", { className: "cb-summaryAside" }, live.fresh && (0, import_react9.createElement)(kit.NewDot), chat)
+      { ref, className, style, "data-type": card.type, ...placing },
+      (0, import_react10.createElement)("div", { className: "cb-summaryMain" }, (0, import_react10.createElement)(SummaryBody, { card, locale, t, wash: wash !== "" }), steps, footer),
+      (0, import_react10.createElement)("div", { className: "cb-summaryAside" }, live.fresh && (0, import_react10.createElement)(kit.NewDot), chat)
     );
   }
-  const statBlock = card.stat && (0, import_react9.createElement)(StatBlock, { data: card.stat, locale, compact: true, wash: wash !== "" });
-  const body = (0, import_react9.createElement)(Body, { card, live, wash: wash !== "", locale, t, rowActions, all: sheet, onOpenRow, rowControls });
-  return (0, import_react9.createElement)(
+  const statBlock = card.stat && (0, import_react10.createElement)(StatBlock, { data: card.stat, locale, compact: true, wash: wash !== "" });
+  const body = (0, import_react10.createElement)(Body, { card, live, wash: wash !== "", locale, t, rowActions, all: sheet, onOpenRow, rowControls });
+  return (0, import_react10.createElement)(
     "section",
-    { ref, className, style, "data-type": card.type, ...openOnTap },
-    !sheet && (0, import_react9.createElement)(
+    { ref, className, style, "data-type": card.type, ...placing, ...openOnTap },
+    !sheet && (0, import_react10.createElement)(
       "header",
-      { className: "cb-cardHead" },
-      card.icon && (0, import_react9.createElement)(kit.Tile, { icon: card.icon, tone: card.tone ?? "muted", size: 30 }),
-      (0, import_react9.createElement)(Trunc, { as: "h3", text: card.title }),
-      live.fresh && (0, import_react9.createElement)(kit.NewDot),
-      wash !== "" && card.type !== "stat" && !card.stat && (0, import_react9.createElement)(kit.JustNow),
-      stale && (0, import_react9.createElement)(
+      { className: "cb-cardHead", ...arrange ? { onPointerDown: (event) => {
+        if (event.pointerType !== "mouse" && !onControl(event)) arrange.onHold(event);
+      } } : {} },
+      card.icon && (0, import_react10.createElement)(kit.Tile, { icon: card.icon, tone: card.tone ?? "muted", size: 30 }),
+      (0, import_react10.createElement)(Trunc, { as: "h3", text: card.title }),
+      live.fresh && (0, import_react10.createElement)(kit.NewDot),
+      raised && (0, import_react10.createElement)("span", { className: "cb-raisedCue", title: t("arrange.raisedWhy") }, (0, import_react10.createElement)(import_dsh_client_ui_primitives3.Tag, { tone: "info" }, card.raise?.label ?? t("arrange.raised"))),
+      wash !== "" && card.type !== "stat" && !card.stat && (0, import_react10.createElement)(kit.JustNow),
+      stale && (0, import_react10.createElement)(
         "span",
         { className: "cb-stale", title: new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(updated) },
-        (0, import_react9.createElement)(import_dsh_client_ui_primitives2.Tag, { tone: "warning" }, t("stale", { age: formatAge(age, locale) }))
+        (0, import_react10.createElement)(import_dsh_client_ui_primitives3.Tag, { tone: "warning" }, t("stale", { age: formatAge(age, locale) }))
       ),
-      card.link && (0, import_react9.createElement)("a", { className: "cb-cardLink", href: card.link, title: t("open"), "aria-label": t("open"), ...external ? { target: "_blank", rel: "noopener noreferrer" } : {} }, (0, import_react9.createElement)(import_dsh_client_ui_primitives2.IconRightUpOutlineRegular, { size: 14 })),
-      openable && (0, import_react9.createElement)("button", { type: "button", className: "cb-cardLink cb-cardOpen", title: t("details"), "aria-label": t("details"), onClick: () => onOpen() }, (0, import_react9.createElement)(import_dsh_client_ui_primitives2.IconFullscreenOutlineRegular, { size: 14 })),
+      arrange && (0, import_react10.createElement)(ArrangeControls, { t, arrange }),
+      card.link && (0, import_react10.createElement)("a", { className: "cb-cardLink", href: card.link, title: t("open"), "aria-label": t("open"), ...external ? { target: "_blank", rel: "noopener noreferrer" } : {} }, (0, import_react10.createElement)(import_dsh_client_ui_primitives3.IconRightUpOutlineRegular, { size: 14 })),
+      openable && (0, import_react10.createElement)("button", { type: "button", className: "cb-cardLink cb-cardOpen", title: t("details"), "aria-label": t("details"), onClick: () => onOpen() }, (0, import_react10.createElement)(import_dsh_client_ui_primitives3.IconFullscreenOutlineRegular, { size: 14 })),
       chat
     ),
-    statBlock && ["line", "bar", "donut"].includes(card.type) ? (0, import_react9.createElement)("div", { className: "cb-split" }, statBlock, (0, import_react9.createElement)("div", { className: "cb-cardBody" }, body)) : [statBlock && (0, import_react9.createElement)("div", { key: "stat" }, statBlock), (0, import_react9.createElement)("div", { key: "body", className: "cb-cardBody" }, body)],
-    sheet && (0, import_react9.createElement)(DetailParts, { detail: card.detail, locale, t }),
+    statBlock && ["line", "bar", "donut"].includes(card.type) ? (0, import_react10.createElement)("div", { className: "cb-split" }, statBlock, (0, import_react10.createElement)("div", { className: "cb-cardBody" }, body)) : [statBlock && (0, import_react10.createElement)("div", { key: "stat" }, statBlock), (0, import_react10.createElement)("div", { key: "body", className: "cb-cardBody" }, body)],
+    sheet && (0, import_react10.createElement)(DetailParts, { detail: card.detail, locale, t }),
     steps,
     footer,
-    sheet && chat && (0, import_react9.createElement)("div", { className: "cb-sheetChat" }, chat)
+    sheet && chat && (0, import_react10.createElement)("div", { className: "cb-sheetChat" }, chat)
   );
+}
+
+// src/client/drag.js
+var import_react11 = require("react");
+var HOLD_MS = 380;
+var SLOP = 8;
+var PULL = 4;
+var EDGE = 72;
+function useCardDrag(onDrop) {
+  const [drag, setDrag] = (0, import_react11.useState)(null);
+  const dropRef = (0, import_react11.useRef)(onDrop);
+  dropRef.current = onDrop;
+  const stop = (0, import_react11.useRef)(() => {
+  });
+  (0, import_react11.useEffect)(() => () => stop.current(), []);
+  const begin = (0, import_react11.useCallback)((event, id, hold) => {
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+    stop.current();
+    const el = event.currentTarget.closest("[data-card]");
+    const scroller = el?.closest(".cb-page");
+    if (!el || !scroller) return;
+    const grid = el.parentElement;
+    const origin = { x: event.clientX, y: event.clientY, scroll: scroller.scrollTop };
+    const point = { x: origin.x, y: origin.y };
+    let active = false;
+    let hint = null;
+    let timer = 0;
+    let frame = 0;
+    const single = () => getComputedStyle(grid).gridTemplateColumns.split(" ").length === 1;
+    const update = () => {
+      const under = document.elementsFromPoint(point.x, point.y).map((node) => node.closest?.("[data-card]")).find((card) => card && card.dataset.card !== id);
+      if (under) hint = { target: under.dataset.card, after: dropAfter(under.getBoundingClientRect(), point.x, point.y, single()) };
+      setDrag({ id, dx: point.x - origin.x, dy: point.y - origin.y + (scroller.scrollTop - origin.scroll), hint });
+    };
+    const scroll = () => {
+      if (!active) return;
+      const box = scroller.getBoundingClientRect();
+      const near = point.y < box.top + EDGE ? (point.y - box.top - EDGE) / EDGE : point.y > box.bottom - EDGE ? (point.y - box.bottom + EDGE) / EDGE : 0;
+      if (near !== 0) {
+        const before = scroller.scrollTop;
+        scroller.scrollTop += Math.round(Math.max(-1, Math.min(1, near)) * 16);
+        if (scroller.scrollTop !== before) update();
+      }
+      frame = requestAnimationFrame(scroll);
+    };
+    const lift = () => {
+      timer = 0;
+      active = true;
+      navigator.vibrate?.(10);
+      document.body.style.cursor = "grabbing";
+      update();
+      scroll();
+    };
+    const onMove = (move) => {
+      point.x = move.clientX;
+      point.y = move.clientY;
+      if (active) return update();
+      const travel = Math.hypot(point.x - origin.x, point.y - origin.y);
+      if (hold && travel > SLOP) finish(false);
+      else if (!hold && travel > PULL) lift();
+    };
+    const onTouchMove = (move) => {
+      if (active && move.cancelable) move.preventDefault();
+    };
+    const onKey = (key) => {
+      if (key.key === "Escape") finish(false);
+    };
+    const onMenu = (menu) => {
+      if (hold) menu.preventDefault();
+    };
+    function finish(drop) {
+      clearTimeout(timer);
+      cancelAnimationFrame(frame);
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onCancel);
+      window.removeEventListener("touchmove", onTouchMove);
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("contextmenu", onMenu);
+      document.body.style.cursor = "";
+      stop.current = () => {
+      };
+      if (active) {
+        const swallow = (click) => {
+          click.stopPropagation();
+          click.preventDefault();
+        };
+        window.addEventListener("click", swallow, { capture: true, once: true });
+        setTimeout(() => window.removeEventListener("click", swallow, true), 60);
+        if (drop && hint) dropRef.current(id, hint.target, hint.after);
+      }
+      active = false;
+      setDrag(null);
+    }
+    const onUp = () => finish(true);
+    const onCancel = () => finish(false);
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onCancel);
+    window.addEventListener("touchmove", onTouchMove, { passive: false });
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("contextmenu", onMenu);
+    if (hold) timer = setTimeout(lift, HOLD_MS);
+    stop.current = () => finish(false);
+  }, []);
+  return { drag, begin };
+}
+
+// src/client/flip.js
+var import_react12 = require("react");
+var MS = 240;
+function useGlide(gridRef, orderKey) {
+  const spots = (0, import_react12.useRef)(/* @__PURE__ */ new Map());
+  const lastKey = (0, import_react12.useRef)(orderKey);
+  (0, import_react12.useLayoutEffect)(() => {
+    const grid = gridRef.current;
+    if (!grid) return;
+    const next = /* @__PURE__ */ new Map();
+    const animate = lastKey.current !== orderKey && typeof matchMedia === "function" && !matchMedia("(prefers-reduced-motion: reduce)").matches;
+    for (const el of grid.children) {
+      const id = el.dataset?.card;
+      if (id === void 0) continue;
+      const spot = { x: el.offsetLeft, y: el.offsetTop };
+      const was = spots.current.get(id);
+      if (animate && was && typeof el.animate === "function" && (Math.abs(was.x - spot.x) > 1 || Math.abs(was.y - spot.y) > 1)) {
+        el.animate([{ transform: `translate(${was.x - spot.x}px, ${was.y - spot.y}px)` }, { transform: "none" }], { duration: MS, easing: "cubic-bezier(.2,.7,.2,1)" });
+      }
+      next.set(id, spot);
+    }
+    spots.current = next;
+    lastKey.current = orderKey;
+  });
+}
+
+// src/client/raise.js
+var import_react13 = require("react");
+var MAX_WAIT_MS = 2 ** 31 - 1;
+var SLACK_MS = 25;
+function useRaised(entries) {
+  const [now, setNow] = (0, import_react13.useState)(() => Date.now());
+  const raises = entries.filter((entry) => entry.card?.raise).map((entry) => [entry.id, entry.card.raise]);
+  const key = JSON.stringify(raises);
+  (0, import_react13.useEffect)(() => {
+    let timer;
+    const arm = () => {
+      clearTimeout(timer);
+      const current = Date.now();
+      setNow(current);
+      const next = nextRaiseChange(raises.map(([, raise]) => raise), current);
+      if (next !== void 0) timer = setTimeout(arm, Math.min(next - current + SLACK_MS, MAX_WAIT_MS));
+    };
+    const wake = () => {
+      if (document.visibilityState === "visible") arm();
+    };
+    arm();
+    document.addEventListener("visibilitychange", wake);
+    window.addEventListener("focus", wake);
+    return () => {
+      clearTimeout(timer);
+      document.removeEventListener("visibilitychange", wake);
+      window.removeEventListener("focus", wake);
+    };
+  }, [key]);
+  return (0, import_react13.useMemo)(() => new Set(raises.filter(([, raise]) => isRaised(raise, now)).map(([id]) => id)), [key, now]);
 }
 
 // src/client/live-state.js
@@ -1471,10 +1785,10 @@ function writeNav(search, nav) {
 var hasNav = (search) => Boolean(readNav(search).card);
 
 // src/client/sheet.js
-var import_react10 = require("react");
-var import_dsh_client_ui_primitives3 = require("@deepseek-ai/dsh-client-ui-primitives");
+var import_react14 = require("react");
+var import_dsh_client_ui_primitives4 = require("@deepseek-ai/dsh-client-ui-primitives");
 function Sheet({ open, onClose, title, closeLabel, children }) {
-  return (0, import_react10.createElement)(import_dsh_client_ui_primitives3.Modal, { open, onClose, title, closeLabel, className: "cb-sheetModal", contentClassName: "cb-sheet" }, children);
+  return (0, import_react14.createElement)(import_dsh_client_ui_primitives4.Modal, { open, onClose, title, closeLabel, className: "cb-sheetModal", contentClassName: "cb-sheet" }, children);
 }
 
 // src/client/page.js
@@ -1508,11 +1822,11 @@ var visible = () => document.visibilityState === "visible";
 function BoardsPage() {
   const kit = useKit();
   const { active, intl: locale, ready, t } = useActiveLocale();
-  const [boards, setBoards] = (0, import_react11.useState)(null);
-  const [listError, setListError] = (0, import_react11.useState)(null);
-  const [opened, setOpened] = (0, import_react11.useState)(() => typeof location === "undefined" ? {} : readNav(location.search));
-  const pushed = (0, import_react11.useRef)(false);
-  const [selected, setSelected] = (0, import_react11.useState)(() => {
+  const [boards, setBoards] = (0, import_react15.useState)(null);
+  const [listError, setListError] = (0, import_react15.useState)(null);
+  const [opened, setOpened] = (0, import_react15.useState)(() => typeof location === "undefined" ? {} : readNav(location.search));
+  const pushed = (0, import_react15.useRef)(false);
+  const [selected, setSelected] = (0, import_react15.useState)(() => {
     if (opened.board) return opened.board;
     try {
       return localStorage.getItem(STORE_KEY);
@@ -1520,25 +1834,36 @@ function BoardsPage() {
       return null;
     }
   });
-  const [view, setView] = (0, import_react11.useState)({ board: null, live: {} });
-  const [boardError, setBoardError] = (0, import_react11.useState)(null);
-  const [pollSeconds, setPollSeconds] = (0, import_react11.useState)(30);
-  const etag = (0, import_react11.useRef)(null);
-  const [gridRef, tracks] = useTracks();
-  const currentRef = (0, import_react11.useRef)(null);
-  const translateRef = (0, import_react11.useRef)(t);
+  const [view, setView] = (0, import_react15.useState)({ board: null, live: {} });
+  const [boardError, setBoardError] = (0, import_react15.useState)(null);
+  const [pollSeconds, setPollSeconds] = (0, import_react15.useState)(30);
+  const etag = (0, import_react15.useRef)(null);
+  const currentRef = (0, import_react15.useRef)(null);
+  const translateRef = (0, import_react15.useRef)(t);
   translateRef.current = t;
-  const [kept, setKept] = (0, import_react11.useState)({});
-  const [toast, setToast] = (0, import_react11.useState)(null);
-  const toasts = (0, import_react11.useRef)(0);
+  const [kept, setKept] = (0, import_react15.useState)({});
+  const [toast, setToast] = (0, import_react15.useState)(null);
+  const toasts = (0, import_react15.useRef)(0);
   const board = view.board;
-  const boardRef = (0, import_react11.useRef)(null);
+  const boardRef = (0, import_react15.useRef)(null);
   boardRef.current = board;
-  const show = (0, import_react11.useCallback)((next) => setView((prev) => ({
+  const ids = (0, import_react15.useMemo)(() => board ? board.cards.map((entry) => entry.id) : [], [board]);
+  const mine = (0, import_react15.useMemo)(() => arranged(ids, board?.arrangement), [ids, board?.arrangement]);
+  const raised = useRaised(board?.cards ?? []);
+  const order = (0, import_react15.useMemo)(() => visibleOrder(mine, raised), [mine, raised]);
+  const shown = (0, import_react15.useMemo)(() => {
+    const byId = new Map((board?.cards ?? []).map((entry) => [entry.id, entry]));
+    return order.map((id) => byId.get(id)).filter(Boolean);
+  }, [board, order]);
+  const gridRef = (0, import_react15.useRef)(null);
+  const [contentRef, tracks] = useTracks();
+  useGlide(gridRef, order.join("\n"));
+  const [said, setSaid] = (0, import_react15.useState)("");
+  const show = (0, import_react15.useCallback)((next) => setView((prev) => ({
     board: next,
     live: next === null ? {} : nextLive(prev.board?.id === next.id ? prev.board : null, next, prev.board?.id === next.id ? prev.live : {})
   })), []);
-  const loadList = (0, import_react11.useCallback)(async () => {
+  const loadList = (0, import_react15.useCallback)(async () => {
     try {
       const { body } = await getJson("boards");
       setBoards(body.boards);
@@ -1549,7 +1874,7 @@ function BoardsPage() {
     }
   }, []);
   const current = boards?.some((b) => b.id === selected) ? selected : boards?.[0]?.id ?? null;
-  const loadBoard = (0, import_react11.useCallback)(async (id, fresh) => {
+  const loadBoard = (0, import_react15.useCallback)(async (id, fresh) => {
     if (!id) return;
     try {
       const result = await getJson(`board?id=${encodeURIComponent(id)}`, fresh ? null : etag.current);
@@ -1565,7 +1890,7 @@ function BoardsPage() {
       }
     }
   }, [loadList, show]);
-  const loadCard = (0, import_react11.useCallback)(async (boardId, id) => {
+  const loadCard = (0, import_react15.useCallback)(async (boardId, id) => {
     try {
       if (boardRef.current?.id !== boardId || !boardRef.current.cards.some((card) => card.id === id)) return loadBoard(boardId, false);
       const { body } = await getJson(`card?board=${encodeURIComponent(boardId)}&id=${encodeURIComponent(id)}`);
@@ -1579,11 +1904,11 @@ function BoardsPage() {
       else loadBoard(boardId, false);
     }
   }, [loadBoard]);
-  const onEvent = (0, import_react11.useCallback)((message) => {
+  const onEvent = (0, import_react15.useCallback)((message) => {
     const id = currentRef.current;
     if (!id) return;
     if (message.type === "card") loadCard(id, message.id);
-    else if (message.type === "board" || message.type === "hello") loadBoard(id, false);
+    else if (message.type === "board" || message.type === "hello" || message.type === "arrange") loadBoard(id, false);
     else if (message.type === "gone") {
       show(null);
       setBoardError(requestError(403));
@@ -1591,7 +1916,7 @@ function BoardsPage() {
     }
   }, [loadBoard, loadCard, loadList, show]);
   const status = kit.useEventStream(current ? `api/card-board/events?board=${encodeURIComponent(current)}` : null, onEvent);
-  const post = (0, import_react11.useCallback)(async (body) => {
+  const post = (0, import_react15.useCallback)(async (body) => {
     const response = await fetch(api("action"), {
       method: "POST",
       credentials: "same-origin",
@@ -1603,8 +1928,23 @@ function BoardsPage() {
     loadBoard(currentRef.current, false);
     return answer;
   }, [loadBoard]);
-  const showToast = (0, import_react11.useCallback)((next) => setToast({ seq: ++toasts.current, ...next }), []);
-  const undo = (0, import_react11.useCallback)(async (pressId, card) => {
+  const showToast = (0, import_react15.useCallback)((next) => setToast({ seq: ++toasts.current, ...next }), []);
+  const keepArrangement = (0, import_react15.useCallback)(async (next, board2) => {
+    setView((prev) => prev.board?.id === board2 ? { ...prev, board: { ...prev.board, arrangement: next ?? void 0 } } : prev);
+    try {
+      const response = await fetch(api("arrange"), {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(next === null ? { board: board2, reset: true } : { board: board2, ...next })
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    } catch {
+      showToast({ text: "arrange.failed" });
+      loadBoard(board2, true);
+    }
+  }, [loadBoard, showToast]);
+  const undo = (0, import_react15.useCallback)(async (pressId, card) => {
     try {
       await post({ card, undo: pressId });
       showToast({ text: "toast.undone" });
@@ -1612,7 +1952,7 @@ function BoardsPage() {
       showToast({ text: "toast.undoFailed" });
     }
   }, [post, showToast]);
-  const press = (0, import_react11.useCallback)(async (action, extra, target, row) => {
+  const press = (0, import_react15.useCallback)(async (action, extra, target, row) => {
     const answer = await post({ ...target, id: action.id, ...extra });
     if (answer?.undoable) {
       showToast({ text: TOAST_KEYS[action.kind] ?? "toast.event", undo: () => undo(answer.press, target.card) });
@@ -1621,10 +1961,10 @@ function BoardsPage() {
     }
     return answer;
   }, [post, showToast, undo]);
-  (0, import_react11.useEffect)(() => {
+  (0, import_react15.useEffect)(() => {
     loadList();
   }, [loadList]);
-  (0, import_react11.useEffect)(() => {
+  (0, import_react15.useEffect)(() => {
     currentRef.current = current;
     if (!current) return;
     etag.current = null;
@@ -1634,7 +1974,7 @@ function BoardsPage() {
     loadBoard(current, true);
   }, [current, loadBoard]);
   const waiting = board?.cards.some((entry) => entry.presses?.some((p) => p.state === "pending")) === true;
-  (0, import_react11.useEffect)(() => {
+  (0, import_react15.useEffect)(() => {
     if (!current || status === "live" && !waiting) return void 0;
     let ticks = 0;
     const timer = setInterval(() => {
@@ -1654,8 +1994,8 @@ function BoardsPage() {
       document.removeEventListener("visibilitychange", onVisible);
     };
   }, [current, status, waiting, pollSeconds, loadBoard, loadList]);
-  const reported = (0, import_react11.useRef)("");
-  (0, import_react11.useEffect)(() => {
+  const reported = (0, import_react15.useRef)("");
+  (0, import_react15.useEffect)(() => {
     if (!board) return void 0;
     const report = seenReport(board);
     const text = JSON.stringify(report);
@@ -1669,7 +2009,7 @@ function BoardsPage() {
     }, SEEN_AFTER_MS);
     return () => clearTimeout(timer);
   }, [board]);
-  (0, import_react11.useEffect)(() => {
+  (0, import_react15.useEffect)(() => {
     const onPop = () => {
       pushed.current = false;
       setOpened(readNav(location.search));
@@ -1677,19 +2017,39 @@ function BoardsPage() {
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
   }, []);
-  const openCard = (0, import_react11.useCallback)((boardId, card, row) => {
+  const openCard = (0, import_react15.useCallback)((boardId, card, row) => {
     const nav = { board: boardId, card, ...row === void 0 ? {} : { row } };
     window.history[pushed.current ? "replaceState" : "pushState"](window.history.state, "", `${location.pathname}${writeNav(location.search, nav)}${location.hash}`);
     pushed.current = true;
     setOpened(nav);
   }, []);
-  const closeCard = (0, import_react11.useCallback)(() => {
+  const closeCard = (0, import_react15.useCallback)(() => {
     setOpened({});
     if (pushed.current) {
       pushed.current = false;
       window.history.back();
     } else window.history.replaceState(window.history.state, "", `${location.pathname}${writeNav(location.search, {})}${location.hash}`);
   }, []);
+  const rearrange = (next, id, saying) => {
+    if (board === null) return;
+    keepArrangement(next, board.id);
+    const title = pickText(boardRef.current?.cards.find((entry) => entry.id === id)?.card?.title, active) ?? id;
+    const place = [...visibleOrder(next, raised)].indexOf(id) + 1;
+    setSaid(t(saying, { title, n: place, total: ids.length }));
+  };
+  const { drag, begin } = useCardDrag((id, target, after) => rearrange(dropCard(mine, id, target, after), id, "arrange.moved"));
+  const arrangeOf = (id) => ({
+    pinned: mine.pinned.includes(id),
+    canUp: canShift(mine, id, -1),
+    canDown: canShift(mine, id, 1),
+    onPin: () => mine.pinned.includes(id) ? rearrange(unpinCard(mine, id), id, "arrange.unpinnedDone") : rearrange(pinCard(mine, id), id, "arrange.pinnedDone"),
+    onMove: (delta) => rearrange(shiftCard(mine, id, delta), id, "arrange.moved"),
+    onGrip: (event) => {
+      event.preventDefault();
+      begin(event, id, false);
+    },
+    onHold: (event) => begin(event, id, true)
+  });
   const choose = (id) => {
     setSelected(id);
     try {
@@ -1702,54 +2062,81 @@ function BoardsPage() {
     return Number.isFinite(time) && time > max ? time : max;
   }, 0);
   const titleOf = (entry) => pickText(entry.title, active);
-  if (!ready) return (0, import_react11.createElement)("div", { className: "cb-page" });
+  if (!ready) return (0, import_react15.createElement)("div", { className: "cb-page" });
   let content;
-  if (listError) content = (0, import_react11.createElement)("p", { className: "cb-notice" }, errorText(listError, t));
-  else if (boards === null) content = (0, import_react11.createElement)("p", { className: "cb-muted" }, t("loading"));
-  else if (boards.length === 0) content = (0, import_react11.createElement)("div", { className: "cb-empty" }, (0, import_react11.createElement)("p", { className: "cb-emptyTitle" }, t("emptyTitle")), (0, import_react11.createElement)("p", { className: "cb-muted" }, t("emptyHint")));
-  else if (boardError) content = (0, import_react11.createElement)("p", { className: "cb-notice" }, errorText(boardError, t));
-  else if (!board) content = (0, import_react11.createElement)("p", { className: "cb-muted" }, t("loading"));
-  else content = (0, import_react11.createElement)(
-    import_react11.Fragment,
+  if (listError) content = (0, import_react15.createElement)("p", { className: "cb-notice" }, errorText(listError, t));
+  else if (boards === null) content = (0, import_react15.createElement)("p", { className: "cb-muted" }, t("loading"));
+  else if (boards.length === 0) content = (0, import_react15.createElement)("div", { className: "cb-empty" }, (0, import_react15.createElement)("p", { className: "cb-emptyTitle" }, t("emptyTitle")), (0, import_react15.createElement)("p", { className: "cb-muted" }, t("emptyHint")));
+  else if (boardError) content = (0, import_react15.createElement)("p", { className: "cb-notice" }, errorText(boardError, t));
+  else if (!board) content = (0, import_react15.createElement)("p", { className: "cb-muted" }, t("loading"));
+  else content = (0, import_react15.createElement)(
+    import_react15.Fragment,
     null,
-    board.problems?.length > 0 && (0, import_react11.createElement)("div", { className: "cb-notice" }, t("boardProblems"), (0, import_react11.createElement)("ul", { className: "cb-problems" }, board.problems.map((p, i) => (0, import_react11.createElement)("li", { key: i }, p)))),
-    board.cards.length === 0 && (0, import_react11.createElement)("p", { className: "cb-muted" }, t("noCards")),
-    (0, import_react11.createElement)(
+    board.problems?.length > 0 && (0, import_react15.createElement)("div", { className: "cb-notice" }, t("boardProblems"), (0, import_react15.createElement)("ul", { className: "cb-problems" }, board.problems.map((p, i) => (0, import_react15.createElement)("li", { key: i }, p)))),
+    board.cards.length === 0 && (0, import_react15.createElement)("p", { className: "cb-muted" }, t("noCards")),
+    (0, import_react15.createElement)(
       "div",
-      { className: "cb-grid", style: { gridTemplateColumns: `repeat(${tracks}, minmax(0, 1fr))`, gridAutoRows: `${ROW}px`, columnGap: GAP } },
-      board.cards.map((entry) => (0, import_react11.createElement)(Card, { key: entry.id, entry, live: liveOf(view.live, entry.id), boardId: board.id, assistant: board.assistant, tracks, active, locale, t, press, undo, kept: kept[entry.id], onOpen: (row) => openCard(board.id, entry.id, row) }))
+      { className: "cb-grid", ref: gridRef, style: { gridTemplateColumns: `repeat(${tracks}, minmax(0, 1fr))`, gridAutoRows: `${ROW}px`, columnGap: GAP } },
+      shown.map((entry) => (0, import_react15.createElement)(Card, {
+        key: entry.id,
+        entry,
+        live: liveOf(view.live, entry.id),
+        boardId: board.id,
+        assistant: board.assistant,
+        tracks,
+        active,
+        locale,
+        t,
+        press,
+        undo,
+        kept: kept[entry.id],
+        onOpen: (row) => openCard(board.id, entry.id, row),
+        raised: raised.has(entry.id),
+        dragging: drag?.id === entry.id ? drag : null,
+        drop: drag?.hint?.target === entry.id ? drag.hint.after ? "after" : "before" : void 0,
+        arrange: entry.card && arrangeOf(entry.id)
+      }))
     )
   );
   const openEntry = opened.card && board && (!opened.board || opened.board === board.id) ? board.cards.find((entry) => entry.id === opened.card && entry.card) : void 0;
   const openCardData = openEntry && pickCard(openEntry.card, active);
   const openRow = openCardData && opened.row !== void 0 ? openCardData.data.rows?.find((r) => r.key === opened.row) : void 0;
-  const sheet = (0, import_react11.createElement)(Sheet, {
+  const sheet = (0, import_react15.createElement)(Sheet, {
     open: Boolean(openEntry),
     onClose: closeCard,
     title: openRow ? openRow.title ?? openRow.label : openCardData?.title,
     closeLabel: t("close")
-  }, openEntry && (0, import_react11.createElement)(Card, { entry: openEntry, live: liveOf(view.live, openEntry.id), boardId: board.id, assistant: board.assistant, tracks: 1, active, locale, t, press, undo, kept: kept[openEntry.id], sheet: true, row: opened.row }));
-  return (0, import_react11.createElement)(
+  }, openEntry && (0, import_react15.createElement)(Card, { entry: openEntry, live: liveOf(view.live, openEntry.id), boardId: board.id, assistant: board.assistant, tracks: 1, active, locale, t, press, undo, kept: kept[openEntry.id], sheet: true, row: opened.row }));
+  return (0, import_react15.createElement)(
     "div",
     { className: "cb-page" },
-    (0, import_react11.createElement)(
+    (0, import_react15.createElement)(
       "div",
-      { className: "cb-content", ref: gridRef },
-      (0, import_react11.createElement)(
+      { className: "cb-content", ref: contentRef },
+      (0, import_react15.createElement)(
         "div",
         { className: "cb-heading" },
-        (0, import_react11.createElement)("h1", null, boards?.length === 1 ? titleOf(boards[0]) : t("title")),
-        board && (0, import_react11.createElement)("div", { className: "cb-sub" }, (0, import_react11.createElement)(kit.LiveStatus, { status, updatedAt: newest || void 0 }))
+        (0, import_react15.createElement)("h1", null, boards?.length === 1 ? titleOf(boards[0]) : t("title")),
+        board && (0, import_react15.createElement)(
+          "div",
+          { className: "cb-sub" },
+          (0, import_react15.createElement)(kit.LiveStatus, { status, updatedAt: newest || void 0 }),
+          board.arrangement && (0, import_react15.createElement)(import_dsh_client_ui_primitives5.Button, { variant: "ghost", size: "sm", className: "cb-reset", title: t("arrange.resetHint"), onClick: () => {
+            keepArrangement(null, board.id);
+            setSaid(t("arrange.resetDone"));
+          } }, t("arrange.reset"))
+        )
       ),
-      boards && boards.length > 1 && (0, import_react11.createElement)("div", { className: "cb-tabs", role: "tablist" }, boards.map((b) => (0, import_react11.createElement)(import_dsh_client_ui_primitives4.Pill, { key: b.id, active: b.id === current, role: "tab", "aria-selected": b.id === current, title: titleOf(b), onClick: () => choose(b.id) }, titleOf(b)))),
+      boards && boards.length > 1 && (0, import_react15.createElement)("div", { className: "cb-tabs", role: "tablist" }, boards.map((b) => (0, import_react15.createElement)(import_dsh_client_ui_primitives5.Pill, { key: b.id, active: b.id === current, role: "tab", "aria-selected": b.id === current, title: titleOf(b), onClick: () => choose(b.id) }, titleOf(b)))),
       content
     ),
     board && sheet,
-    toast && (0, import_react11.createElement)(import_dsh_client_ui_primitives4.Toast, {
+    (0, import_react15.createElement)("div", { className: "cb-sr", role: "status", "aria-live": "polite" }, said),
+    toast && (0, import_react15.createElement)(import_dsh_client_ui_primitives5.Toast, {
       key: toast.seq,
       text: t(toast.text),
       tone: "success",
-      ...toast.undo ? { holdMs: UNDO_HOLD_MS, actions: [{ label: (0, import_react11.createElement)("span", { className: "cb-toastUndo" }, t("undo")), onClick: () => {
+      ...toast.undo ? { holdMs: UNDO_HOLD_MS, actions: [{ label: (0, import_react15.createElement)("span", { className: "cb-toastUndo" }, t("undo")), onClick: () => {
         setToast(null);
         toast.undo();
       } }] } : {},
@@ -1763,17 +2150,17 @@ var NS = "dsh-card-board";
 var PANEL = "dsh-card-board";
 function SidebarIcon({ size }) {
   const stroke = { stroke: "currentColor", strokeWidth: 1.2, strokeLinecap: "round", strokeLinejoin: "round", fill: "none" };
-  return (0, import_react12.createElement)(
+  return (0, import_react16.createElement)(
     "svg",
     { width: size, height: size, viewBox: "0 0 16 16", "aria-hidden": true, focusable: "false" },
-    (0, import_react12.createElement)("rect", { x: 1.75, y: 1.75, width: 5.5, height: 5.5, rx: 1.4, ...stroke }),
-    (0, import_react12.createElement)("rect", { x: 8.75, y: 1.75, width: 5.5, height: 5.5, rx: 1.4, ...stroke }),
-    (0, import_react12.createElement)("rect", { x: 1.75, y: 8.75, width: 5.5, height: 5.5, rx: 1.4, ...stroke }),
-    (0, import_react12.createElement)("path", { d: "M9 13.5l1.6-2 1.4 1 2-2.8", ...stroke })
+    (0, import_react16.createElement)("rect", { x: 1.75, y: 1.75, width: 5.5, height: 5.5, rx: 1.4, ...stroke }),
+    (0, import_react16.createElement)("rect", { x: 8.75, y: 1.75, width: 5.5, height: 5.5, rx: 1.4, ...stroke }),
+    (0, import_react16.createElement)("rect", { x: 1.75, y: 8.75, width: 5.5, height: 5.5, rx: 1.4, ...stroke }),
+    (0, import_react16.createElement)("path", { d: "M9 13.5l1.6-2 1.4 1 2-2.8", ...stroke })
   );
 }
 function Page() {
-  return useKit() === null ? (0, import_react12.createElement)("div", { className: "cb-page" }) : (0, import_react12.createElement)(BoardsPage);
+  return useKit() === null ? (0, import_react16.createElement)("div", { className: "cb-page" }) : (0, import_react16.createElement)(BoardsPage);
 }
 var inject = ["slots", "locale"];
 function apply(ctx) {

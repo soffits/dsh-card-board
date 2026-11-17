@@ -13,6 +13,7 @@ import { Trunc } from './pieces.js'
 import { pickCard } from './words.js'
 import { DetailParts } from './detail.js'
 import { onControl } from './links.js'
+import { ArrangeControls } from './arrange-ui.js'
 import { GAP, ROW, spanOf } from './layout.js'
 
 const CHART_HEIGHT = 150
@@ -66,19 +67,28 @@ function Body({ card, live, wash, locale, t, rowActions, all, onOpenRow, rowCont
  *   changed (counts that go up with each change) and what is new since the viewer last looked
  */
 /**
+ * `arrange` (not in the sheet) is what the person can do with the card's place: pin it, move it, drag it; `raised` says the
+ * card's `raise` window is open now (the cue says why it is up); `dragging` is where a card being dragged is, and `drop` marks
+ * the card a drag would land before or after.
+ *
  * `onOpen(rowKey?)` opens the card (or one of its rows) in the sheet; `sheet` draws the card inside it: no head (the
  * sheet has the title), the whole list, a taller chart and the card's `detail`; with `row`, just that row and its
  * detail and buttons.
  */
-export function Card({ entry, live, boardId, assistant, tracks, active, locale, t, press, undo, kept, onOpen, sheet = false, row: openRow }) {
+export function Card({ entry, live, boardId, assistant, tracks, active, locale, t, press, undo, kept, onOpen, sheet = false, row: openRow, arrange, raised = false, dragging = null, drop }) {
   const kit = useKit()
   const actions = useButtons()
   const now = kit.useNow()
   const wash = kit.useWash(live.wash, entry.id)
   const [ref, rows] = useRowSpan()
-  const style = sheet ? undefined : { gridColumn: `span ${spanOf(entry.card?.type, entry.size, tracks)}`, gridRowEnd: rows > 0 ? `span ${rows}` : undefined }
+  const style = sheet ? undefined : {
+    gridColumn: `span ${spanOf(entry.card?.type, entry.size, tracks)}`,
+    gridRowEnd: rows > 0 ? `span ${rows}` : undefined,
+    ...(dragging ? { transform: `translate(${dragging.dx}px, ${dragging.dy}px) scale(1.015)`, transition: 'box-shadow var(--ds-transition-duration,.2s) var(--ds-ease-in-out,ease)' } : {}),
+  }
+  const placing = { 'data-card': sheet ? undefined : entry.id, 'data-drop': drop, 'data-axis': tracks === 1 ? 'y' : 'x' }
   if (!entry.card) {
-    return h('section', { ref, className: 'cb-card cb-cardError', style },
+    return h('section', { ref, className: `cb-card cb-cardError${dragging ? ' cb-cardDragging' : ''}`, style, ...placing },
       h('header', { className: 'cb-cardHead' }, h('h3', { title: entry.id }, entry.id)),
       h('p', { className: 'cb-errorText' }, t('cardError')),
       h('ul', { className: 'cb-problems' }, (entry.problems ?? []).map((p, i) => h('li', { key: i }, p))))
@@ -122,7 +132,7 @@ export function Card({ entry, live, boardId, assistant, tracks, active, locale, 
     actions: named(others), part: 'buttons', states: statesOf(entry.presses, undefined), about: about(), onPress: onPress({}),
   }))
   const openable = !sheet && onOpen && card.type !== 'summary'
-  const className = ['cb-card', `cb-card-${card.type}`, stale && 'cb-cardStale', openable && 'cb-cardOpenable', sheet && 'cb-cardInSheet', wash].filter(Boolean).join(' ')
+  const className = ['cb-card', `cb-card-${card.type}`, stale && 'cb-cardStale', openable && 'cb-cardOpenable', sheet && 'cb-cardInSheet', raised && 'cb-cardRaised', dragging && 'cb-cardDragging', wash].filter(Boolean).join(' ')
   // Tapping the card's own surface (not one of its buttons, links or rows that open themselves) opens it.
   const openOnTap = openable ? { onClick: event => { if (!onControl(event) && !event.target.closest?.('[data-opens]') && !window.getSelection?.()?.toString()) onOpen() } } : {}
   const onOpenRow = onOpen && (key => onOpen(key))
@@ -138,21 +148,23 @@ export function Card({ entry, live, boardId, assistant, tracks, active, locale, 
   }
 
   if (card.type === 'summary') {
-    return h('section', { ref, className, style, 'data-type': card.type },
+    return h('section', { ref, className, style, 'data-type': card.type, ...placing },
       h('div', { className: 'cb-summaryMain' }, h(SummaryBody, { card, locale, t, wash: wash !== '' }), steps, footer),
       h('div', { className: 'cb-summaryAside' }, live.fresh && h(kit.NewDot), chat))
   }
 
   const statBlock = card.stat && h(StatBlock, { data: card.stat, locale, compact: true, wash: wash !== '' })
   const body = h(Body, { card, live, wash: wash !== '', locale, t, rowActions, all: sheet, onOpenRow, rowControls })
-  return h('section', { ref, className, style, 'data-type': card.type, ...openOnTap },
-    !sheet && h('header', { className: 'cb-cardHead' },
+  return h('section', { ref, className, style, 'data-type': card.type, ...placing, ...openOnTap },
+    !sheet && h('header', { className: 'cb-cardHead', ...(arrange ? { onPointerDown: event => { if (event.pointerType !== 'mouse' && !onControl(event)) arrange.onHold(event) } } : {}) },
       card.icon && h(kit.Tile, { icon: card.icon, tone: card.tone ?? 'muted', size: 30 }),
       h(Trunc, { as: 'h3', text: card.title }),
       live.fresh && h(kit.NewDot),
+      raised && h('span', { className: 'cb-raisedCue', title: t('arrange.raisedWhy') }, h(Tag, { tone: 'info' }, card.raise?.label ?? t('arrange.raised'))),
       wash !== '' && card.type !== 'stat' && !card.stat && h(kit.JustNow),
       stale && h('span', { className: 'cb-stale', title: new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(updated) },
         h(Tag, { tone: 'warning' }, t('stale', { age: formatAge(age, locale) }))),
+      arrange && h(ArrangeControls, { t, arrange }),
       card.link && h('a', { className: 'cb-cardLink', href: card.link, title: t('open'), 'aria-label': t('open'), ...(external ? { target: '_blank', rel: 'noopener noreferrer' } : {}) }, h(IconRightUpOutlineRegular, { size: 14 })),
       openable && h('button', { type: 'button', className: 'cb-cardLink cb-cardOpen', title: t('details'), 'aria-label': t('details'), onClick: () => onOpen() }, h(IconFullscreenOutlineRegular, { size: 14 })),
       chat),
