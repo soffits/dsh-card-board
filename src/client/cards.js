@@ -135,7 +135,7 @@ export function ListCard({ data, live, locale, t, rowActions, all = false, onOpe
     listed.length === 0
       ? h('p', { className: 'cb-muted' }, data.empty ?? t('listEmpty'))
       : h('ul', { className: 'cb-rows' }, rows.map((row, i) => h(Row, {
-        key: row.key ?? i, index: data.rows.indexOf(row), row: doneOf(row) && rowControls ? { ...row, actions: row.actions.filter(a => a.kind !== 'done') } : row, rowActions, onOpenRow, className: [i >= LIST_ROWS && 'cb-rowLate', ticked(row) && 'cb-done'].filter(Boolean).join(' ') || undefined, ...rowLive(live, row),
+        key: row.key ?? i, index: data.rows.indexOf(row), row: doneOf(row) && rowControls ? { ...row, actions: row.actions.filter(a => a.kind !== 'done') } : row, rowActions: data.rows.includes(row) ? rowActions : undefined, onOpenRow, className: [i >= LIST_ROWS && 'cb-rowLate', ticked(row) && 'cb-done'].filter(Boolean).join(' ') || undefined, ...rowLive(live, row),
         lead: [
           doneOf(row) && rowControls && h(DoneBox, { key: 'check', row, index: data.rows.indexOf(row), done: doneOf(row), rowControls, t }),
           row.icon && h(kit.Tile, { key: 'tile', icon: row.icon, tone: row.tone ?? 'muted', size: 30 }),

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.10.1
+
+- Fix: a row ticked done blanked the page when the card was rewritten without it (the kept row asked for buttons of a row the card no longer has). It now stays in place, struck through, as intended.
+
 ## 0.10.0
 
 - Undo: an action can declare an `inverse` (`{ "kind", "payload"? }`, on `done`, `snooze` and `event`). Pressing one shows an Undo in DSH's own toast for about 8 seconds, in English, French and Chinese; tapping it sends an `undo` press (channel `ui.action.undo`) that carries the inverse the card offered, so the owner of the item can reverse it (done and reopen, snooze and unsnooze) even after the card was rewritten.
