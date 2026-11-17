@@ -191,7 +191,7 @@ button.cb-cardOpen{border:0;background:transparent;padding:0;font:inherit;cursor
 .cb-rowLate{animation:cb-in var(--ds-transition-duration,.2s) var(--ds-ease-in-out,ease) both}
 @media (prefers-reduced-motion:reduce){.cb-card,.cb-row,.cb-statLink{transition:none}.cb-card.uk-wash .cb-cardBody,.cb-card.uk-wash .cb-stats,.cb-rowLate{animation:none}.cb-cardOpenable:active{transform:none}}
 /* What is chrome is not selectable (heads, tags, axes, legends, strips, buttons, times); titles, notes and numbers are. */
-.cb-cardHead,.cb-tabs,.cb-heading .cb-sub,.cb-rowMeta,.cb-rowActions,.cb-statLabel,.cb-strip,.cb-chart svg,.cb-legend,.cb-track b,.cb-more,.cb-doneBox,.cb-delta,.cb-when,.cb-progress small,.cb-bubble{-webkit-user-select:none;user-select:none}
+.cb-chips,.cb-summaryLine,.cb-summaryAside,.cb-cardHead,.cb-tabs,.cb-heading .cb-sub,.cb-rowMeta,.cb-rowActions,.cb-statLabel,.cb-strip,.cb-chart svg,.cb-legend,.cb-track b,.cb-more,.cb-doneBox,.cb-delta,.cb-when,.cb-progress small,.cb-bubble,.cb-page .uk-chip,.cb-page .uk-tile,.cb-page .uk-icon,.cb-page .uk-newDot,.cb-page .uk-justNow,.cb-page .uk-ringText small{-webkit-user-select:none;user-select:none}
 .cb-cardHead h3{-webkit-user-select:text;user-select:text}
 .cb-card svg,.cb-card img{-webkit-user-drag:none}
 /* The point under the pointer on a chart */
