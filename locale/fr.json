@@ -34,6 +34,8 @@
     "dayPart.morning": "matin",
     "dayPart.afternoon": "après-midi",
     "dayPart.evening": "soir",
-    "dayPart.night": "nuit"
+    "dayPart.night": "nuit",
+    "showMore": "{n} de plus",
+    "showFewer": "Afficher moins"
   }
 }

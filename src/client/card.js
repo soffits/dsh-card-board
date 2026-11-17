@@ -2,7 +2,7 @@
  * One card on the grid: its head (tile, title, what is new or just changed, stale mark, link, chat), its body by
  * type, its suggested next steps and its other buttons.
  */
-import { createElement as h } from 'react'
+import { createElement as h, useLayoutEffect, useRef, useState } from 'react'
 import { IconRightUpOutlineRegular, Tag } from '@deepseek-ai/dsh-client-ui-primitives'
 import { BarChart, Donut, LineChart, Timeline } from './charts.js'
 import { CountdownBody, ListCard, StatBlock, StatusCard, SummaryBody } from './cards.js'
@@ -11,10 +11,23 @@ import { listRowLine, statusRowLine, summaryLines } from './quote.js'
 import { OWNER, useButtons, useKit } from './services.js'
 import { Trunc } from './pieces.js'
 import { pickCard } from './words.js'
+import { GAP, ROW, spanOf } from './layout.js'
 
-const CHART_HEIGHT = { 1: 150, 2: 360, 3: 560 }
-/** One column (a phone): taller cards would only scroll further, so charts stay moderate. */
-const CHART_HEIGHT_NARROW = { 1: 150, 2: 220, 3: 260 }
+const CHART_HEIGHT = 150
+function useRowSpan() {
+  const ref = useRef(null)
+  const [rows, setRows] = useState(0)
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el || typeof ResizeObserver === 'undefined') return undefined
+    const measure = () => setRows(Math.ceil((el.getBoundingClientRect().height + GAP) / ROW))
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+  return [ref, rows]
+}
 const CHARTS = { line: LineChart, bar: BarChart, donut: Donut, timeline: Timeline }
 
 /** Press states by action id for the card (row undefined) or one row: the latest press wins. */
@@ -24,7 +37,7 @@ function statesOf(presses, row) {
   return states
 }
 
-function Body({ card, size, narrow, live, wash, locale, t, rowActions }) {
+function Body({ card, live, wash, locale, t, rowActions }) {
   const data = card.data
   switch (card.type) {
     case 'stat': return h(StatBlock, { data, locale, wash })
@@ -34,28 +47,26 @@ function Body({ card, size, narrow, live, wash, locale, t, rowActions }) {
     default: {
       const Chart = CHARTS[card.type]
       if (Chart === undefined) return null
-      const height = (narrow ? CHART_HEIGHT_NARROW : CHART_HEIGHT)[size.h]
-      return h(Chart, { data, locale, height: card.type === 'bar' ? Math.min(height, 130 + (size.h - 1) * 200) : card.type === 'donut' ? Math.max(height, 160) : height })
+      return h(Chart, { data, locale, height: card.type === 'bar' ? 130 : card.type === 'donut' ? 160 : CHART_HEIGHT })
     }
   }
 }
 
 /**
  * @param {object} props
- * @param {object} props.entry - the card as the server sent it: `{ id, w, h, card | problems, presses?, version, rows? }`
+ * @param {object} props.entry - the card as the server sent it: `{ id, size?, card | problems, presses?, version, rows? }`
  * @param {{ wash: number, rows: Record<string, number>, fresh: boolean, freshRows: Set<string> }} props.live - what just
  *   changed (counts that go up with each change) and what is new since the viewer last looked
  */
-export function Card({ entry, live, boardId, assistant, columns, active, locale, t, press }) {
+export function Card({ entry, live, boardId, assistant, tracks, active, locale, t, press }) {
   const kit = useKit()
   const actions = useButtons()
   const now = kit.useNow()
   const wash = kit.useWash(live.wash, entry.id)
-  const full = entry.card?.type === 'summary'
-  const size = { w: full ? columns : Math.min(entry.w ?? 1, columns), h: entry.h ?? 1 }
-  const style = { gridColumn: `span ${size.w}`, gridRow: size.h > 1 && columns > 1 && !full ? `span ${size.h}` : undefined }
+  const [ref, rows] = useRowSpan()
+  const style = { gridColumn: `span ${spanOf(entry.card?.type, entry.size, tracks)}`, gridRowEnd: rows > 0 ? `span ${rows}` : undefined }
   if (!entry.card) {
-    return h('section', { className: 'cb-card cb-cardError', style },
+    return h('section', { ref, className: 'cb-card cb-cardError', style },
       h('header', { className: 'cb-cardHead' }, h('h3', { title: entry.id }, entry.id)),
       h('p', { className: 'cb-errorText' }, t('cardError')),
       h('ul', { className: 'cb-problems' }, (entry.problems ?? []).map((p, i) => h('li', { key: i }, p))))
@@ -93,14 +104,14 @@ export function Card({ entry, live, boardId, assistant, columns, active, locale,
   const className = ['cb-card', `cb-card-${card.type}`, stale && 'cb-cardStale', wash].filter(Boolean).join(' ')
 
   if (card.type === 'summary') {
-    return h('section', { className, style, 'data-type': card.type },
+    return h('section', { ref, className, style, 'data-type': card.type },
       h('div', { className: 'cb-summaryMain' }, h(SummaryBody, { card, locale, t, wash: wash !== '' }), steps, footer),
       h('div', { className: 'cb-summaryAside' }, live.fresh && h(kit.NewDot), chat))
   }
 
   const statBlock = card.stat && h(StatBlock, { data: card.stat, locale, compact: true, wash: wash !== '' })
-  const body = h(Body, { card, size, narrow: columns === 1, live, wash: wash !== '', locale, t, rowActions })
-  return h('section', { className, style, 'data-type': card.type },
+  const body = h(Body, { card, live, wash: wash !== '', locale, t, rowActions })
+  return h('section', { ref, className, style, 'data-type': card.type },
     h('header', { className: 'cb-cardHead' },
       card.icon && h(kit.Tile, { icon: card.icon, tone: card.tone ?? 'muted', size: 30 }),
       h(Trunc, { as: 'h3', text: card.title }),

@@ -1,4 +1,4 @@
-/* @soffits/dsh-card-board 0.7.1: built by scripts/build.mjs from src/client/. Do not edit. */
+/* @soffits/dsh-card-board 0.8.0: built by scripts/build.mjs from src/client/. Do not edit. */
 window.__ModuleLoader__.load({
   id: "@soffits/dsh-card-board",
   factory: (require) => {
@@ -41,7 +41,8 @@ var CSS = `
 .cb-heading h1{margin:0;font-size:20px;font-weight:500;line-height:28px}
 .cb-sub{margin-top:4px;color:var(--dsw-alias-label-tertiary);font-size:13px;line-height:20px}
 .cb-tabs{display:flex;flex-wrap:wrap;gap:6px 8px;margin:0 0 18px}
-.cb-grid{display:grid;gap:14px;grid-auto-flow:row dense;align-items:stretch}
+.cb-grid{display:grid;row-gap:0;grid-auto-flow:row dense;align-items:start}
+.cb-more{align-self:flex-start;margin-top:2px}
 .cb-card{container-type:inline-size;box-sizing:border-box;min-width:0;display:flex;flex-direction:column;gap:12px;padding:16px 18px 18px;border-radius:16px;background:var(--dsw-alias-bg-base);box-shadow:inset 0 0 0 .5px var(--dsw-alias-border-l2)}
 .cb-cardHead{display:flex;align-items:center;gap:10px;min-height:28px}
 .cb-cardHead h3{flex:1;min-width:0;margin:0;font-size:15px;font-weight:600;line-height:22px}
@@ -101,9 +102,12 @@ h3.cb-truncOpen{overflow:visible}
 .cb-strip li{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:0;color:var(--dsw-alias-label-tertiary);font-size:11px;font-variant-numeric:tabular-nums}
 .cb-strip b{color:var(--dsw-alias-label-primary);font-size:13px;font-weight:500}
 .cb-strip li[data-on=true],.cb-strip li[data-on=true] b{color:var(--dsw-alias-state-business-primary)}
+/* a narrow card shows the first hours that fit: 6 under 360 px, 8 under 480 px */
+@container (width<480px){.cb-strip li:nth-child(n+9){display:none}}
+@container (width<360px){.cb-strip li:nth-child(n+7){display:none}}
 /* a chart card with headline numbers: side by side when there is room */
 .cb-split{display:flex;flex-direction:column;gap:12px}
-@container (width>=640px){.cb-split{display:grid;grid-template-columns:minmax(0,max-content) minmax(0,1fr);align-items:center;gap:28px}.cb-split .cb-stats{display:grid;grid-template-columns:repeat(2,max-content);gap:14px 40px}}
+@container (width>=640px){.cb-split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:center;gap:28px}.cb-split .cb-stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 24px}}
 
 /* rows of lists and status cards */
 .cb-list{display:flex;flex-direction:column;gap:10px}
@@ -690,6 +694,21 @@ function stepTimes(steps, locale, here = Intl.DateTimeFormat().resolvedOptions()
   });
 }
 
+// src/client/layout.js
+var DEFAULT_SIZE = { summary: "wide", countdown: "large", timeline: "wide", stat: "small" };
+var SPAN = { 6: { small: 2, medium: 3, large: 4, wide: 6 }, 2: { small: 1, medium: 1, large: 2, wide: 2 }, 1: {} };
+var ROW = 4;
+var GAP = 14;
+function spanOf(type, size, tracks) {
+  const chosen = type === "summary" ? "wide" : size ?? DEFAULT_SIZE[type] ?? "medium";
+  return SPAN[tracks]?.[chosen] ?? 1;
+}
+var LIST_ROWS = 6;
+function shownRows(rows, open, limit, live) {
+  if (open || rows.length <= limit + 1) return rows;
+  return rows.filter((row, i) => i < limit || row.key !== void 0 && (live?.freshRows?.has(row.key) || live?.rows?.[row.key] > 0));
+}
+
 // src/client/cards.js
 var STATE_OF_TONE = { ok: "done", warn: "warning", bad: "error" };
 var DIRECTION_ICON = { up: "trending-up", down: "trending-down" };
@@ -762,6 +781,9 @@ function Row({ lead, title, sub, meta, value, spark, row, index, washCount, fres
 var rowLive = (live, row) => ({ washCount: live.rows?.[row.key] ?? 0, fresh: row.key !== void 0 && live.freshRows.has(row.key) });
 function ListCard({ data, live, locale, t, rowActions }) {
   const kit = useKit();
+  const [open, setOpen] = (0, import_react5.useState)(false);
+  const rows = shownRows(data.rows, open, LIST_ROWS, live);
+  const hidden = data.rows.length - rows.length;
   const checkable = data.rows.some((row) => "checked" in row);
   const progress = data.progress;
   return (0, import_react5.createElement)(
@@ -783,7 +805,7 @@ function ListCard({ data, live, locale, t, rowActions }) {
         progress.sub && (0, import_react5.createElement)("div", { className: "cb-rowSub" }, progress.sub)
       )
     ),
-    data.rows.length === 0 ? (0, import_react5.createElement)("p", { className: "cb-muted" }, data.empty ?? t("listEmpty")) : (0, import_react5.createElement)("ul", { className: "cb-rows" }, data.rows.map((row, i) => (0, import_react5.createElement)(Row, {
+    data.rows.length === 0 ? (0, import_react5.createElement)("p", { className: "cb-muted" }, data.empty ?? t("listEmpty")) : (0, import_react5.createElement)("ul", { className: "cb-rows" }, rows.map((row, i) => (0, import_react5.createElement)(Row, {
       key: row.key ?? i,
       index: i,
       row,
@@ -801,7 +823,12 @@ function ListCard({ data, live, locale, t, rowActions }) {
         row.chip && (0, import_react5.createElement)(import_dsh_client_ui_primitives2.Tag, { tone: kit.tagTone(row.chip.tone ?? "muted") }, row.chip.text),
         (0, import_react5.createElement)(RowWhen, { row, locale, t })
       )
-    })))
+    }))),
+    (hidden > 0 || open) && data.rows.length > LIST_ROWS + 1 && (0, import_react5.createElement)(
+      import_dsh_client_ui_primitives2.Button,
+      { variant: "ghost", size: "sm", className: "cb-more", onClick: () => setOpen((value) => !value) },
+      open ? t("showFewer") : t("showMore", { n: hidden })
+    )
   );
 }
 function StatusCard({ data, live, locale, rowActions }) {
@@ -987,15 +1014,28 @@ function useActiveLocale() {
 }
 
 // src/client/card.js
-var CHART_HEIGHT = { 1: 150, 2: 360, 3: 560 };
-var CHART_HEIGHT_NARROW = { 1: 150, 2: 220, 3: 260 };
+var CHART_HEIGHT = 150;
+function useRowSpan() {
+  const ref = (0, import_react7.useRef)(null);
+  const [rows, setRows] = (0, import_react7.useState)(0);
+  (0, import_react7.useLayoutEffect)(() => {
+    const el = ref.current;
+    if (!el || typeof ResizeObserver === "undefined") return void 0;
+    const measure = () => setRows(Math.ceil((el.getBoundingClientRect().height + GAP) / ROW));
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+  return [ref, rows];
+}
 var CHARTS = { line: LineChart, bar: BarChart, donut: Donut, timeline: Timeline };
 function statesOf(presses, row) {
   const states = {};
   for (const press of presses ?? []) if (press.row === row) states[press.id] = press.state;
   return states;
 }
-function Body({ card, size, narrow, live, wash, locale, t, rowActions }) {
+function Body({ card, live, wash, locale, t, rowActions }) {
   const data = card.data;
   switch (card.type) {
     case "stat":
@@ -1009,23 +1049,21 @@ function Body({ card, size, narrow, live, wash, locale, t, rowActions }) {
     default: {
       const Chart = CHARTS[card.type];
       if (Chart === void 0) return null;
-      const height = (narrow ? CHART_HEIGHT_NARROW : CHART_HEIGHT)[size.h];
-      return (0, import_react7.createElement)(Chart, { data, locale, height: card.type === "bar" ? Math.min(height, 130 + (size.h - 1) * 200) : card.type === "donut" ? Math.max(height, 160) : height });
+      return (0, import_react7.createElement)(Chart, { data, locale, height: card.type === "bar" ? 130 : card.type === "donut" ? 160 : CHART_HEIGHT });
     }
   }
 }
-function Card({ entry, live, boardId, assistant, columns, active, locale, t, press }) {
+function Card({ entry, live, boardId, assistant, tracks, active, locale, t, press }) {
   const kit = useKit();
   const actions = useButtons();
   const now = kit.useNow();
   const wash = kit.useWash(live.wash, entry.id);
-  const full = entry.card?.type === "summary";
-  const size = { w: full ? columns : Math.min(entry.w ?? 1, columns), h: entry.h ?? 1 };
-  const style = { gridColumn: `span ${size.w}`, gridRow: size.h > 1 && columns > 1 && !full ? `span ${size.h}` : void 0 };
+  const [ref, rows] = useRowSpan();
+  const style = { gridColumn: `span ${spanOf(entry.card?.type, entry.size, tracks)}`, gridRowEnd: rows > 0 ? `span ${rows}` : void 0 };
   if (!entry.card) {
     return (0, import_react7.createElement)(
       "section",
-      { className: "cb-card cb-cardError", style },
+      { ref, className: "cb-card cb-cardError", style },
       (0, import_react7.createElement)("header", { className: "cb-cardHead" }, (0, import_react7.createElement)("h3", { title: entry.id }, entry.id)),
       (0, import_react7.createElement)("p", { className: "cb-errorText" }, t("cardError")),
       (0, import_react7.createElement)("ul", { className: "cb-problems" }, (entry.problems ?? []).map((p, i) => (0, import_react7.createElement)("li", { key: i }, p)))
@@ -1069,16 +1107,16 @@ function Card({ entry, live, boardId, assistant, columns, active, locale, t, pre
   if (card.type === "summary") {
     return (0, import_react7.createElement)(
       "section",
-      { className, style, "data-type": card.type },
+      { ref, className, style, "data-type": card.type },
       (0, import_react7.createElement)("div", { className: "cb-summaryMain" }, (0, import_react7.createElement)(SummaryBody, { card, locale, t, wash: wash !== "" }), steps, footer),
       (0, import_react7.createElement)("div", { className: "cb-summaryAside" }, live.fresh && (0, import_react7.createElement)(kit.NewDot), chat)
     );
   }
   const statBlock = card.stat && (0, import_react7.createElement)(StatBlock, { data: card.stat, locale, compact: true, wash: wash !== "" });
-  const body = (0, import_react7.createElement)(Body, { card, size, narrow: columns === 1, live, wash: wash !== "", locale, t, rowActions });
+  const body = (0, import_react7.createElement)(Body, { card, live, wash: wash !== "", locale, t, rowActions });
   return (0, import_react7.createElement)(
     "section",
-    { className, style, "data-type": card.type },
+    { ref, className, style, "data-type": card.type },
     (0, import_react7.createElement)(
       "header",
       { className: "cb-cardHead" },
@@ -1152,9 +1190,9 @@ async function getJson(path, etag) {
 }
 var ERROR_KEYS = { 403: "error.forbidden", 404: "error.notFound", 409: "error.gone", 503: "error.noProvider" };
 var errorText = (error, t) => error.status === void 0 ? error.message : t(ERROR_KEYS[error.status] ?? "error.http", { status: error.status });
-function useColumns() {
+function useTracks() {
   const [ref, width] = useWidth();
-  return [ref, width >= 1400 ? 4 : width >= 980 ? 3 : width >= 620 ? 2 : 1];
+  return [ref, width >= 900 ? 6 : width >= 560 ? 2 : 1];
 }
 var visible = () => document.visibilityState === "visible";
 function BoardsPage() {
@@ -1173,7 +1211,7 @@ function BoardsPage() {
   const [boardError, setBoardError] = (0, import_react8.useState)(null);
   const [pollSeconds, setPollSeconds] = (0, import_react8.useState)(30);
   const etag = (0, import_react8.useRef)(null);
-  const [gridRef, columns] = useColumns();
+  const [gridRef, tracks] = useTracks();
   const currentRef = (0, import_react8.useRef)(null);
   const translateRef = (0, import_react8.useRef)(t);
   translateRef.current = t;
@@ -1321,8 +1359,8 @@ function BoardsPage() {
     board.cards.length === 0 && (0, import_react8.createElement)("p", { className: "cb-muted" }, t("noCards")),
     (0, import_react8.createElement)(
       "div",
-      { className: "cb-grid", style: { gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` } },
-      board.cards.map((entry) => (0, import_react8.createElement)(Card, { key: entry.id, entry, live: liveOf(view.live, entry.id), boardId: board.id, assistant: board.assistant, columns, active, locale, t, press }))
+      { className: "cb-grid", style: { gridTemplateColumns: `repeat(${tracks}, minmax(0, 1fr))`, gridAutoRows: `${ROW}px`, columnGap: GAP } },
+      board.cards.map((entry) => (0, import_react8.createElement)(Card, { key: entry.id, entry, live: liveOf(view.live, entry.id), boardId: board.id, assistant: board.assistant, tracks, active, locale, t, press }))
     )
   );
   return (0, import_react8.createElement)(

@@ -157,7 +157,8 @@ describe('routes', () => {
     state.id = 'sub-alex'
     const { body } = await call('/api/card-board/board?id=home')
     assert.deepEqual(body.cards.map(c => c.id), ['summary', 'countdown', 'weather', 'savings', 'energy', 'next-weeks', 'spending', 'chores', 'house'])
-    assert.deepEqual(body.cards.find(c => c.id === 'next-weeks'), { ...body.cards.find(c => c.id === 'next-weeks'), w: 2, h: 1 })
+    assert.equal(body.cards.find(c => c.id === 'weather').size, 'small')
+    assert.equal(body.cards.find(c => c.id === 'next-weeks').size, undefined) // the page picks by type
     state.id = 'sub-robin'
     const garden = (await call('/api/card-board/board?id=garden')).body
     const byId = Object.fromEntries(garden.cards.map(c => [c.id, c]))

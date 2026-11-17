@@ -153,7 +153,8 @@ describe('checkBoard', () => {
   })
 
   it('checks ids in order and sizes in layout', () => {
-    const problems = checkBoard({ title: 'B', order: ['ok', '../x'], layout: { ok: { w: 4 } } })
-    assert.deepEqual(problems, ['order[1]: must be a card id', 'layout.ok.w: must be 1, 2 or 3'])
+    const problems = checkBoard({ title: 'B', order: ['ok', '../x'], layout: { ok: { size: 'huge' }, old: { w: 2 } } })
+    assert.deepEqual(problems, ['order[1]: must be a card id', 'layout.ok.size: must be one of small, medium, large, wide', 'layout.old.w: is not a known field'])
+    assert.deepEqual(checkBoard({ title: 'B', layout: { a: { size: 'small' }, b: { size: 'wide' }, c: {} } }), [])
   })
 })

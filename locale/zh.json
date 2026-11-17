@@ -34,6 +34,8 @@
     "dayPart.morning": "上午",
     "dayPart.afternoon": "下午",
     "dayPart.evening": "傍晚",
-    "dayPart.night": "夜里"
+    "dayPart.night": "夜里",
+    "showMore": "还有 {n} 项",
+    "showFewer": "收起"
   }
 }

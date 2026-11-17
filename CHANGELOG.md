@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.0
+
+- Cards keep their own height: the board packs them like masonry (no card stretches to match a neighbour), and fills gaps with shorter cards.
+- Breaking: a board's `layout` gives each card a `size` (`small`, `medium`, `large`, `wide`) instead of `w` and `h`. Without it, a card takes its type's default (summary and timeline wide, countdown large, stat small, the rest medium).
+- A list longer than six rows shows six, then "N more", which opens the rest in place; rows that are new or just changed stay visible.
+
 ## 0.7.1
 
 - A countdown step in another zone shows the wall-clock time of its own offset (`…T14:20:00-07:00` reads 14:20), and the zone's short name only when the browser's zone data agrees; otherwise it shows the offset ("GMT−7"). A browser with older zone rules no longer moves a ticket's time by an hour.

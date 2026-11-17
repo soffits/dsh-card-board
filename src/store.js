@@ -147,7 +147,7 @@ export async function readCards(root, id, board, only) {
   const cards = []
   const ids = await cardFiles(root, id, board?.order)
   for (const card of only === undefined ? ids : ids.filter(card => card === only)) {
-    const size = { w: layout[card]?.w ?? 1, h: layout[card]?.h ?? 1 }
+    const size = layout[card]?.size ? { size: layout[card].size } : {}
     const result = await readJson(root, join(root, id, 'cards', `${card}.json`), MAX_CARD_BYTES, checkCard)
     cards.push(result.problems.length > 0 ? { id: card, ...size, problems: result.problems.slice(0, 5) } : { id: card, ...size, card: result.value })
   }
