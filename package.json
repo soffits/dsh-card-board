@@ -37,6 +37,7 @@
     "bin",
     "src",
     "client.js",
+    "client.actions.js",
     "index.js",
     "cordis.patch.yml",
     "locale/*.json",
