@@ -6,9 +6,13 @@
  * with If-None-Match instead. Whatever the person has seen is reported back, so the dots for "new since you last
  * looked" follow them across devices.
  */
-import { createElement as h, Fragment, useCallback, useEffect, useRef, useState } from 'react'
-import { Pill, Toast } from '@deepseek-ai/dsh-client-ui-primitives'
+import { createElement as h, Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Button, Pill, Toast } from '@deepseek-ai/dsh-client-ui-primitives'
+import { arranged, canShift, dropCard, pinCard, shiftCard, unpinCard, visibleOrder } from '../arrange.js'
 import { Card } from './card.js'
+import { useCardDrag } from './drag.js'
+import { useGlide } from './flip.js'
+import { useRaised } from './raise.js'
 import { GAP, ROW } from './layout.js'
 import { useWidth } from './format.js'
 import { liveOf, nextLive, seenReport, withCard } from './live-state.js'
@@ -68,7 +72,6 @@ export function BoardsPage() {
   const [boardError, setBoardError] = useState(null)
   const [pollSeconds, setPollSeconds] = useState(30)
   const etag = useRef(null)
-  const [gridRef, tracks] = useTracks()
   const currentRef = useRef(null)
   const translateRef = useRef(t)
   translateRef.current = t
@@ -79,6 +82,20 @@ export function BoardsPage() {
   const board = view.board
   const boardRef = useRef(null)
   boardRef.current = board
+
+  // The person's own order: the board's default, their pins and placing, then what is raised for now on top.
+  const ids = useMemo(() => (board ? board.cards.map(entry => entry.id) : []), [board])
+  const mine = useMemo(() => arranged(ids, board?.arrangement), [ids, board?.arrangement])
+  const raised = useRaised(board?.cards ?? [])
+  const order = useMemo(() => visibleOrder(mine, raised), [mine, raised])
+  const shown = useMemo(() => {
+    const byId = new Map((board?.cards ?? []).map(entry => [entry.id, entry]))
+    return order.map(id => byId.get(id)).filter(Boolean)
+  }, [board, order])
+  const gridRef = useRef(null)
+  const [contentRef, tracks] = useTracks()
+  useGlide(gridRef, order.join('\n'))
+  const [said, setSaid] = useState('')
 
   const show = useCallback(next => setView(prev => ({
     board: next,
@@ -132,7 +149,7 @@ export function BoardsPage() {
     if (!id) return
     if (message.type === 'card') loadCard(id, message.id)
     // On (re)connecting the page may have missed changes, so it checks the whole board once.
-    else if (message.type === 'board' || message.type === 'hello') loadBoard(id, false)
+    else if (message.type === 'board' || message.type === 'hello' || message.type === 'arrange') loadBoard(id, false)
     else if (message.type === 'gone') { show(null); setBoardError(requestError(403)); loadList() }
   }, [loadBoard, loadCard, loadList, show])
   const status = kit.useEventStream(current ? `api/card-board/events?board=${encodeURIComponent(current)}` : null, onEvent)
@@ -152,6 +169,23 @@ export function BoardsPage() {
   }, [loadBoard])
 
   const showToast = useCallback(next => setToast({ seq: ++toasts.current, ...next }), [])
+
+  /** Keep the person's new arrangement: shown at once, then written to the server (and read back if that fails). */
+  const keepArrangement = useCallback(async (next, board) => {
+    setView(prev => (prev.board?.id === board ? { ...prev, board: { ...prev.board, arrangement: next ?? undefined } } : prev))
+    try {
+      const response = await fetch(api('arrange'), {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(next === null ? { board, reset: true } : { board, ...next }),
+      })
+      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+    } catch {
+      showToast({ text: 'arrange.failed' })
+      loadBoard(board, true)
+    }
+  }, [loadBoard, showToast])
 
   /** Take a press back, and say so. */
   const undo = useCallback(async (pressId, card) => {
@@ -234,6 +268,25 @@ export function BoardsPage() {
     else window.history.replaceState(window.history.state, '', `${location.pathname}${writeNav(location.search, {})}${location.hash}`)
   }, [])
 
+  /** A card was moved: keep it, and say so for anyone who can't see it happen. */
+  const rearrange = (next, id, saying) => {
+    if (board === null) return
+    keepArrangement(next, board.id)
+    const title = pickText(boardRef.current?.cards.find(entry => entry.id === id)?.card?.title, active) ?? id
+    const place = [...visibleOrder(next, raised)].indexOf(id) + 1
+    setSaid(t(saying, { title, n: place, total: ids.length }))
+  }
+  const { drag, begin } = useCardDrag((id, target, after) => rearrange(dropCard(mine, id, target, after), id, 'arrange.moved'))
+  const arrangeOf = id => ({
+    pinned: mine.pinned.includes(id),
+    canUp: canShift(mine, id, -1),
+    canDown: canShift(mine, id, 1),
+    onPin: () => (mine.pinned.includes(id) ? rearrange(unpinCard(mine, id), id, 'arrange.unpinnedDone') : rearrange(pinCard(mine, id), id, 'arrange.pinnedDone')),
+    onMove: delta => rearrange(shiftCard(mine, id, delta), id, 'arrange.moved'),
+    onGrip: event => { event.preventDefault(); begin(event, id, false) },
+    onHold: event => begin(event, id, true),
+  })
+
   const choose = id => {
     setSelected(id)
     try { localStorage.setItem(STORE_KEY, id) } catch { /* private mode */ }
@@ -256,8 +309,14 @@ export function BoardsPage() {
   else content = h(Fragment, null,
     board.problems?.length > 0 && h('div', { className: 'cb-notice' }, t('boardProblems'), h('ul', { className: 'cb-problems' }, board.problems.map((p, i) => h('li', { key: i }, p)))),
     board.cards.length === 0 && h('p', { className: 'cb-muted' }, t('noCards')),
-    h('div', { className: 'cb-grid', style: { gridTemplateColumns: `repeat(${tracks}, minmax(0, 1fr))`, gridAutoRows: `${ROW}px`, columnGap: GAP } },
-      board.cards.map(entry => h(Card, { key: entry.id, entry, live: liveOf(view.live, entry.id), boardId: board.id, assistant: board.assistant, tracks, active, locale, t, press, undo, kept: kept[entry.id], onOpen: row => openCard(board.id, entry.id, row) }))))
+    h('div', { className: 'cb-grid', ref: gridRef, style: { gridTemplateColumns: `repeat(${tracks}, minmax(0, 1fr))`, gridAutoRows: `${ROW}px`, columnGap: GAP } },
+      shown.map(entry => h(Card, {
+        key: entry.id, entry, live: liveOf(view.live, entry.id), boardId: board.id, assistant: board.assistant, tracks, active, locale, t, press, undo, kept: kept[entry.id], onOpen: row => openCard(board.id, entry.id, row),
+        raised: raised.has(entry.id),
+        dragging: drag?.id === entry.id ? drag : null,
+        drop: drag?.hint?.target === entry.id ? (drag.hint.after ? 'after' : 'before') : undefined,
+        arrange: entry.card && arrangeOf(entry.id),
+      }))))
 
   const openEntry = opened.card && board && (!opened.board || opened.board === board.id) ? board.cards.find(entry => entry.id === opened.card && entry.card) : undefined
   const openCardData = openEntry && pickCard(openEntry.card, active)
@@ -270,14 +329,16 @@ export function BoardsPage() {
   }, openEntry && h(Card, { entry: openEntry, live: liveOf(view.live, openEntry.id), boardId: board.id, assistant: board.assistant, tracks: 1, active, locale, t, press, undo, kept: kept[openEntry.id], sheet: true, row: opened.row }))
 
   return h('div', { className: 'cb-page' },
-    h('div', { className: 'cb-content', ref: gridRef },
+    h('div', { className: 'cb-content', ref: contentRef },
       h('div', { className: 'cb-heading' },
         h('h1', null, boards?.length === 1 ? titleOf(boards[0]) : t('title')),
-        board && h('div', { className: 'cb-sub' }, h(kit.LiveStatus, { status, updatedAt: newest || undefined }))),
+        board && h('div', { className: 'cb-sub' }, h(kit.LiveStatus, { status, updatedAt: newest || undefined }),
+          board.arrangement && h(Button, { variant: 'ghost', size: 'sm', className: 'cb-reset', title: t('arrange.resetHint'), onClick: () => { keepArrangement(null, board.id); setSaid(t('arrange.resetDone')) } }, t('arrange.reset')))),
       boards && boards.length > 1 && h('div', { className: 'cb-tabs', role: 'tablist' }, boards.map(b =>
         h(Pill, { key: b.id, active: b.id === current, role: 'tab', 'aria-selected': b.id === current, title: titleOf(b), onClick: () => choose(b.id) }, titleOf(b)))),
       content),
     board && sheet,
+    h('div', { className: 'cb-sr', role: 'status', 'aria-live': 'polite' }, said),
     toast && h(Toast, {
       key: toast.seq,
       text: t(toast.text),

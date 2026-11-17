@@ -23,3 +23,13 @@ export function shownRows(rows, open, limit, live) {
   return rows.filter((row, i) => i < limit || (row.key !== undefined && (live?.freshRows?.has(row.key) || live?.rows?.[row.key] > 0)))
 }
 
+
+/**
+ * Whether a pointer at (x, y) over a card's `rect` means after the card (true) or before it. On a single column that is
+ * the lower half; otherwise whichever way the pointer is further from the middle, across or down.
+ */
+export function dropAfter(rect, x, y, single) {
+  const across = (x - (rect.left + rect.width / 2)) / Math.max(1, rect.width)
+  const down = (y - (rect.top + rect.height / 2)) / Math.max(1, rect.height)
+  return single || Math.abs(down) > Math.abs(across) ? down > 0 : across > 0
+}

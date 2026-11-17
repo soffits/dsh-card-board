@@ -11,17 +11,11 @@
  *   <dataDir>/.seen/<hash of the person>.json
  *     { "boards": { "<board>": { "<card>": { "v": "…", "rows": { "<key>": "…" } } } } }
  */
-import { createHash } from 'node:crypto'
-import { mkdir, readFile, rename, stat, writeFile } from 'node:fs/promises'
-import { join } from 'node:path'
+import { createPersonStore, hash } from './person-store.js'
 import { ID_PATTERN, KEY_PATTERN } from './schema.js'
 
 const VERSION = /^[A-Za-z0-9_-]{1,32}$/
 const MAX_ROWS = 100
-
-function hash(value) {
-  return createHash('sha256').update(JSON.stringify(value)).digest('base64url').slice(0, 12)
-}
 
 /** The content version of a card, and of each of its keyed rows. */
 export function cardVersions(card) {
@@ -65,47 +59,23 @@ export function parseSeen(body) {
   return { board: body.board, cards: clean }
 }
 
-/** The seen marks of every person, one small file each, written one at a time and atomically. */
+/** The seen marks of every person, one small file each. */
 export function createSeenStore(dir) {
-  const fileOf = person => join(dir, `${hash(String(person).toLowerCase())}.json`)
-  const queues = new Map()
-
-  async function readFileOf(person) {
-    try {
-      const value = JSON.parse(await readFile(fileOf(person), 'utf8'))
-      return typeof value?.boards === 'object' && value.boards !== null ? value : { boards: {} }
-    } catch {
-      return { boards: {} }
-    }
-  }
-
+  const store = createPersonStore(dir, () => ({ boards: {} }), value => (typeof value?.boards === 'object' && value.boards !== null ? value : undefined))
   return {
     /** What a person has seen on a board, by card id; undefined when they never looked at it. */
     async board(person, board) {
-      return (await readFileOf(person)).boards[board]
+      return (await store.read(person)).boards[board]
     },
 
-    /** A tag that changes whenever this person's marks change, for ETags. */
-    async tag(person) {
-      const info = await stat(fileOf(person)).catch(() => undefined)
-      return info ? `${info.size}:${info.mtimeMs}` : '-'
-    },
+    tag: store.tag,
 
     /** Record cards a person has seen on a board, keeping only cards that still exist (`present`). */
     record(person, board, cards, present) {
-      const path = fileOf(person)
-      const previous = queues.get(path) ?? Promise.resolve()
-      const next = previous.catch(() => {}).then(async () => {
-        const value = await readFileOf(person)
+      return store.update(person, value => {
         const kept = Object.fromEntries(Object.entries({ ...value.boards[board], ...cards }).filter(([id]) => present.has(id)))
-        value.boards[board] = kept
-        await mkdir(dir, { recursive: true, mode: 0o700 })
-        const tmp = `${path}.${process.pid}.tmp`
-        await writeFile(tmp, JSON.stringify(value), { mode: 0o600 })
-        await rename(tmp, path)
+        return { ...value, boards: { ...value.boards, [board]: kept } }
       })
-      queues.set(path, next)
-      return next.finally(() => { if (queues.get(path) === next) queues.delete(path) })
     },
   }
 }

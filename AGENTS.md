@@ -8,10 +8,11 @@
 - `src/access.js`: single-owner vs per-person mode, the people mapping, `viewers` checks.
 - `src/routes.js`: the routes; every answer is decided per request from `requestIdentity`.
 - `src/seen.js`: content versions of cards and keyed rows, and what each person has seen (`<dataDir>/.seen/`).
+- `src/person-store.js`: the one-file-per-person store both `seen.js` and `arrange-store.js` use. `src/arrange.js` (pure, shared with the page): a person's pins and order, the moves, and the `raise` windows; `src/arrange-store.js`: `<dataDir>/.arrange/`. Why: `docs/decisions/card-order.md`.
 - `src/watch.js`: one shared watch per board folder (fs.watch plus a stat poll) for the events route.
 - `src/presses.js`: action presses: log, publish, pending/done/unhandled.
 - `src/messages.js` and `locale/<tag>.json`: the page's own words, one file per language (`ui`, next to DSH's `meta`), merged exact tag → primary language → `en` and served by `/api/card-board/locale`.
-- `src/client/`: the Web UI page, built into `client.js` by `npm run build` (esbuild; committed, `npm run check` fails when it is stale). `page.js` loads boards, follows the events stream and falls back to polling; `live-state.js` (pure) decides what washes and what is new; `card.js` is the card frame, `cards.js` the non-chart bodies, `charts.js` the SVG charts. DSH's own components come from `@deepseek-ai/dsh-client-ui-primitives` (the shared module table); icons, tiles, ticking time, rings, sparklines, the live line and change cues from `@soffits/dsh-ui-kit` (`ctx.uiKit`, required); the buttons from `@soffits/dsh-ui-actions` (`ctx.uiActions`, used when present).
+- `src/client/`: the Web UI page, built into `client.js` by `npm run build` (esbuild; committed, `npm run check` fails when it is stale). `page.js` loads boards, follows the events stream and falls back to polling; `live-state.js` (pure) decides what washes and what is new; `raise.js`, `drag.js`, `flip.js` and `arrange-ui.js` are the page's order: what is raised now (one timer), dragging, the glide, and the card's menu; `card.js` is the card frame, `cards.js` the non-chart bodies, `charts.js` the SVG charts. DSH's own components come from `@deepseek-ai/dsh-client-ui-primitives` (the shared module table); icons, tiles, ticking time, rings, sparklines, the live line and change cues from `@soffits/dsh-ui-kit` (`ctx.uiKit`, required); the buttons from `@soffits/dsh-ui-actions` (`ctx.uiActions`, used when present).
 - `bin/dsh-card-board.js`: the CLI.
 
 ## Rules

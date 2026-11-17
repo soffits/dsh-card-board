@@ -47,6 +47,21 @@
     "toast.undone": "已撤销。",
     "toast.undoFailed": "没能撤销。",
     "undo": "撤销",
-    "markNotDone": "标为未完成"
+    "markNotDone": "标为未完成",
+    "arrange.menu": "调整这张卡片（可拖动）",
+    "arrange.pin": "置顶",
+    "arrange.unpin": "取消置顶",
+    "arrange.up": "上移",
+    "arrange.down": "下移",
+    "arrange.reset": "恢复默认顺序",
+    "arrange.resetHint": "回到这个看板自带的顺序",
+    "arrange.raised": "暂时靠前",
+    "arrange.raisedWhy": "这张卡片现在和时间有关，所以排在其他卡片之前",
+    "arrange.moved": "{title} 现在排第 {n}（共 {total}）",
+    "arrange.pinnedDone": "已置顶：{title}",
+    "arrange.unpinnedDone": "已取消置顶：{title}",
+    "arrange.resetDone": "已恢复默认顺序",
+    "arrange.failed": "没能保存你的顺序。",
+    "arrange.pinned": "已置顶"
   }
 }

@@ -47,6 +47,21 @@
     "toast.undone": "Undone.",
     "toast.undoFailed": "Couldn’t undo that.",
     "undo": "Undo",
-    "markNotDone": "Mark not done"
+    "markNotDone": "Mark not done",
+    "arrange.menu": "Arrange this card (drag to move)",
+    "arrange.pin": "Pin to top",
+    "arrange.unpin": "Unpin",
+    "arrange.up": "Move up",
+    "arrange.down": "Move down",
+    "arrange.reset": "Reset order",
+    "arrange.resetHint": "Back to the order this board comes with",
+    "arrange.raised": "Up for now",
+    "arrange.raisedWhy": "Time matters for this card right now, so it sits above the rest",
+    "arrange.moved": "{title} is now number {n} of {total}",
+    "arrange.pinnedDone": "{title} pinned to the top",
+    "arrange.unpinnedDone": "{title} unpinned",
+    "arrange.resetDone": "Order reset to the board’s own",
+    "arrange.failed": "Couldn’t save your order.",
+    "arrange.pinned": "Pinned"
   }
 }

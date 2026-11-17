@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.11.0
+
+- Each person can arrange a board for themselves: drag a card (mouse: by the handle on hover; touch: press and hold the head), or use its menu (Pin to top, Move up, Move down; Alt+↑/↓ on the menu button). Pinned cards come first, and **Reset order** goes back to the board's `order`, which stays the default. The arrangement is stored once by the plugin per person (`<dataDir>/.arrange/`, the same identity as who sees what), follows them across devices and reaches their other open pages through the events stream (`{ "type": "arrange" }`). A card the person never placed goes where the board's order puts it.
+- New card field `raise: { from?, until?, label? }`: during that window the card floats above everything, pins included, with a small tag saying why (`label`, or "Up for now"). The page decides from its own clock with one timer for the next window edge, so no polling and no card rewrite at the moment. New route `POST /api/card-board/arrange`; the board answer carries `arrangement` when the person has one.
+- Why it is built this way: `docs/decisions/card-order.md`. English, French and Chinese words included.
+
 ## 0.10.1
 
 - Fix: a row ticked done blanked the page when the card was rewritten without it (the kept row asked for buttons of a row the card no longer has). It now stays in place, struck through, as intended.

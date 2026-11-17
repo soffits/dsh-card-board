@@ -47,6 +47,21 @@
     "toast.undone": "Annulé.",
     "toast.undoFailed": "Impossible d’annuler.",
     "undo": "Annuler",
-    "markNotDone": "Marquer comme non fait"
+    "markNotDone": "Marquer comme non fait",
+    "arrange.menu": "Organiser cette carte (glisser pour déplacer)",
+    "arrange.pin": "Épingler en haut",
+    "arrange.unpin": "Désépingler",
+    "arrange.up": "Monter",
+    "arrange.down": "Descendre",
+    "arrange.reset": "Rétablir l’ordre",
+    "arrange.resetHint": "Revenir à l’ordre d’origine de ce tableau",
+    "arrange.raised": "En haut pour l’instant",
+    "arrange.raisedWhy": "L’heure compte pour cette carte en ce moment, elle passe donc devant les autres",
+    "arrange.moved": "{title} est maintenant en position {n} sur {total}",
+    "arrange.pinnedDone": "{title} épinglée en haut",
+    "arrange.unpinnedDone": "{title} désépinglée",
+    "arrange.resetDone": "Ordre d’origine rétabli",
+    "arrange.failed": "Impossible d’enregistrer votre ordre.",
+    "arrange.pinned": "Épinglée"
   }
 }

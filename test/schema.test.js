@@ -28,6 +28,17 @@ describe('checkCard', () => {
     assert.deepEqual(checkCard(list([{ kind: 'step', id: 'a', label: 'Go', inverse: { kind: 'stop' } }])), ["data.rows[0].actions[0].inverse: isn't allowed on a step action"])
   })
 
+  it('takes a raise window with either end open and a short label, and wants at least one end', () => {
+    const stat = raise => ({ ...base, type: 'stat', data: { items: [{ label: 'x', value: 1 }] }, raise })
+    assert.deepEqual(checkCard(stat({ from: '2026-03-04T07:40:00+01:00', until: '2026-03-05T07:40:00+01:00', label: { en: 'Departs soon', fr: 'Départ proche' } })), [])
+    assert.deepEqual(checkCard(stat({ until: '2026-03-05T07:40:00Z' })), [])
+    assert.deepEqual(checkCard(stat({ from: '2026-03-05T07:40:00Z' })), [])
+    assert.deepEqual(checkCard(stat({ label: 'Soon' })), ['raise: needs from, until or both'])
+    assert.deepEqual(checkCard(stat({ from: '2026-03-05T07:40:00Z', until: '2026-03-05T07:40:00Z' })), ['raise.until: must be after from'])
+    assert.deepEqual(checkCard(stat({ from: '2026-03-05' })), ['raise.from: must be an ISO date-time with a zone, like 2026-03-02T09:30:00Z'])
+    assert.deepEqual(checkCard(stat({ from: '2026-03-05T07:40:00Z', to: '2026-03-06T07:40:00Z' })), ['raise.to: is not a known field'])
+  })
+
   it('names the path of each problem', () => {
     const problems = checkCard({ ...base, type: 'stat', data: { items: [{ label: 'x', value: 1, lable: 'typo' }] } })
     assert.deepEqual(problems, ['data.items[0].lable: is not a known field'])

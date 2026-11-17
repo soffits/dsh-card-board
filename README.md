@@ -82,7 +82,7 @@ Board and card ids are lowercase letters, digits, `-` and `_`, up to 64 characte
 }
 ```
 
-`order` lists cards to put first; the rest follow by id. `layout` sets how wide a card is: `small` (a third of a wide screen), `medium` (a half), `large` (two thirds) or `wide` (all of it). Without it a card takes its type's default: `summary` and `timeline` are wide, `countdown` large, `stat` small, the rest medium; a summary is always wide. On a tablet small and medium cards take half the width and large and wide ones all of it; on a phone every card is full width. Heights are the cards' own: the board packs them like masonry, so a long card never stretches its neighbours and short ones fill the space beside it. A list longer than six rows shows six, then "N more", which opens the rest in place (a row that is new or just changed always shows). `assistant` is optional: the name the chat buttons ask ("Ask Robin" instead of "Ask"). `title` can be [text in several languages](#languages).
+`order` lists cards to put first; the rest follow by id. This is the default: each person can [arrange their own view](#order-pins-and-raised-cards). `layout` sets how wide a card is: `small` (a third of a wide screen), `medium` (a half), `large` (two thirds) or `wide` (all of it). Without it a card takes its type's default: `summary` and `timeline` are wide, `countdown` large, `stat` small, the rest medium; a summary is always wide. On a tablet small and medium cards take half the width and large and wide ones all of it; on a phone every card is full width. Heights are the cards' own: the board packs them like masonry, so a long card never stretches its neighbours and short ones fill the space beside it. A list longer than six rows shows six, then "N more", which opens the rest in place (a row that is new or just changed always shows). `assistant` is optional: the name the chat buttons ask ("Ask Robin" instead of "Ask"). `title` can be [text in several languages](#languages).
 
 A card:
 
@@ -106,6 +106,7 @@ A card:
 | `staleAfter` | Seconds. Past this the card is dimmed and says how old it is. |
 | `link` | An `http(s)` URL or a `/path` the title row links to. |
 | `stat` | Headline numbers above a chart or rows (beside a chart when the card is wide): the same shape as a `stat` card's `data`. |
+| `raise` | `{ from?, until?, label? }`: during this window the card floats to the top; see [Order, pins and raised cards](#order-pins-and-raised-cards). |
 | `actions` | Buttons on the card; see [Actions](#actions). |
 | `detail` | More to show when the card is opened; see [Opening a card](#opening-a-card). |
 | `data` | Depends on the type, below. |
@@ -253,6 +254,18 @@ Rows (of lists and status cards) may also have an `icon` and a `tone` (a tile be
 
 The [examples](examples/boards/home) folder has a complete board with one card of each type.
 
+### Order, pins and raised cards
+
+A board's `order` is the default order. Each person can arrange their own view of a board without changing anyone else's: drag a card (a mouse pulls it by the handle that shows on hover; on a touch screen press and hold its head, then drag), or open its menu for **Pin to top**, **Move up** and **Move down** (with a keyboard, Alt+↑ and Alt+↓ on the menu button move it too). Pinned cards sit first, in the order they were pinned. **Reset order** next to the board's status goes back to the default. The arrangement is kept by the plugin, per person (the same identity as who sees what), so it follows them across devices, and it is the only thing the plugin stores about cards. A card the person never placed, such as a new one, goes where the board's order puts it.
+
+A producer can raise a card for a while:
+
+```json
+"raise": { "from": "2026-03-03T07:40:00+01:00", "until": "2026-03-04T10:50:00+01:00", "label": { "en": "Leaves tomorrow", "fr": "Départ demain" } }
+```
+
+From `from` until `until` (either may be left out, but not both) the card sits above everything else, above pins too, since an urgent card shouldn't be buried by a standing preference. It carries a small tag, `label` or "Up for now", and drops back by itself. The page uses its own clock and one timer for the next moment a window opens or closes, so nobody has to rewrite the card then. Among raised cards the person's own order decides. The reasoning is in [docs/decisions/card-order.md](docs/decisions/card-order.md).
+
 ### What is new, and what just changed
 
 Nothing to write for these. Each card has a content version (a hash of the card without `updatedAt`, so rewriting the same data changes nothing), and each keyed row its own. The server remembers, per person, which versions they have seen, so a dot marks what changed since they last looked, on any device. A card or row that changes while the page is open gets a short wash and "just now" first (only the dot with reduced motion).
@@ -348,9 +361,9 @@ From JavaScript the same checks are `import { checkCard, checkBoard } from '@sof
 
 ## How the page updates
 
-`GET /api/card-board/events?board=<board>` is a Server-Sent Events stream: the plugin watches the board's folder and sends `{ "type": "card", "id": … }` for a card written, added or removed, `{ "type": "board" }` for board.json, and a comment every 25 seconds to keep proxies from closing it. The page then fetches only that card from `GET /api/card-board/card?board=<board>&id=<card>`. Who may listen is checked like any read, and someone a board.json change takes off the viewers gets `{ "type": "gone" }` and the stream closes.
+`GET /api/card-board/events?board=<board>` is a Server-Sent Events stream: the plugin watches the board's folder and sends `{ "type": "card", "id": … }` for a card written, added or removed, `{ "type": "board" }` for board.json, `{ "type": "arrange" }` when this person arranges the board from another page, and a comment every 25 seconds to keep proxies from closing it. The page then fetches only that card from `GET /api/card-board/card?board=<board>&id=<card>`. Who may listen is checked like any read, and someone a board.json change takes off the viewers gets `{ "type": "gone" }` and the stream closes.
 
-While that stream is down (or a press waits to be picked up), the page polls `GET /api/card-board/board?id=<board>` instead, with the last `ETag` in `If-None-Match`. The tag is built from file sizes and times, so an unchanged board answers 304 without reading a card. Coming back to the tab checks at once. The page reports what the person has seen to `POST /api/card-board/seen`. The page's words come once per language from `GET /api/card-board/locale?tag=<id>` (the merged `locale/*.json`, English filling gaps).
+While that stream is down (or a press waits to be picked up), the page polls `GET /api/card-board/board?id=<board>` instead, with the last `ETag` in `If-None-Match`. The tag is built from file sizes and times, so an unchanged board answers 304 without reading a card. Coming back to the tab checks at once. The page reports what the person has seen to `POST /api/card-board/seen`, and keeps their own order and pins with `POST /api/card-board/arrange` (`{ board, pinned, order }`, or `{ board, reset: true }`); the board answer carries it as `arrangement`. The page's words come once per language from `GET /api/card-board/locale?tag=<id>` (the merged `locale/*.json`, English filling gaps).
 
 ## Development
 

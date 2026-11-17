@@ -195,6 +195,25 @@ button.cb-cardOpen{border:0;background:transparent;padding:0;font:inherit;cursor
 .cb-chips,.cb-summaryLine,.cb-summaryAside,.cb-cardHead,.cb-tabs,.cb-heading .cb-sub,.cb-rowMeta,.cb-rowActions,.cb-statLabel,.cb-strip,.cb-chart svg,.cb-legend,.cb-track b,.cb-more,.cb-doneBox,.cb-delta,.cb-when,.cb-progress small,.cb-bubble,.cb-page .uk-chip,.cb-page .uk-tile,.cb-page .uk-icon,.cb-page .uk-newDot,.cb-page .uk-justNow,.cb-page .uk-ringText small{-webkit-user-select:none;user-select:none}
 .cb-cardHead h3{-webkit-user-select:text;user-select:text}
 .cb-card svg,.cb-card img{-webkit-user-drag:none}
+/* Arranging: a card's own place (drag, pin, move), and the cue on a card a producer has raised for now */
+.cb-card{position:relative}
+.cb-cardRaised{box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--dsw-alias-state-business-primary) 38%,transparent)}
+.cb-raisedCue{flex:0 1 auto;min-width:0;display:inline-flex}
+button.cb-cardMore{border:0;background:transparent;padding:0;font:inherit;cursor:pointer}
+.cb-pinMark{flex:none;display:inline-flex;color:var(--dsw-alias-state-business-primary)}
+.cb-cardMore.cb-open{background:var(--dsw-alias-interactive-bg-active,var(--dsw-alias-interactive-bg-hover));color:var(--dsw-alias-label-primary)}
+.cb-cardMore:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:1px}
+@media (hover:hover) and (pointer:fine){.cb-cardMore{cursor:grab;opacity:0;transition:opacity var(--ds-transition-duration,.2s) var(--ds-ease-in-out,ease)}.cb-cardMore:active{cursor:grabbing}.cb-card:hover .cb-cardMore,.cb-card:focus-within .cb-cardMore,.cb-cardMore.cb-open{opacity:1}}
+@media (hover:none),(pointer:coarse){.cb-cardHead,.cb-cardHead h3{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}}
+.cb-cardDragging{z-index:6;pointer-events:none;opacity:.94;cursor:grabbing;box-shadow:0 14px 36px color-mix(in srgb,var(--dsw-alias-label-primary) 22%,transparent),inset 0 0 0 .5px var(--dsw-alias-border-l3)}
+.cb-card[data-drop]::after{content:"";position:absolute;z-index:5;pointer-events:none;border-radius:3px;background:var(--dsw-alias-state-business-primary);animation:cb-in var(--ds-transition-duration,.2s) var(--ds-ease-in-out,ease) both}
+.cb-card[data-axis=x][data-drop=before]::after{left:-9px;top:6px;bottom:6px;width:3px}
+.cb-card[data-axis=x][data-drop=after]::after{right:-9px;top:6px;bottom:6px;width:3px}
+.cb-card[data-axis=y][data-drop=before]::after{top:-9px;left:6px;right:6px;height:3px}
+.cb-card[data-axis=y][data-drop=after]::after{bottom:-9px;left:6px;right:6px;height:3px}
+.cb-heading .cb-sub{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px}
+.cb-reset{margin:-4px 0}
+.cb-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 /* The point under the pointer on a chart */
 .cb-chart{position:relative}
 .cb-plot{touch-action:pan-y}
@@ -221,5 +240,6 @@ button.cb-cardOpen{border:0;background:transparent;padding:0;font:inherit;cursor
 .cb-doneBox{min-width:40px;min-height:40px;margin:-6px -6px -6px -10px}
 .cb-doneBox label{display:inline-flex;align-items:center;justify-content:center;min-width:40px;min-height:40px}
 .cb-cardChat{margin:-9px -10px -9px 0}
+.cb-reset{min-height:40px}
 }
 `

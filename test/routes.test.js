@@ -12,6 +12,7 @@ import { createMessages } from '../src/messages.js'
 import { createPresses } from '../src/presses.js'
 import { createRoutes } from '../src/routes.js'
 import { createSeenStore } from '../src/seen.js'
+import { createArrangeStore } from '../src/arrange-store.js'
 import { createWatches } from '../src/watch.js'
 
 let dir
@@ -58,6 +59,7 @@ function routes({ people = PEOPLE, provider = true, state = {}, published = [], 
     pollSeconds: 30,
     presses,
     seen: createSeenStore(join(dir, `.seen-${logCount}`)),
+    arrange: createArrangeStore(join(dir, `.arrange-${logCount}`)),
     watches,
     messages: createMessages(new URL('../locale', import.meta.url).pathname),
     version: 'test',
@@ -267,7 +269,7 @@ describe('one card, live changes and what is new', () => {
     const { state } = routes()
     const list = createRoutes({
       dataDir: dir, people: createPeople({ people: PEOPLE }), identity: () => identityFor(state), pollSeconds: 30,
-      presses: createPresses({ logPath: join(dir, '.actions-live.jsonl') }), seen: createSeenStore(join(dir, '.seen-live')), watches,
+      presses: createPresses({ logPath: join(dir, '.actions-live.jsonl') }), seen: createSeenStore(join(dir, '.seen-live')), arrange: createArrangeStore(join(dir, '.arrange-live')), watches,
       messages: createMessages(new URL('../locale', import.meta.url).pathname), heartbeatMs: 50,
     })
     const events = list.find(route => route.path === '/api/card-board/events')
@@ -508,5 +510,95 @@ describe('as a DSH plugin, behind the real Connection', () => {
     } finally {
       await root.fiber.dispose()
     }
+  })
+})
+
+describe('arrangements', () => {
+  const both = { title: 'Both', viewers: ['alex', 'robin'], order: ['a', 'b', 'c'] }
+  const arrange = (call, body) => call('/api/card-board/arrange', {}, body)
+  const idsOf = response => response.body.cards.map(entry => entry.id)
+
+  before(async () => {
+    await mkdir(join(dir, 'both', 'cards'), { recursive: true })
+    await writeFile(join(dir, 'both', 'board.json'), JSON.stringify(both))
+    for (const id of ['a', 'b', 'c']) await writeFile(join(dir, 'both', 'cards', `${id}.json`), card(id))
+  })
+
+  it('keeps each person’s pins and order to themselves; the board’s order stays the default', async () => {
+    const { call, state } = routes()
+    state.id = 'sub-alex'
+    assert.equal((await call('/api/card-board/board?id=both')).body.arrangement, undefined)
+    assert.equal((await arrange(call, { board: 'both', pinned: ['c'], order: ['b', 'a'] })).status, 200)
+    const alex = await call('/api/card-board/board?id=both')
+    assert.deepEqual(alex.body.arrangement, { pinned: ['c'], order: ['b', 'a'] })
+    assert.deepEqual(idsOf(alex), ['a', 'b', 'c'], 'the cards still come in the board’s order; the page arranges them')
+    state.id = 'sub-robin'
+    assert.equal((await call('/api/card-board/board?id=both')).body.arrangement, undefined)
+    state.id = 'sub-alex'
+    assert.deepEqual((await call('/api/card-board/board?id=both')).body.arrangement, { pinned: ['c'], order: ['b', 'a'] })
+  })
+
+  it('changes the board’s tag when the arrangement changes, so a poll sees it', async () => {
+    const { call, state } = routes()
+    state.id = 'sub-alex'
+    await arrange(call, { board: 'both', reset: true })
+    const first = await call('/api/card-board/board?id=both')
+    assert.equal((await call('/api/card-board/board?id=both', { 'if-none-match': first.etag })).status, 304)
+    await arrange(call, { board: 'both', pinned: [], order: ['c', 'b', 'a'] })
+    const second = await call('/api/card-board/board?id=both', { 'if-none-match': first.etag })
+    assert.equal(second.status, 200)
+    assert.notEqual(second.etag, first.etag)
+  })
+
+  it('goes back to the board’s order on reset', async () => {
+    const { call, state } = routes()
+    state.id = 'sub-alex'
+    await arrange(call, { board: 'both', pinned: ['b'], order: ['a', 'c'] })
+    assert.equal((await arrange(call, { board: 'both', reset: true })).status, 200)
+    assert.equal((await call('/api/card-board/board?id=both')).body.arrangement, undefined)
+  })
+
+  it('refuses a board the person may not see, and bodies that aren’t an arrangement', async () => {
+    const { call, state } = routes()
+    state.id = 'sub-robin'
+    assert.equal((await arrange(call, { board: 'home', pinned: [], order: [] })).status, 403)
+    state.id = undefined
+    assert.equal((await arrange(call, { board: 'both', pinned: [], order: [] })).status, 403)
+    state.id = 'sub-alex'
+    assert.equal((await arrange(call, { board: 'both', pinned: ['a'], order: ['a'] })).status, 400)
+    assert.equal((await arrange(call, { board: 'both', pinned: 'a', order: [] })).status, 400)
+    assert.equal((await arrange(call, { board: 'Bad Id', reset: true })).status, 400)
+    assert.equal((await arrange(call, {})).status, 400)
+  })
+
+  it('tells the person’s other open pages, and only theirs', async () => {
+    const { state } = routes()
+    const store = createArrangeStore(join(dir, '.arrange-events'))
+    const list = createRoutes({
+      dataDir: dir, people: createPeople({ people: PEOPLE }), identity: () => identityFor(state), pollSeconds: 30,
+      presses: createPresses({ logPath: join(dir, '.actions-events.jsonl') }), seen: createSeenStore(join(dir, '.seen-events')), arrange: store, watches,
+      messages: createMessages(new URL('../locale', import.meta.url).pathname), heartbeatMs: 50,
+    })
+    const events = list.find(route => route.path === '/api/card-board/events')
+    state.id = 'sub-alex'
+    const response = await events.fetch(new Request('http://dsh.internal/api/card-board/events?board=both'))
+    const reading = readEvents(response, message => message.type === 'arrange')
+    await new Promise(resolve => setTimeout(resolve, 100))
+    await store.set('robin', 'both', { pinned: [], order: ['a'] })
+    await store.set('alex', 'other', { pinned: [], order: ['a'] })
+    await store.set('alex', 'both', { pinned: ['a'], order: [] })
+    const messages = await reading
+    assert.equal(messages.filter(message => message.type === 'arrange').length, 1)
+  })
+
+  it('writes a person’s file once, readable only by the plugin', async () => {
+    const { call, state } = routes()
+    state.id = 'sub-alex'
+    await arrange(call, { board: 'both', pinned: ['a'], order: ['b'] })
+    const { readdir, stat } = await import('node:fs/promises')
+    const folder = join(dir, `.arrange-${logCount}`)
+    const files = await readdir(folder)
+    assert.equal(files.length, 1)
+    assert.equal((await stat(join(folder, files[0]))).mode & 0o077, 0)
   })
 })
