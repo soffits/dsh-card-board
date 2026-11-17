@@ -195,7 +195,8 @@ window.__ModuleLoader__.load({
     function LineChart({ data, locale, height }) {
       const [ref, width] = useWidth()
       const model = useMemo(() => {
-        const allX = data.series.flatMap(s => s.points.map(p => p.x))
+        // The x range covers the series, a goal drawn as points and the markers, so none of them runs off the plot.
+        const allX = [...data.series.flatMap(s => s.points.map(p => p.x)), ...(data.goal?.points ?? []).map(p => p.x), ...(data.markers ?? []).map(m => m.x)]
         const times = allX.map(toTime)
         const timeAxis = times.every(Number.isFinite)
         const numberAxis = !timeAxis && allX.every(x => typeof x === 'number')
@@ -227,7 +228,13 @@ window.__ModuleLoader__.load({
 
       const longest = data.series.reduce((best, s) => (s.points.length > best.points.length ? s : best), data.series[0])
       const labelCount = Math.max(2, Math.floor(plotW / 44))
-      const xTicks = spread(longest.points.length, labelCount).map(i => longest.points[i].x)
+      // Evenly spaced labels, minus any that would print the same text or sit on top of the one before.
+      const xTicks = []
+      for (const x of spread(longest.points.length, labelCount).map(i => longest.points[i].x)) {
+        const last = xTicks[xTicks.length - 1]
+        if (last !== undefined && (xLabel(last) === xLabel(x) || sx(x) - sx(last) < 36)) continue
+        xTicks.push(x)
+      }
 
       const path = points => {
         let d = ''

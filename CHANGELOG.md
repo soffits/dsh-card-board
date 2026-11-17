@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.1
+
+- Line charts: a goal drawn as points, and markers, no longer run past the plot when they reach beyond the series; x labels that would repeat or overlap are left out.
+
 ## 0.3.0
 
 - Remove `ownerPerson` again. Who a request is, including one that reaches DSH without passing the sign-in, is for the `requestIdentity` provider to say; the board only maps the id it gets.
