@@ -1,4 +1,4 @@
-/* @soffits/dsh-card-board 0.7.0: built by scripts/build.mjs from src/client/. Do not edit. */
+/* @soffits/dsh-card-board 0.7.1: built by scripts/build.mjs from src/client/. Do not edit. */
 window.__ModuleLoader__.load({
   id: "@soffits/dsh-card-board",
   factory: (require) => {
@@ -490,9 +490,9 @@ function BarChart({ data, locale, height }) {
           let base = 0;
           parts = keys.map((key, k) => {
             const v = Math.max(0, bar.values?.[key] ?? 0);
-            const part = { y0: base, y1: base + v, color: toneColor(void 0, k), x: cx - barW / 2, w: barW };
+            const part2 = { y0: base, y1: base + v, color: toneColor(void 0, k), x: cx - barW / 2, w: barW };
             base += v;
-            return part;
+            return part2;
           });
         } else {
           const each = barW / keys.length;
@@ -652,6 +652,45 @@ function Timeline({ data, locale }) {
 // src/client/cards.js
 var import_react5 = require("react");
 var import_dsh_client_ui_primitives2 = require("@deepseek-ai/dsh-client-ui-primitives");
+
+// src/client/steps.js
+function ownOffset(at) {
+  const m = /(?:([+-])(\d{2}):?(\d{2})|Z)$/.exec(String(at));
+  if (!m) return null;
+  return m[1] ? (m[1] === "-" ? -1 : 1) * (Number(m[2]) * 60 + Number(m[3])) : 0;
+}
+function part(locale, zone, time, style) {
+  const parts = new Intl.DateTimeFormat(locale, { timeZone: zone, timeZoneName: style }).formatToParts(time);
+  return parts.find((p) => p.type === "timeZoneName")?.value ?? "";
+}
+function browserOffset(zone, time) {
+  const m = /([+-])(\d{1,2})(?::(\d{2}))?/.exec(part("und", zone, time, "shortOffset"));
+  return m ? (m[1] === "-" ? -1 : 1) * (Number(m[2]) * 60 + Number(m[3] ?? 0)) : 0;
+}
+function offsetName(offset) {
+  const abs = Math.abs(offset);
+  return `GMT${offset < 0 ? "\u2212" : "+"}${Math.floor(abs / 60)}${abs % 60 ? `:${String(abs % 60).padStart(2, "0")}` : ""}`;
+}
+function stepTimes(steps, locale, here = Intl.DateTimeFormat().resolvedOptions().timeZone) {
+  let lastDay = null;
+  return steps.map((step) => {
+    const time = new Date(step.at);
+    const away = Boolean(step.zone) && step.zone !== here;
+    const offset = away ? ownOffset(step.at) : null;
+    const shown = offset === null ? time : new Date(time.getTime() + offset * 6e4);
+    const zone = offset === null ? away ? step.zone : here : "UTC";
+    const day = new Intl.DateTimeFormat("en-CA", { timeZone: zone, year: "numeric", month: "2-digit", day: "2-digit" }).format(shown);
+    const showDay = day !== lastDay;
+    lastDay = day;
+    let text = new Intl.DateTimeFormat(locale, { timeZone: zone, hour: "2-digit", minute: "2-digit", ...showDay ? { weekday: "short" } : {} }).format(shown);
+    if (away) {
+      text += " " + (offset === null || browserOffset(step.zone, time) === offset ? part(locale, step.zone, time, "short") : offsetName(offset));
+    }
+    return { time, text };
+  });
+}
+
+// src/client/cards.js
 var STATE_OF_TONE = { ok: "done", warn: "warning", bad: "error" };
 var DIRECTION_ICON = { up: "trending-up", down: "trending-down" };
 function StatBlock({ data, locale, compact, wash }) {
@@ -784,8 +823,8 @@ function StatusCard({ data, live, locale, rowActions }) {
 var PARTS = [[5, "dayPart.morning"], [12, "dayPart.afternoon"], [18, "dayPart.evening"], [22, "dayPart.night"]];
 function dayLine(now, locale, t) {
   const hour = new Date(now).getHours();
-  const part = [...PARTS].reverse().find(([from]) => hour >= from)?.[1] ?? "dayPart.night";
-  return { text: t("dayLine", { day: new Intl.DateTimeFormat(locale, { weekday: "long" }).format(now), part: t(part) }), dark: part === "dayPart.night" || part === "dayPart.evening" };
+  const part2 = [...PARTS].reverse().find(([from]) => hour >= from)?.[1] ?? "dayPart.night";
+  return { text: t("dayLine", { day: new Intl.DateTimeFormat(locale, { weekday: "long" }).format(now), part: t(part2) }), dark: part2 === "dayPart.night" || part2 === "dayPart.evening" };
 }
 function SummaryBody({ card, locale, t, wash }) {
   const kit = useKit();
@@ -798,19 +837,6 @@ function SummaryBody({ card, locale, t, wash }) {
     (0, import_react5.createElement)("p", { className: "cb-summaryText" }, card.data.text),
     card.data.chips?.length > 0 && (0, import_react5.createElement)("div", { className: "cb-chips" }, card.data.chips.map((chip, i) => (0, import_react5.createElement)(kit.Chip, { key: i, icon: chip.icon, tone: chip.tone ?? "muted", to: chip.to }, chip.text)))
   );
-}
-function stepTimes(steps, locale) {
-  const here = Intl.DateTimeFormat().resolvedOptions().timeZone;
-  let lastDay = null;
-  return steps.map((step) => {
-    const time = toTime(step.at);
-    const zone = step.zone ?? here;
-    const day = new Intl.DateTimeFormat("en-CA", { timeZone: zone, year: "numeric", month: "2-digit", day: "2-digit" }).format(time);
-    const showDay = day !== lastDay;
-    lastDay = day;
-    const text = new Intl.DateTimeFormat(locale, { timeZone: zone, hour: "2-digit", minute: "2-digit", ...showDay ? { weekday: "short" } : {}, ...zone !== here ? { timeZoneName: "short" } : {} }).format(time);
-    return { time, text };
-  });
 }
 function CountdownBody({ card, locale }) {
   const kit = useKit();
@@ -1021,9 +1047,9 @@ function Card({ entry, live, boardId, assistant, columns, active, locale, t, pre
   const askName = assistant ? t("action.chatNamed", { name: assistant }) : void 0;
   const named = (list) => assistant ? list?.map((action) => action.kind === "chat" && action.label === void 0 ? { ...action, label: askName } : action) : list;
   const onPress = (target) => (action, extra) => press(action, extra, { card: entry.id, ...target });
-  const rowActions = actions && ((row, list, part) => (0, import_react7.createElement)(actions.ActionBar, {
+  const rowActions = actions && ((row, list, part2) => (0, import_react7.createElement)(actions.ActionBar, {
     actions: named(list),
-    part,
+    part: part2,
     states: statesOf(entry.presses, row),
     compact: true,
     about: about(row, rowLine(row)),

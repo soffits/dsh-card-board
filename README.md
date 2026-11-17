@@ -152,7 +152,7 @@ A big ticking number until `to`, and the stops on the way with the next one mark
   "expiresAt": "2026-03-04T10:50:00+01:00" }
 ```
 
-A step's time shows in its `zone` (an IANA name) when it has one, with the zone's short name when it isn't the viewer's.
+A step with a `zone` (an IANA name) other than the viewer's shows the wall-clock time of its own offset, so write the local time from the ticket with its offset; the zone's short name follows when the browser's zone data agrees, the offset ("GMT−7") when it doesn't.
 
 ### stat
 

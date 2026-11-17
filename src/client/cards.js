@@ -7,6 +7,7 @@ import { StateDot, Tag } from '@deepseek-ai/dsh-client-ui-primitives'
 import { CheckBox, Trunc } from './pieces.js'
 import { formatClock, formatNumber, isActive, toTime } from './format.js'
 import { useKit } from './services.js'
+import { stepTimes } from './steps.js'
 
 const STATE_OF_TONE = { ok: 'done', warn: 'warning', bad: 'error' }
 const DIRECTION_ICON = { up: 'trending-up', down: 'trending-down' }
@@ -130,20 +131,6 @@ export function SummaryBody({ card, locale, t, wash }) {
 }
 
 /** Each step's time where it happens: the weekday when the day changes, the zone's short name when it isn't the viewer's. */
-function stepTimes(steps, locale) {
-  const here = Intl.DateTimeFormat().resolvedOptions().timeZone
-  let lastDay = null
-  return steps.map(step => {
-    const time = toTime(step.at)
-    const zone = step.zone ?? here
-    const day = new Intl.DateTimeFormat('en-CA', { timeZone: zone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(time)
-    const showDay = day !== lastDay
-    lastDay = day
-    const text = new Intl.DateTimeFormat(locale, { timeZone: zone, hour: '2-digit', minute: '2-digit', ...(showDay ? { weekday: 'short' } : {}), ...(zone !== here ? { timeZoneName: 'short' } : {}) }).format(time)
-    return { time, text }
-  })
-}
-
 export function CountdownBody({ card, locale }) {
   const kit = useKit()
   const now = kit.useNow()
