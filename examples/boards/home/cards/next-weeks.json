@@ -1,0 +1,16 @@
+{
+  "type": "timeline",
+  "title": "Next two weeks",
+  "updatedAt": "2026-03-02T06:00:00Z",
+  "data": {
+    "from": "2026-03-02",
+    "to": "2026-03-16",
+    "points": [
+      { "date": "2026-03-04", "label": "Train to Lyon", "kind": "travel" },
+      { "date": "2026-03-05", "label": "Phone bill", "kind": "due", "tone": "warn" },
+      { "date": "2026-03-12", "label": "Dentist", "kind": "health" },
+      { "date": "2026-03-14", "label": "Book club", "kind": "event" }
+    ],
+    "spans": [{ "from": "2026-03-04", "to": "2026-03-09", "label": "In Lyon" }]
+  }
+}

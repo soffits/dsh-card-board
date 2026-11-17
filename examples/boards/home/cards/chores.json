@@ -1,0 +1,57 @@
+{
+  "type": "list",
+  "title": "Today",
+  "updatedAt": "2026-03-02T09:00:00Z",
+  "staleAfter": 3600,
+  "data": {
+    "progress": {
+      "done": 1,
+      "total": 3,
+      "label": "done"
+    },
+    "rows": [
+      {
+        "title": "Water the plants",
+        "checked": true
+      },
+      {
+        "title": "Return the library books",
+        "checked": false,
+        "chip": {
+          "text": "due today",
+          "tone": "warn"
+        },
+        "actions": [
+          {
+            "kind": "done",
+            "id": "library-books:done"
+          },
+          {
+            "kind": "snooze",
+            "id": "library-books:snooze"
+          }
+        ]
+      },
+      {
+        "title": "Call the landlord about the heater",
+        "sub": "waiting since Friday",
+        "date": "2026-02-27",
+        "chip": {
+          "text": "chase",
+          "tone": "bad"
+        },
+        "actions": [
+          {
+            "kind": "chat",
+            "id": "landlord:ask",
+            "label": "Draft a message",
+            "payload": {
+              "prompt": "Help me write a short, polite follow-up to the landlord about the heater."
+            }
+          }
+        ]
+      }
+    ],
+    "empty": "Nothing left for today."
+  }
+}

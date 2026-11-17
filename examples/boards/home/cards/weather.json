@@ -1,0 +1,12 @@
+{
+  "type": "stat",
+  "title": "Outside",
+  "updatedAt": "2026-03-02T09:30:00Z",
+  "staleAfter": 3600,
+  "data": {
+    "items": [
+      { "label": "Temperature", "value": 4.5, "unit": "°C", "delta": { "value": -2.1, "unit": "°C", "tone": "accent" }, "sub": "feels like 1 °C" },
+      { "label": "Humidity", "value": 71, "unit": "%" }
+    ]
+  }
+}

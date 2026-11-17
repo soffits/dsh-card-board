@@ -1,0 +1,26 @@
+{
+  "type": "line",
+  "title": "Savings",
+  "updatedAt": "2026-03-02T06:00:00Z",
+  "staleAfter": 86400,
+  "stat": { "items": [{ "label": "Total", "value": "18,240", "unit": "EUR", "sub": "up 2,140 since October" }] },
+  "data": {
+    "series": [
+      {
+        "name": "Savings",
+        "points": [
+          { "x": "2025-10-01", "y": 16100 },
+          { "x": "2025-11-01", "y": 16650 },
+          { "x": "2025-12-01", "y": 16300 },
+          { "x": "2026-01-01", "y": 17200 },
+          { "x": "2026-02-01", "y": 17750 },
+          { "x": "2026-03-01", "y": 18240 }
+        ]
+      }
+    ],
+    "unit": "EUR",
+    "area": true,
+    "goal": { "label": "Goal 20k", "y": 20000 },
+    "markers": [{ "x": "2025-12-01", "label": "New laptop" }]
+  }
+}

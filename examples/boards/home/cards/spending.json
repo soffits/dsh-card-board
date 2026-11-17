@@ -1,0 +1,17 @@
+{
+  "type": "donut",
+  "title": "Spending this month",
+  "updatedAt": "2026-03-02T06:00:00Z",
+  "staleAfter": 86400,
+  "data": {
+    "segments": [
+      { "label": "Rent", "value": 950 },
+      { "label": "Groceries", "value": 310 },
+      { "label": "Transport", "value": 85 },
+      { "label": "Subscriptions", "value": 42 },
+      { "label": "Other", "value": 64, "tone": "muted" }
+    ],
+    "centre": { "text": "1,451", "sub": "EUR" },
+    "unit": "EUR"
+  }
+}

@@ -1,0 +1,58 @@
+{
+  "type": "status",
+  "title": "House",
+  "updatedAt": "2026-03-02T09:29:00Z",
+  "staleAfter": 600,
+  "data": {
+    "rows": [
+      {
+        "label": "Leak sensor",
+        "value": "dry",
+        "tone": "ok"
+      },
+      {
+        "label": "Living room",
+        "value": "20.5 °C",
+        "tone": "ok",
+        "spark": [
+          19.8,
+          19.6,
+          19.9,
+          20.4,
+          20.8,
+          20.6,
+          20.3,
+          20.5
+        ]
+      },
+      {
+        "label": "Front door",
+        "value": "unlocked",
+        "tone": "warn",
+        "sub": "since 08:12",
+        "actions": [
+          {
+            "kind": "event",
+            "id": "front-door:lock",
+            "label": "Lock"
+          }
+        ]
+      },
+      {
+        "label": "Backup drive",
+        "value": "offline",
+        "tone": "bad"
+      }
+    ]
+  },
+  "actions": [
+    {
+      "kind": "link",
+      "id": "house:panel",
+      "label": "Home panel",
+      "payload": {
+        "url": "https://example.com/home-panel"
+      }
+    }
+  ]
+}
