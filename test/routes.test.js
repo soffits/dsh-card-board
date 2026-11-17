@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { cp, mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises'
+import { cp, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { after, before, describe, it } from 'node:test'
@@ -11,6 +11,8 @@ import { createPeople, maySee, personKey, viewerOf } from '../src/access.js'
 import { createMessages } from '../src/messages.js'
 import { createPresses } from '../src/presses.js'
 import { createRoutes } from '../src/routes.js'
+import { createSeenStore } from '../src/seen.js'
+import { createWatches } from '../src/watch.js'
 
 let dir
 let outside
@@ -40,7 +42,9 @@ function identityFor(state) {
 }
 
 let logCount = 0
-function routes({ people = PEOPLE, provider = true, state = {}, published = [], now = Date.now, publisher } = {}) {
+const watches = createWatches({ pollMs: 200, settleMs: 20 })
+after(() => watches.close())
+function routes({ people = PEOPLE, provider = true, state = {}, published = [], now = Date.now, publisher, heartbeatMs = 25_000 } = {}) {
   const presses = createPresses({
     logPath: join(dir, `.actions-${++logCount}.jsonl`),
     publisher: publisher ?? (() => ({ emit: event => { published.push(event); return { matched: [] } } })),
@@ -53,8 +57,11 @@ function routes({ people = PEOPLE, provider = true, state = {}, published = [], 
     identity: () => (provider ? identityFor(state) : undefined),
     pollSeconds: 30,
     presses,
+    seen: createSeenStore(join(dir, `.seen-${logCount}`)),
+    watches,
     messages: createMessages(new URL('../locale', import.meta.url).pathname),
     version: 'test',
+    heartbeatMs,
   })
   const call = async (path, headers = {}, body) => {
     const route = list.find(r => path.split('?')[0] === r.path)
@@ -149,7 +156,7 @@ describe('routes', () => {
     const { call, state } = routes()
     state.id = 'sub-alex'
     const { body } = await call('/api/card-board/board?id=home')
-    assert.deepEqual(body.cards.map(c => c.id), ['weather', 'savings', 'energy', 'next-weeks', 'spending', 'chores', 'house'])
+    assert.deepEqual(body.cards.map(c => c.id), ['summary', 'countdown', 'weather', 'savings', 'energy', 'next-weeks', 'spending', 'chores', 'house'])
     assert.deepEqual(body.cards.find(c => c.id === 'next-weeks'), { ...body.cards.find(c => c.id === 'next-weeks'), w: 2, h: 1 })
     state.id = 'sub-robin'
     const garden = (await call('/api/card-board/board?id=garden')).body
@@ -172,6 +179,111 @@ describe('routes', () => {
     assert.notEqual(second.etag, first.etag)
     assert.ok(second.body.cards.some(c => c.id === 'extra'))
     await rm(join(dir, 'home', 'cards', 'extra.json'))
+  })
+})
+
+/** Read SSE `data` messages from a Response body until `until` returns true for one (or the time runs out). */
+async function readEvents(response, until, timeoutMs = 3000) {
+  const reader = response.body.pipeThrough(new TextDecoderStream()).getReader()
+  const seen = []
+  let buffer = ''
+  const deadline = Date.now() + timeoutMs
+  while (Date.now() < deadline) {
+    const { done, value } = await Promise.race([reader.read(), new Promise(resolve => setTimeout(() => resolve({ timeout: true }), deadline - Date.now()))])
+    if (done || value === undefined) break
+    buffer += value
+    let at
+    while ((at = buffer.indexOf('\n\n')) !== -1) {
+      const block = buffer.slice(0, at)
+      buffer = buffer.slice(at + 2)
+      const data = block.split('\n').filter(line => line.startsWith('data: ')).map(line => line.slice(6)).join('\n')
+      if (data) {
+        const message = JSON.parse(data)
+        seen.push(message)
+        if (until(message)) { reader.cancel().catch(() => {}); return seen }
+      }
+    }
+  }
+  reader.cancel().catch(() => {})
+  return seen
+}
+
+const card = (title, extra = {}) => JSON.stringify({ type: 'list', title, updatedAt: new Date().toISOString(), data: { rows: [{ title: 'one', key: 'one' }, { title: 'two', key: 'two' }] }, ...extra })
+
+describe('one card, live changes and what is new', () => {
+  after(async () => {
+    for (const board of ['seen-board', 'live']) await rm(join(dir, board), { recursive: true, force: true })
+  })
+
+  it('serves one card with its versions, 304 while unchanged', async () => {
+    const { call, state } = routes()
+    state.id = 'sub-alex'
+    const first = await call('/api/card-board/card?board=home&id=chores')
+    assert.equal(first.status, 200)
+    assert.equal(first.body.id, 'chores')
+    assert.match(first.body.version, /^[\w-]{12}$/)
+    assert.equal((await call('/api/card-board/card?board=home&id=chores', { 'if-none-match': first.etag })).status, 304)
+    assert.equal((await call('/api/card-board/card?board=home&id=nothing')).status, 404)
+    assert.equal((await call('/api/card-board/card?board=garden&id=broken')).status, 403)
+  })
+
+  it('a rewrite with the same content keeps the version; a changed row is new for someone who looked before', async () => {
+    await mkdir(join(dir, 'seen-board', 'cards'), { recursive: true })
+    await writeFile(join(dir, 'seen-board', 'board.json'), JSON.stringify({ title: 'Seen', viewers: ['alex'] }))
+    await writeFile(join(dir, 'seen-board', 'cards', 'todo.json'), card('Todo'))
+    const { call, state } = routes()
+    state.id = 'sub-alex'
+    const before = (await call('/api/card-board/board?id=seen-board')).body.cards[0]
+    assert.equal(before.fresh, undefined, 'nothing is new on a first look')
+    assert.equal((await call('/api/card-board/seen', {}, { board: 'seen-board', cards: { todo: { v: before.version, rows: before.rows } } })).status, 200)
+
+    await new Promise(resolve => setTimeout(resolve, 15))
+    await writeFile(join(dir, 'seen-board', 'cards', 'todo.json'), card('Todo'))
+    const same = (await call('/api/card-board/board?id=seen-board')).body.cards[0]
+    assert.equal(same.version, before.version)
+    assert.equal(same.fresh, undefined)
+
+    await writeFile(join(dir, 'seen-board', 'cards', 'todo.json'), JSON.stringify({ ...JSON.parse(card('Todo')), data: { rows: [{ title: 'one', key: 'one' }, { title: 'two, changed', key: 'two' }, { title: 'three', key: 'three' }] } }))
+    await writeFile(join(dir, 'seen-board', 'cards', 'later.json'), card('Later'))
+    const after = Object.fromEntries((await call('/api/card-board/board?id=seen-board')).body.cards.map(c => [c.id, c]))
+    assert.deepEqual(after.todo.fresh, { card: true, rows: ['two', 'three'] })
+    assert.deepEqual(after.later.fresh, { card: true, rows: [] })
+
+    state.id = 'sub-robin'
+    assert.equal((await call('/api/card-board/seen', {}, { board: 'seen-board', cards: { todo: { v: after.todo.version } } })).status, 403)
+    state.id = 'sub-alex'
+    assert.equal((await call('/api/card-board/seen', {}, { board: 'seen-board', cards: { 'Bad Id': { v: 'x' } } })).status, 400)
+    await call('/api/card-board/seen', {}, { board: 'seen-board', cards: { todo: { v: after.todo.version, rows: after.todo.rows } } })
+    const settled = Object.fromEntries((await call('/api/card-board/board?id=seen-board')).body.cards.map(c => [c.id, c]))
+    assert.equal(settled.todo.fresh, undefined)
+    assert.deepEqual(settled.later.fresh, { card: true, rows: [] }, 'a card not reported as seen stays new')
+  })
+
+  it('streams which card changed, to people who may see the board only, and says goodbye when they no longer may', async () => {
+    await mkdir(join(dir, 'live', 'cards'), { recursive: true })
+    await writeFile(join(dir, 'live', 'board.json'), JSON.stringify({ title: 'Live', viewers: ['alex'] }))
+    await writeFile(join(dir, 'live', 'cards', 'a.json'), card('A'))
+    const { state } = routes()
+    const list = createRoutes({
+      dataDir: dir, people: createPeople({ people: PEOPLE }), identity: () => identityFor(state), pollSeconds: 30,
+      presses: createPresses({ logPath: join(dir, '.actions-live.jsonl') }), seen: createSeenStore(join(dir, '.seen-live')), watches,
+      messages: createMessages(new URL('../locale', import.meta.url).pathname), heartbeatMs: 50,
+    })
+    const events = list.find(route => route.path === '/api/card-board/events')
+    state.id = 'sub-robin'
+    assert.equal((await events.fetch(new Request('http://dsh.internal/api/card-board/events?board=live'))).status, 403)
+    state.id = 'sub-alex'
+    const response = await events.fetch(new Request('http://dsh.internal/api/card-board/events?board=live'))
+    assert.equal(response.headers.get('content-type'), 'text/event-stream; charset=utf-8')
+    const reading = readEvents(response, message => message.type === 'gone')
+    await new Promise(resolve => setTimeout(resolve, 100))
+    await writeFile(join(dir, 'live', 'cards', 'a.json'), card('A again'))
+    await new Promise(resolve => setTimeout(resolve, 150))
+    await writeFile(join(dir, 'live', 'cards', 'b.json'), card('B'))
+    await new Promise(resolve => setTimeout(resolve, 150))
+    await writeFile(join(dir, 'live', 'board.json'), JSON.stringify({ title: 'Live', viewers: ['robin'] }))
+    const got = await reading
+    assert.deepEqual(got, [{ type: 'hello' }, { type: 'card', id: 'a' }, { type: 'card', id: 'b' }, { type: 'gone' }])
   })
 })
 
@@ -329,6 +441,15 @@ describe('as a DSH plugin, behind the real Connection', () => {
       })
       assert.equal(pressed.status, 200)
       assert.equal((await pressed.json()).state, 'pending')
+
+      // The events route streams through DSH's web server: headers at once, then each change as it happens.
+      const stream = await fetch(`${origin}/api/card-board/events?board=home`, { headers: { cookie, 'x-test-user': 'sub-alex', accept: 'text/event-stream' } })
+      assert.equal(stream.status, 200)
+      const reading = readEvents(stream, message => message.type === 'card')
+      await new Promise(resolve => setTimeout(resolve, 300))
+      await writeFile(join(dir, 'home', 'cards', 'chores.json'), JSON.stringify({ ...JSON.parse(await readFile(join(dir, 'home', 'cards', 'chores.json'), 'utf8')), updatedAt: new Date().toISOString() }))
+      assert.deepEqual(await reading, [{ type: 'hello' }, { type: 'card', id: 'chores' }])
+      assert.equal((await fetch(`${origin}/api/card-board/events?board=home`, { headers: { cookie, 'x-test-user': 'sub-robin' } })).status, 403)
     } finally {
       await root.fiber.dispose()
     }

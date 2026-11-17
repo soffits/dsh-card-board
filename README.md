@@ -12,6 +12,12 @@ The plugin only displays. It makes no outbound requests, holds no credentials an
 npx @deepseek-ai/dsh plugin --profile web add @soffits/dsh-card-board@latest
 ```
 
+It needs [@soffits/dsh-ui-kit](https://github.com/soffits/dsh-ui-kit), the small shared pieces the page is drawn with (icons, ticking times, rings, the live dot), and uses [@soffits/dsh-ui-actions](https://github.com/soffits/dsh-ui-actions) for buttons when it's there:
+
+```sh
+npx @deepseek-ai/dsh plugin --profile web add @soffits/dsh-ui-kit@latest @soffits/dsh-ui-actions@latest
+```
+
 Restart `dsh web` afterwards. It adds one Host row, `card-board`, and a **Boards** entry in the sidebar. Boards live in `card-board` under the DSH home unless you set `dataDir`.
 
 ## Configuration
@@ -32,7 +38,7 @@ Override the row in your profile's `cordis.patch.yml`:
 | `people` | `{}` | Verified user id → person id, for a DSH several people sign in to. |
 | `peopleFile` | | A JSON file with more of that mapping, re-read when it changes. `people` wins on a clash. |
 | `peopleKey` | | The key in `peopleFile` that holds the mapping; empty means the whole file. |
-| `pollSeconds` | `30` | How often an open, visible page checks for changes. A hidden tab doesn't poll. |
+| `pollSeconds` | `30` | How often an open, visible page checks for changes while its live connection is down. A hidden tab doesn't poll. |
 | `actionLog` | `<dataDir>/.actions.jsonl` | Where action presses are appended. |
 | `actionTimeoutSeconds` | `300` | A press nobody handles within this time shows as not handled. |
 
@@ -93,18 +99,19 @@ A card:
 
 | Field | |
 | --- | --- |
-| `type` | `stat`, `line`, `bar`, `donut`, `list`, `timeline` or `status` |
+| `type` | `summary`, `countdown`, `stat`, `line`, `bar`, `donut`, `list`, `timeline` or `status` |
 | `title` | Shown on the card. |
+| `icon`, `tone` | An icon on a tile tinted with the tone, before the title. Icons are [Lucide](https://lucide.dev/icons) names; the bundled set is in dsh-ui-kit's `icons.json`, and a name it doesn't have draws nothing. |
 | `updatedAt` | ISO date-time with a zone. The CLI fills it in when you leave it out. |
 | `staleAfter` | Seconds. Past this the card is dimmed and says how old it is. |
 | `link` | An `http(s)` URL or a `/path` the title row links to. |
-| `stat` | A headline above a chart: the same shape as a `stat` card's `data`. |
+| `stat` | Headline numbers above a chart or rows (beside a chart when the card is wide): the same shape as a `stat` card's `data`. |
 | `actions` | Buttons on the card; see [Actions](#actions). |
 | `data` | Depends on the type, below. |
 
 Unknown fields are errors, so a typo fails when the file is written instead of quietly not showing. A card that doesn't parse or fails the schema shows as a small error card with the reason; the rest of the board is unaffected.
 
-Colours are never given directly. `tone` is one of `ok`, `warn`, `bad`, `muted` or `accent`, and the page maps it to DSH's theme, light or dark. Dates are `YYYY-MM-DD` or ISO date-times. Numbers, dates and units are formatted by the page in the viewer's language.
+Colours are never given directly. `tone` is one of `ok`, `warn`, `bad`, `accent`, `violet` or `muted`, and the page maps it to DSH's theme, light or dark. Dates are `YYYY-MM-DD` or ISO date-times. Numbers, dates and units are formatted by the page in the viewer's language.
 
 ### Languages
 
@@ -118,18 +125,50 @@ Ids are lowercase BCP 47 tags and `en` is required, the same shape DSH uses for 
 
 The page's own words (buttons, empty states, errors) live in [`locale/<tag>.json`](locale), under `ui`, one file per language. English, French and Chinese ship. Which languages exist is whatever files are there: a new language is one new file with the same keys as `en.json`, no code change (a test checks every file has every key and the same `{placeholders}`), and a missing key falls back to the primary language, then English.
 
+### summary
+
+A full-width line at the top of a board: what matters now, in a sentence, with a few facts as chips. The page heads it with the day and its part ("Tuesday afternoon") from its own clock, so that is always right.
+
+```json
+{ "text": "A quiet day: the library books are due, and the train leaves the day after tomorrow.",
+  "chips": [
+    { "icon": "train-front", "text": "Train", "tone": "accent", "to": "2026-03-04T07:40:00+01:00" },
+    { "icon": "book-open", "text": "Books due today", "tone": "warn" }
+  ] }
+```
+
+A chip with `to` (an ISO time) gets a ticking "in 1d 19h" after its text.
+
+### countdown
+
+A big ticking number until `to`, and the stops on the way with the next one marked. After `to` it says "now"; after `expiresAt` the card hides itself, so whoever writes it needn't remove it on time.
+
+```json
+{ "to": "2026-03-04T07:40:00+01:00", "label": "until the train leaves", "sub": "3 h 10 m, one change",
+  "steps": [
+    { "at": "2026-03-04T07:15:00+01:00", "label": "At the station" },
+    { "at": "2026-03-04T10:50:00+01:00", "label": "Arrive in Marseille", "sub": "14° and sunny", "zone": "Europe/Paris" }
+  ],
+  "expiresAt": "2026-03-04T10:50:00+01:00" }
+```
+
+A step's time shows in its `zone` (an IANA name) when it has one, with the zone's short name when it isn't the viewer's.
+
 ### stat
 
 One to six big numbers.
 
 ```json
 { "items": [
-  { "label": "Temperature", "value": 4.5, "unit": "°C", "delta": { "value": -2.1, "unit": "°C", "tone": "accent" }, "sub": "feels like 1 °C" },
-  { "label": "Humidity", "value": 71, "unit": "%" }
+  { "label": "Temperature", "value": 4.5, "unit": "°C", "sub": "feels like 1 °C",
+    "delta": { "text": "2.1° colder than yesterday", "tone": "accent", "dir": "down" },
+    "strip": [{ "label": "11", "value": 5.6, "icon": "sun" }, { "label": "12", "value": 6.2, "icon": "sun", "on": true }] },
+  { "label": "Spent this month", "value": 3423, "unit": "of 4,310", "progress": { "value": 3423, "max": 4310, "text": "on pace for 4,286" } },
+  { "label": "Total", "value": 18240, "unit": "EUR", "spark": [16100, 16850, 17200, 18240] }
 ] }
 ```
 
-`value` is a number or a string (for numbers you've already formatted). `tone` on an item colours its value.
+`value` is a number or a string (for numbers you've already formatted). `tone` on an item colours its value. Each item may add a `delta` (a change in words, with a tone and a `dir` of `up`, `down` or `flat` for its arrow), a `progress` bar, a `spark` line or a `strip` of small values with icons, like the next hours of weather (`on` marks one).
 
 ### line
 
@@ -182,7 +221,9 @@ Each bar has a single `value` or named `values`; with `values` and no `stacked`,
 }
 ```
 
-`checked` draws a checkbox (display only). `progress` draws a ring beside the rows.
+`checked` draws a checkbox (display only). `progress` draws a ring above the rows, with its `label` and an optional `sub`.
+
+Rows (of lists and status cards) may also have an `icon` and a `tone` (a tile before the row), a `key` (a stable id, so the page can tell which row changed) and `active: { from, to }`: during that window the row is highlighted and says "now", earlier the same day it says "from 18:00". The page decides when, so nobody has to rewrite the file at noon. A row's `date` shows relative to today ("tomorrow", "in 3 days") and moves on by itself.
 
 ### timeline
 
@@ -195,7 +236,7 @@ Each bar has a single `value` or named `values`; with `values` and no `stacked`,
 }
 ```
 
-`kind` is `travel` (drawn as a plane), `due`, `event`, `health`, `home` or `money`; each has a default tone, and `tone` overrides it. Today gets a thin line.
+`kind` is `travel`, `due`, `event`, `health`, `home` or `money`, each drawn with its own icon and default tone; `tone` overrides it. Today gets a thin line.
 
 ### status
 
@@ -210,6 +251,10 @@ Each bar has a single `value` or named `values`; with `values` and no `stacked`,
 `spark` draws a small line beside the value.
 
 The [examples](examples/boards/home) folder has a complete board with one card of each type.
+
+### What is new, and what just changed
+
+Nothing to write for these. Each card has a content version (a hash of the card without `updatedAt`, so rewriting the same data changes nothing), and each keyed row its own. The server remembers, per person, which versions they have seen, so a dot marks what changed since they last looked, on any device. A card or row that changes while the page is open gets a short wash and "just now" first (only the dot with reduced motion).
 
 ## Actions
 
@@ -275,13 +320,16 @@ From JavaScript the same checks are `import { checkCard, checkBoard } from '@sof
 
 ## How the page updates
 
-The page polls `GET /api/card-board/board?id=<board>` while it's visible, with the last `ETag` in `If-None-Match`. The tag is built from file sizes and times, so an unchanged board answers 304 without reading a card. Coming back to the tab checks at once. The page's words come once per language from `GET /api/card-board/locale?tag=<id>` (the merged `locale/*.json`, English filling gaps).
+`GET /api/card-board/events?board=<board>` is a Server-Sent Events stream: the plugin watches the board's folder and sends `{ "type": "card", "id": … }` for a card written, added or removed, `{ "type": "board" }` for board.json, and a comment every 25 seconds to keep proxies from closing it. The page then fetches only that card from `GET /api/card-board/card?board=<board>&id=<card>`. Who may listen is checked like any read, and someone a board.json change takes off the viewers gets `{ "type": "gone" }` and the stream closes.
+
+While that stream is down (or a press waits to be picked up), the page polls `GET /api/card-board/board?id=<board>` instead, with the last `ETag` in `If-None-Match`. The tag is built from file sizes and times, so an unchanged board answers 304 without reading a card. Coming back to the tab checks at once. The page reports what the person has seen to `POST /api/card-board/seen`. The page's words come once per language from `GET /api/card-board/locale?tag=<id>` (the merged `locale/*.json`, English filling gaps).
 
 ## Development
 
 ```sh
 npm install
-npm run check   # syntax of every file, and the example board against the schema
+npm run build   # client.js from src/client/
+npm run check   # client.js is current, syntax of every file, and the example board against the schema
 npm test        # node --test, including a run behind DSH's real Connection
 ```
 

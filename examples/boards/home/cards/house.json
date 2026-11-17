@@ -17,7 +17,9 @@
           "en": "dry",
           "zh": "干燥"
         },
-        "tone": "ok"
+        "tone": "ok",
+        "key": "house-1",
+        "icon": "droplets"
       },
       {
         "label": {
@@ -35,7 +37,9 @@
           20.6,
           20.3,
           20.5
-        ]
+        ],
+        "key": "house-2",
+        "icon": "thermometer"
       },
       {
         "label": {
@@ -60,7 +64,9 @@
               "zh": "上锁"
             }
           }
-        ]
+        ],
+        "key": "house-3",
+        "icon": "lock"
       },
       {
         "label": {
@@ -71,7 +77,9 @@
           "en": "offline",
           "zh": "离线"
         },
-        "tone": "bad"
+        "tone": "bad",
+        "key": "house-4",
+        "icon": "plug"
       }
     ]
   },
@@ -87,5 +95,7 @@
         "url": "https://example.com/home-panel"
       }
     }
-  ]
+  ],
+  "icon": "house",
+  "tone": "ok"
 }

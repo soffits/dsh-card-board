@@ -78,7 +78,7 @@ describe('dsh-card-board', () => {
     const examples = new URL('../examples/boards', import.meta.url).pathname
     const result = await run(['check', '--dir', examples])
     assert.equal(result.code, 0)
-    assert.match(result.lines[0], /8 files checked, 0 with problems/)
+    assert.match(result.lines[0], /10 files checked, 0 with problems/)
   })
 
   it('reports JSON that does not parse', async () => {

@@ -16,14 +16,50 @@
         "value": 4.5,
         "unit": "°C",
         "delta": {
-          "value": -2.1,
-          "unit": "°C",
-          "tone": "accent"
+          "text": {
+            "en": "2.1° colder than yesterday",
+            "zh": "比昨天冷 2.1°"
+          },
+          "tone": "accent",
+          "dir": "down"
         },
         "sub": {
           "en": "feels like 1 °C",
           "zh": "体感 1 °C"
-        }
+        },
+        "strip": [
+          {
+            "label": "10",
+            "value": 4.8,
+            "icon": "cloud-sun"
+          },
+          {
+            "label": "11",
+            "value": 5.6,
+            "icon": "sun"
+          },
+          {
+            "label": "12",
+            "value": 6.2,
+            "icon": "sun",
+            "on": true
+          },
+          {
+            "label": "13",
+            "value": 5.9,
+            "icon": "cloud-sun"
+          },
+          {
+            "label": "14",
+            "value": 5.1,
+            "icon": "cloud"
+          },
+          {
+            "label": "15",
+            "value": 4.3,
+            "icon": "cloud-drizzle"
+          }
+        ]
       },
       {
         "label": {
@@ -34,5 +70,7 @@
         "unit": "%"
       }
     ]
-  }
+  },
+  "icon": "cloud-sun",
+  "tone": "warn"
 }

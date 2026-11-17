@@ -1,6 +1,6 @@
 {
   "name": "@soffits/dsh-card-board",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "description": "A data-driven card board for DeepSeek Harness: scripts write small JSON cards, the Web UI shows each person the boards they may see.",
   "type": "module",
   "license": "MIT",
@@ -35,7 +35,7 @@
   },
   "files": [
     "bin",
-    "src",
+    "src/*.js",
     "client.js",
     "index.js",
     "cordis.patch.yml",
@@ -57,6 +57,7 @@
         "@deepseek-ai/dsh-client-locale",
         "@deepseek-ai/dsh-client-ui-layout",
         "@deepseek-ai/dsh-client-ui-sidebar",
+        "@soffits/dsh-ui-kit",
         "@soffits/dsh-ui-actions"
       ]
     }
@@ -64,10 +65,11 @@
   "icon": "./icon.svg",
   "engines": {
     "node": ">=22",
-    "dsh": ">=0.2.1-rc.2 <0.3.0"
+    "dsh": ">=0.2.2-rc.1 <0.3.0-0"
   },
   "scripts": {
-    "check": "for f in index.js client.js bin/*.js src/*.js test/*.js; do node --check \"$f\" || exit 1; done && node bin/dsh-card-board.js check --dir examples/boards",
+    "build": "node scripts/build.mjs",
+    "check": "node scripts/build.mjs --check && for f in index.js client.js bin/*.js src/*.js src/client/*.js test/*.js; do node --check \"$f\" || exit 1; done && node bin/dsh-card-board.js check --dir examples/boards",
     "test": "node --test test/*.test.js"
   },
   "dependencies": {
@@ -78,6 +80,8 @@
     "@deepseek-ai/dsh-client-connection": "0.2.2-rc.1",
     "@deepseek-ai/dsh-credentials": "0.2.2-rc.1",
     "@deepseek-ai/dsh-host-webserver": "0.2.2-rc.1",
-    "acorn": "^8.19.0"
+    "acorn": "^8.19.0",
+    "esbuild": "^0.28.2",
+    "@deepseek-ai/dsh-client-ui-primitives": "0.2.2-rc.1"
   }
 }

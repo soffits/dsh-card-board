@@ -6,8 +6,6 @@
   "ui": {
     "panel": "Tableaux",
     "title": "Tableaux",
-    "updated": "Mis à jour {time}",
-    "refreshFailed": "Actualisation impossible, nouvelle tentative en cours",
     "loading": "Chargement…",
     "emptyTitle": "Aucun tableau pour l’instant.",
     "emptyHint": "Un tableau apparaît ici dès qu’un script écrit son board.json dans le dossier de données.",
@@ -28,6 +26,14 @@
     "summary.latestName": "dernière valeur",
     "summary.goal": "objectif : {value}",
     "summary.progress": "progression : {done}/{total}",
-    "action.chatNamed": "Demander à {name}"
+    "action.chatNamed": "Demander à {name}",
+    "now": "maintenant",
+    "fromTime": "à partir de {time}",
+    "ofTotal": "sur {total}",
+    "dayLine": "{day} {part}",
+    "dayPart.morning": "matin",
+    "dayPart.afternoon": "après-midi",
+    "dayPart.evening": "soir",
+    "dayPart.night": "nuit"
   }
 }
