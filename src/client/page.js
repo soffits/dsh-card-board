@@ -9,6 +9,7 @@
 import { createElement as h, Fragment, useCallback, useEffect, useRef, useState } from 'react'
 import { Pill } from '@deepseek-ai/dsh-client-ui-primitives'
 import { Card } from './card.js'
+import { GAP, ROW } from './layout.js'
 import { useWidth } from './format.js'
 import { liveOf, nextLive, seenReport, withCard } from './live-state.js'
 import { api, useKit } from './services.js'
@@ -37,9 +38,11 @@ async function getJson(path, etag) {
 const ERROR_KEYS = { 403: 'error.forbidden', 404: 'error.notFound', 409: 'error.gone', 503: 'error.noProvider' }
 const errorText = (error, t) => (error.status === undefined ? error.message : t(ERROR_KEYS[error.status] ?? 'error.http', { status: error.status }))
 
-function useColumns() {
+/** Grid tracks for the content's width: 6 on a wide screen (a small card a third, a medium one half), 2 on a
+ * tablet, 1 on a phone. */
+function useTracks() {
   const [ref, width] = useWidth()
-  return [ref, width >= 1400 ? 4 : width >= 980 ? 3 : width >= 620 ? 2 : 1]
+  return [ref, width >= 900 ? 6 : width >= 560 ? 2 : 1]
 }
 
 const visible = () => document.visibilityState === 'visible'
@@ -55,7 +58,7 @@ export function BoardsPage() {
   const [boardError, setBoardError] = useState(null)
   const [pollSeconds, setPollSeconds] = useState(30)
   const etag = useRef(null)
-  const [gridRef, columns] = useColumns()
+  const [gridRef, tracks] = useTracks()
   const currentRef = useRef(null)
   const translateRef = useRef(t)
   translateRef.current = t
@@ -196,8 +199,8 @@ export function BoardsPage() {
   else content = h(Fragment, null,
     board.problems?.length > 0 && h('div', { className: 'cb-notice' }, t('boardProblems'), h('ul', { className: 'cb-problems' }, board.problems.map((p, i) => h('li', { key: i }, p)))),
     board.cards.length === 0 && h('p', { className: 'cb-muted' }, t('noCards')),
-    h('div', { className: 'cb-grid', style: { gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` } },
-      board.cards.map(entry => h(Card, { key: entry.id, entry, live: liveOf(view.live, entry.id), boardId: board.id, assistant: board.assistant, columns, active, locale, t, press }))))
+    h('div', { className: 'cb-grid', style: { gridTemplateColumns: `repeat(${tracks}, minmax(0, 1fr))`, gridAutoRows: `${ROW}px`, columnGap: GAP } },
+      board.cards.map(entry => h(Card, { key: entry.id, entry, live: liveOf(view.live, entry.id), boardId: board.id, assistant: board.assistant, tracks, active, locale, t, press }))))
 
   return h('div', { className: 'cb-page' },
     h('div', { className: 'cb-content', ref: gridRef },

@@ -2,12 +2,13 @@
  * The bodies of the cards that aren't charts: stats, lists, status rows, the summary and the countdown. Facts sit in
  * DSH's own Tag and StateDot; icons, tiles, rings, sparklines, progress and ticking time come from the kit.
  */
-import { createElement as h } from 'react'
-import { StateDot, Tag } from '@deepseek-ai/dsh-client-ui-primitives'
+import { createElement as h, useState } from 'react'
+import { Button, StateDot, Tag } from '@deepseek-ai/dsh-client-ui-primitives'
 import { CheckBox, Trunc } from './pieces.js'
 import { formatClock, formatNumber, isActive, toTime } from './format.js'
 import { useKit } from './services.js'
 import { stepTimes } from './steps.js'
+import { LIST_ROWS, shownRows } from './layout.js'
 
 const STATE_OF_TONE = { ok: 'done', warn: 'warning', bad: 'error' }
 const DIRECTION_ICON = { up: 'trending-up', down: 'trending-down' }
@@ -73,6 +74,9 @@ const rowLive = (live, row) => ({ washCount: live.rows?.[row.key] ?? 0, fresh: r
 
 export function ListCard({ data, live, locale, t, rowActions }) {
   const kit = useKit()
+  const [open, setOpen] = useState(false)
+  const rows = shownRows(data.rows, open, LIST_ROWS, live)
+  const hidden = data.rows.length - rows.length
   const checkable = data.rows.some(row => 'checked' in row)
   const progress = data.progress
   return h('div', { className: 'cb-list' },
@@ -84,7 +88,7 @@ export function ListCard({ data, live, locale, t, rowActions }) {
         progress.sub && h('div', { className: 'cb-rowSub' }, progress.sub))),
     data.rows.length === 0
       ? h('p', { className: 'cb-muted' }, data.empty ?? t('listEmpty'))
-      : h('ul', { className: 'cb-rows' }, data.rows.map((row, i) => h(Row, {
+      : h('ul', { className: 'cb-rows' }, rows.map((row, i) => h(Row, {
         key: row.key ?? i, index: i, row, rowActions, ...rowLive(live, row),
         lead: [
           checkable && h(CheckBox, { key: 'check', checked: row.checked === true, label: t(row.checked ? 'checked' : 'unchecked') }),
@@ -95,7 +99,9 @@ export function ListCard({ data, live, locale, t, rowActions }) {
         meta: h('span', { className: 'cb-rowMeta' },
           row.chip && h(Tag, { tone: kit.tagTone(row.chip.tone ?? 'muted') }, row.chip.text),
           h(RowWhen, { row, locale, t })),
-      }))))
+      }))),
+    (hidden > 0 || open) && data.rows.length > LIST_ROWS + 1 && h(Button, { variant: 'ghost', size: 'sm', className: 'cb-more', onClick: () => setOpen(value => !value) },
+      open ? t('showFewer') : t('showMore', { n: hidden })))
 }
 
 export function StatusCard({ data, live, locale, rowActions }) {

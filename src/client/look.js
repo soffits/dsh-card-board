@@ -13,7 +13,8 @@ export const CSS = `
 .cb-heading h1{margin:0;font-size:20px;font-weight:500;line-height:28px}
 .cb-sub{margin-top:4px;color:var(--dsw-alias-label-tertiary);font-size:13px;line-height:20px}
 .cb-tabs{display:flex;flex-wrap:wrap;gap:6px 8px;margin:0 0 18px}
-.cb-grid{display:grid;gap:14px;grid-auto-flow:row dense;align-items:stretch}
+.cb-grid{display:grid;row-gap:0;grid-auto-flow:row dense;align-items:start}
+.cb-more{align-self:flex-start;margin-top:2px}
 .cb-card{container-type:inline-size;box-sizing:border-box;min-width:0;display:flex;flex-direction:column;gap:12px;padding:16px 18px 18px;border-radius:16px;background:var(--dsw-alias-bg-base);box-shadow:inset 0 0 0 .5px var(--dsw-alias-border-l2)}
 .cb-cardHead{display:flex;align-items:center;gap:10px;min-height:28px}
 .cb-cardHead h3{flex:1;min-width:0;margin:0;font-size:15px;font-weight:600;line-height:22px}
@@ -73,9 +74,12 @@ h3.cb-truncOpen{overflow:visible}
 .cb-strip li{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:0;color:var(--dsw-alias-label-tertiary);font-size:11px;font-variant-numeric:tabular-nums}
 .cb-strip b{color:var(--dsw-alias-label-primary);font-size:13px;font-weight:500}
 .cb-strip li[data-on=true],.cb-strip li[data-on=true] b{color:var(--dsw-alias-state-business-primary)}
+/* a narrow card shows the first hours that fit: 6 under 360 px, 8 under 480 px */
+@container (width<480px){.cb-strip li:nth-child(n+9){display:none}}
+@container (width<360px){.cb-strip li:nth-child(n+7){display:none}}
 /* a chart card with headline numbers: side by side when there is room */
 .cb-split{display:flex;flex-direction:column;gap:12px}
-@container (width>=640px){.cb-split{display:grid;grid-template-columns:minmax(0,max-content) minmax(0,1fr);align-items:center;gap:28px}.cb-split .cb-stats{display:grid;grid-template-columns:repeat(2,max-content);gap:14px 40px}}
+@container (width>=640px){.cb-split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:center;gap:28px}.cb-split .cb-stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 24px}}
 
 /* rows of lists and status cards */
 .cb-list{display:flex;flex-direction:column;gap:10px}

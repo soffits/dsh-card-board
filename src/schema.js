@@ -8,6 +8,9 @@
  * fails at write time instead of quietly not showing.
  */
 
+/** How wide a card is on the board: a third, a half, two thirds or the whole width (on a wide screen). */
+export const SIZES = Object.freeze(['small', 'medium', 'large', 'wide'])
+
 export const CARD_TYPES = Object.freeze(['summary', 'countdown', 'stat', 'line', 'bar', 'donut', 'list', 'timeline', 'status'])
 export const TONES = Object.freeze(['ok', 'warn', 'bad', 'muted', 'accent', 'violet'])
 /** Icon names: the page draws the ones its icon set has (Lucide names) and nothing for the rest. */
@@ -533,9 +536,8 @@ export function checkBoard(board) {
     for (const [id, size] of Object.entries(layout)) {
       const p = join('layout', id)
       if (!ID_PATTERN.test(id)) c.fail(p, 'is not a card id')
-      if (!c.object(size, p, [], ['w', 'h'])) continue
-      c.optional(size, 'w', v => (Number.isInteger(v) && v >= 1 && v <= 3) || c.fail(join(p, 'w'), 'must be 1, 2 or 3'))
-      c.optional(size, 'h', v => (Number.isInteger(v) && v >= 1 && v <= 3) || c.fail(join(p, 'h'), 'must be 1, 2 or 3'))
+      if (!c.object(size, p, [], ['size'])) continue
+      c.optional(size, 'size', v => SIZES.includes(v) || c.fail(join(p, 'size'), `must be one of ${SIZES.join(', ')}`))
     }
   })
   return c.problems

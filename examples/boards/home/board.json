@@ -19,17 +19,14 @@
     "house"
   ],
   "layout": {
-    "savings": {
-      "w": 1,
-      "h": 1
+    "weather": {
+      "size": "small"
     },
-    "next-weeks": {
-      "w": 2,
-      "h": 1
+    "energy": {
+      "size": "medium"
     },
-    "countdown": {
-      "w": 2,
-      "h": 1
+    "spending": {
+      "size": "medium"
     }
   }
 }
