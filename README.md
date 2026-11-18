@@ -146,7 +146,7 @@ A chip with `to` (an ISO time) gets a ticking "in 1d 19h" after its text.
 A big ticking number until `to`, and the stops on the way with the next one marked. After `to` it says "now"; after `expiresAt` the card hides itself, so whoever writes it needn't remove it on time.
 
 ```json
-{ "to": "2026-03-04T07:40:00+01:00", "label": "until the train leaves", "sub": "3 h 10 m, one change",
+{ "to": "2026-03-04T07:40:00+01:00", "label": "until the train leaves", "sub": "3 h 10 m, one change", "icon": "luggage",
   "steps": [
     { "at": "2026-03-04T07:15:00+01:00", "label": "At the station" },
     { "at": "2026-03-04T10:50:00+01:00", "label": "Arrive in Marseille", "sub": "14° and sunny", "zone": "Europe/Paris" }
@@ -154,7 +154,7 @@ A big ticking number until `to`, and the stops on the way with the next one mark
   "expiresAt": "2026-03-04T10:50:00+01:00" }
 ```
 
-A step with a `zone` (an IANA name) other than the viewer's shows the wall-clock time of its own offset, so write the local time from the ticket with its offset; the zone's short name follows when the browser's zone data agrees, the offset ("GMT−7") when it doesn't.
+`icon` puts a big tile, tinted with the card's `tone`, before the number. A step with a `zone` (an IANA name) other than the viewer's shows the wall-clock time of its own offset, so write the local time from the ticket with its offset; the zone's short name follows when the browser's zone data agrees, the offset ("GMT−7") when it doesn't.
 
 ### stat
 
@@ -162,7 +162,7 @@ One to six big numbers.
 
 ```json
 { "items": [
-  { "label": "Temperature", "value": 4.5, "unit": "°C", "sub": "feels like 1 °C",
+  { "label": "Temperature", "value": 4.5, "unit": "°C", "icon": "thermometer", "sub": "feels like 1 °C",
     "delta": { "text": "2.1° colder than yesterday", "tone": "accent", "dir": "down" },
     "strip": [{ "label": "11", "value": 5.6, "icon": "sun" }, { "label": "12", "value": 6.2, "icon": "sun", "on": true }] },
   { "label": "Spent this month", "value": 3423, "unit": "of 4,310", "progress": { "value": 3423, "max": 4310, "text": "on pace for 4,286" } },
@@ -170,7 +170,7 @@ One to six big numbers.
 ] }
 ```
 
-`value` is a number or a string (for numbers you've already formatted). `tone` on an item colours its value. Each item may add a `delta` (a change in words, with a tone and a `dir` of `up`, `down` or `flat` for its arrow), a `progress` bar, a `spark` line or a `strip` of small values with icons, like the next hours of weather (`on` marks one).
+`value` is a number or a string (for numbers you've already formatted). `tone` on an item colours its value. `icon` draws a big tile beside the label and number, tinted with `iconTone`, else the item's `tone`, else the card's (a gold coin beside a plain balance: `"icon": "coins", "iconTone": "warn"`). Give it to the numbers a glance should find by picture, not to every item; the reasoning is in [docs/decisions/stat-icons.md](docs/decisions/stat-icons.md). Each item may add a `delta` (a change in words, with a tone and a `dir` of `up`, `down` or `flat` for its arrow), a `progress` bar, a `spark` line or a `strip` of small values with icons, like the next hours of weather (`on` marks one).
 
 ### line
 

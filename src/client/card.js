@@ -48,7 +48,7 @@ function latestOf(presses, row, id) {
 function Body({ card, live, wash, locale, t, rowActions, all, onOpenRow, rowControls }) {
   const data = card.data
   switch (card.type) {
-    case 'stat': return h(StatBlock, { data, locale, wash })
+    case 'stat': return h(StatBlock, { data, locale, wash, tone: card.tone })
     case 'list': return h(ListCard, { data, live, locale, t, rowActions, ask: card.ask, all, onOpenRow, rowControls })
     case 'status': return h(StatusCard, { data, live, locale, rowActions, ask: card.ask, onOpenRow })
     case 'countdown': return h(CountdownBody, { card, locale })
@@ -153,7 +153,7 @@ export function Card({ entry, live, boardId, assistant, tracks, active, locale, 
       h('div', { className: 'cb-summaryAside' }, live.fresh && h(kit.NewDot), chat))
   }
 
-  const statBlock = card.stat && h(StatBlock, { data: card.stat, locale, compact: true, wash: wash !== '' })
+  const statBlock = card.stat && h(StatBlock, { data: card.stat, locale, compact: true, wash: wash !== '', tone: card.tone })
   const body = h(Body, { card, live, wash: wash !== '', locale, t, rowActions, all: sheet, onOpenRow, rowControls })
   return h('section', { ref, className, style, 'data-type': card.type, ...placing, ...openOnTap },
     !sheet && h('header', { className: 'cb-cardHead', ...(arrange ? { onPointerDown: event => { if (event.pointerType !== 'mouse' && !onControl(event)) arrange.onHold(event) } } : {}) },

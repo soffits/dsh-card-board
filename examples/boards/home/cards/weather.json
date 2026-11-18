@@ -15,6 +15,7 @@
         },
         "value": 4.5,
         "unit": "°C",
+        "icon": "cloud-sun",
         "delta": {
           "text": {
             "en": "2.1° colder than yesterday",
@@ -68,7 +69,8 @@
           "zh": "湿度"
         },
         "value": 71,
-        "unit": "%"
+        "unit": "%",
+        "icon": "droplets"
       }
     ]
   },

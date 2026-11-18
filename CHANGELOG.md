@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.13.0
+
+A stat item can carry an `icon`: a big tinted tile beside its label and number, like a Home Assistant tile, coloured with `iconTone`, the item's `tone` or the card's. A stat block with icons lays its numbers out in an even grid, and on a phone, where two numbers share a row, each tile sits above its words so the numbers keep their width. A countdown's `data.icon` sits the same way before the big number. The tile is 48 px (44 above a chart or rows, 40–42 on a phone). Needs dsh-ui-kit 0.5.0 for `trophy`, `medal`, `weight` and the high and low thermometers.
+
 ## 0.12.0
 
 - Every list and status row now has an Ask button without declaring one, the way every card has its chat button: it opens a new conversation with that row and its card attached ("Ask Robin" when the board names an `assistant`). A row that declares its own `chat` action keeps it, and a row with all six buttons taken gets none. Rows without a `key` get it too: the chat names the row by its place in the card.

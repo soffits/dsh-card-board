@@ -25,11 +25,18 @@ function EasedNumber({ value, locale }) {
   return formatNumber(shown === value ? value : Number(shown.toFixed(decimals)), locale)
 }
 
-/** The numbers of a stat card, or the headline numbers above a chart or rows. */
-export function StatBlock({ data, locale, compact, wash }) {
+/**
+ * The numbers of a stat card, or the headline numbers above a chart or rows. An item with an icon gets it on a big tile
+ * beside its label and number, tinted with its own tone, else the card's.
+ */
+export function StatBlock({ data, locale, compact, wash, tone }) {
   const kit = useKit()
-  return h('div', { className: `cb-stats${compact ? ' cb-statsCompact' : ''}` }, data.items.map((item, i) =>
-    h(item.link ? 'a' : 'div', { key: i, className: `cb-stat${item.strip ? ' cb-statWide' : ''}${item.link ? ' cb-statLink' : ''}`, ...(item.link ? linkProps(item.link) : {}) },
+  // With icons the numbers sit in an even grid; where two can share a row, a phone puts each tile above its words.
+  const iconic = data.items.some(item => item.icon)
+  const paired = iconic && data.items.filter(item => !item.strip).length > 1
+  return h('div', { className: ['cb-stats', compact && 'cb-statsCompact', iconic && 'cb-statsIcons', paired && 'cb-statsPaired'].filter(Boolean).join(' ') }, data.items.map((item, i) =>
+    h(item.link ? 'a' : 'div', { key: i, className: ['cb-stat', item.strip && 'cb-statWide', item.link && 'cb-statLink', item.icon && 'cb-statIcon'].filter(Boolean).join(' '), ...(item.link ? linkProps(item.link) : {}) },
+      item.icon && h(kit.Tile, { icon: item.icon, tone: item.iconTone ?? item.tone ?? tone ?? 'muted', size: compact ? 44 : 48, className: 'cb-statTile' }),
       h('div', { className: 'cb-statLabel' }, h(Trunc, { as: 'span', text: item.label }), i === 0 && wash && h(kit.JustNow)),
       h('div', { className: 'cb-statValue', style: item.tone ? { color: kit.toneColor(item.tone) } : undefined },
         h('span', null, h(EasedNumber, { value: item.value, locale })),
@@ -193,6 +200,7 @@ export function CountdownBody({ card, locale }) {
   const next = times.findIndex(step => step.time > now)
   return h('div', { className: 'cb-countdown' },
     h('div', { className: 'cb-countdownHead' },
+      data.icon && h(kit.Tile, { icon: data.icon, tone: card.tone ?? 'muted', size: 52, className: 'cb-countdownTile' }),
       h(kit.Countdown, { to: data.to }),
       h('div', { className: 'cb-countdownText' },
         h('div', null, data.label),

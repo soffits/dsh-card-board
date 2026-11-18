@@ -15,6 +15,7 @@
         },
         "value": "18,240",
         "unit": "EUR",
+        "icon": "piggy-bank",
         "sub": {
           "en": "up 2,140 since October",
           "zh": "比十月多了 2,140"

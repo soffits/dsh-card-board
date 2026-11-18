@@ -1,4 +1,4 @@
-/* @soffits/dsh-card-board 0.12.0: built by scripts/build.mjs from src/client/. Do not edit. */
+/* @soffits/dsh-card-board 0.13.0: built by scripts/build.mjs from src/client/. Do not edit. */
 window.__ModuleLoader__.load({
   id: "@soffits/dsh-card-board",
   factory: (require) => {
@@ -98,6 +98,19 @@ h3.cb-truncOpen{overflow:visible}
 .cb-delta{display:flex;align-items:center;gap:3px;font-size:12px;font-weight:500;line-height:18px}
 .cb-statSub{color:var(--dsw-alias-label-tertiary);font-size:12px;line-height:18px}
 .cb-statProgress{display:flex;flex-direction:column;gap:4px;min-width:180px;margin-top:4px}
+/* an item with an icon: a big tinted tile beside its label and number, the rest under the words */
+.cb-stats{--cb-statTile:48px}
+.cb-statsCompact{--cb-statTile:44px}
+.cb-statsIcons{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,136px),1fr));gap:16px 24px}
+.cb-statsIcons>.cb-statWide{grid-column:1/-1}
+.cb-statIcon .cb-statProgress{min-width:0}
+.cb-statIcon{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:12px;row-gap:2px;align-content:start}
+.cb-statIcon>*{grid-column:2}
+.cb-statIcon>.cb-statTile{grid-column:1;grid-row:1/span 2;align-self:center}
+.cb-statIcon>.cb-strip{grid-column:1/-1}
+.cb-statTile.uk-tile,.cb-countdownTile.uk-tile{width:var(--cb-statTile);height:var(--cb-statTile);border-radius:calc(var(--cb-statTile) * .3)}
+.cb-statTile svg,.cb-countdownTile svg{width:calc(var(--cb-statTile) * .54);height:calc(var(--cb-statTile) * .54)}
+.cb-countdownHead{--cb-statTile:52px}
 .cb-strip{display:flex;justify-content:space-between;gap:4px;margin:10px 0 0;padding:0;list-style:none}
 .cb-strip li{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:0;color:var(--dsw-alias-label-tertiary);font-size:11px;font-variant-numeric:tabular-nums}
 .cb-strip b{color:var(--dsw-alias-label-primary);font-size:13px;font-weight:500}
@@ -193,6 +206,14 @@ h3.cb-truncOpen{overflow:visible}
 .cb-card-summary{position:relative}
 .cb-summaryText{font-size:16px;line-height:24px}
 .cb-statValue{font-size:24px;line-height:30px}
+.cb-stats{--cb-statTile:42px}
+.cb-statsIcons{column-gap:16px}
+.cb-statIcon{column-gap:10px}
+.cb-statsPaired>.cb-statIcon:not(.cb-statWide){grid-template-columns:minmax(0,1fr)}
+.cb-statsPaired>.cb-statIcon:not(.cb-statWide)>*{grid-column:1}
+.cb-statsPaired>.cb-statIcon:not(.cb-statWide)>.cb-statTile{grid-row:auto;align-self:start;margin-bottom:6px}
+.cb-statsCompact{--cb-statTile:40px}
+.cb-countdownHead{--cb-statTile:46px}
 }
 /* Touch and pointer: cards and rows answer a hover and a press, in DSH's own interactive colours and motion. */
 .cb-card{transition:box-shadow var(--ds-transition-duration,.2s) var(--ds-ease-in-out,ease),transform var(--ds-transition-duration,.2s) var(--ds-ease-in-out,ease)}
@@ -984,11 +1005,14 @@ function EasedNumber({ value, locale }) {
   const decimals = Math.min(3, (String(value).split(".")[1] ?? "").length);
   return formatNumber(shown === value ? value : Number(shown.toFixed(decimals)), locale);
 }
-function StatBlock({ data, locale, compact, wash }) {
+function StatBlock({ data, locale, compact, wash, tone }) {
   const kit = useKit();
-  return (0, import_react6.createElement)("div", { className: `cb-stats${compact ? " cb-statsCompact" : ""}` }, data.items.map((item, i) => (0, import_react6.createElement)(
+  const iconic = data.items.some((item) => item.icon);
+  const paired = iconic && data.items.filter((item) => !item.strip).length > 1;
+  return (0, import_react6.createElement)("div", { className: ["cb-stats", compact && "cb-statsCompact", iconic && "cb-statsIcons", paired && "cb-statsPaired"].filter(Boolean).join(" ") }, data.items.map((item, i) => (0, import_react6.createElement)(
     item.link ? "a" : "div",
-    { key: i, className: `cb-stat${item.strip ? " cb-statWide" : ""}${item.link ? " cb-statLink" : ""}`, ...item.link ? linkProps(item.link) : {} },
+    { key: i, className: ["cb-stat", item.strip && "cb-statWide", item.link && "cb-statLink", item.icon && "cb-statIcon"].filter(Boolean).join(" "), ...item.link ? linkProps(item.link) : {} },
+    item.icon && (0, import_react6.createElement)(kit.Tile, { icon: item.icon, tone: item.iconTone ?? item.tone ?? tone ?? "muted", size: compact ? 44 : 48, className: "cb-statTile" }),
     (0, import_react6.createElement)("div", { className: "cb-statLabel" }, (0, import_react6.createElement)(Trunc, { as: "span", text: item.label }), i === 0 && wash && (0, import_react6.createElement)(kit.JustNow)),
     (0, import_react6.createElement)(
       "div",
@@ -1207,6 +1231,7 @@ function CountdownBody({ card, locale }) {
     (0, import_react6.createElement)(
       "div",
       { className: "cb-countdownHead" },
+      data.icon && (0, import_react6.createElement)(kit.Tile, { icon: data.icon, tone: card.tone ?? "muted", size: 52, className: "cb-countdownTile" }),
       (0, import_react6.createElement)(kit.Countdown, { to: data.to }),
       (0, import_react6.createElement)(
         "div",
@@ -1438,7 +1463,7 @@ function Body({ card, live, wash, locale, t, rowActions, all, onOpenRow, rowCont
   const data = card.data;
   switch (card.type) {
     case "stat":
-      return (0, import_react10.createElement)(StatBlock, { data, locale, wash });
+      return (0, import_react10.createElement)(StatBlock, { data, locale, wash, tone: card.tone });
     case "list":
       return (0, import_react10.createElement)(ListCard, { data, live, locale, t, rowActions, ask: card.ask, all, onOpenRow, rowControls });
     case "status":
@@ -1548,7 +1573,7 @@ function Card({ entry, live, boardId, assistant, tracks, active, locale, t, pres
       (0, import_react10.createElement)("div", { className: "cb-summaryAside" }, live.fresh && (0, import_react10.createElement)(kit.NewDot), chat)
     );
   }
-  const statBlock = card.stat && (0, import_react10.createElement)(StatBlock, { data: card.stat, locale, compact: true, wash: wash !== "" });
+  const statBlock = card.stat && (0, import_react10.createElement)(StatBlock, { data: card.stat, locale, compact: true, wash: wash !== "", tone: card.tone });
   const body = (0, import_react10.createElement)(Body, { card, live, wash: wash !== "", locale, t, rowActions, all: sheet, onOpenRow, rowControls });
   return (0, import_react10.createElement)(
     "section",
