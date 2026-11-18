@@ -1,4 +1,4 @@
-/* @soffits/dsh-card-board 0.17.0: built by scripts/build.mjs from src/client/. Do not edit. */
+/* @soffits/dsh-card-board 0.17.1: built by scripts/build.mjs from src/client/. Do not edit. */
 window.__ModuleLoader__.load({
   id: "@soffits/dsh-card-board",
   factory: (require) => {
@@ -907,7 +907,8 @@ function openLink(link) {
   window.dispatchEvent(new PopStateEvent("popstate"));
 }
 function onControl(event) {
-  return Boolean(event.target?.closest?.("button,a,input,select,textarea,label,[role=button],[role=checkbox],[role=menuitem]"));
+  const control = event.target?.closest?.("button,a,input,select,textarea,label,[role=button],[role=link],[role=checkbox],[role=menuitem]");
+  return Boolean(control) && control !== event.currentTarget;
 }
 
 // src/client/steps.js
