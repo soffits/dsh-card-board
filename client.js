@@ -1,4 +1,4 @@
-/* @soffits/dsh-card-board 0.17.3: built by scripts/build.mjs from src/client/. Do not edit. */
+/* @soffits/dsh-card-board 0.17.4: built by scripts/build.mjs from src/client/. Do not edit. */
 window.__ModuleLoader__.load({
   id: "@soffits/dsh-card-board",
   factory: (require) => {
@@ -272,7 +272,9 @@ button.cb-cardMore{border:0;background:transparent;padding:0;font:inherit;cursor
 .cb-bubbleHead{color:var(--dsw-alias-label-tertiary)}
 /* The opened card */
 .cb-sheetModal.cb-sheetModal{width:min(720px,calc(100vw - 32px));max-width:none;max-height:100%}
-.cb-sheet{min-width:0;min-height:0;overflow-y:auto;overscroll-behavior:contain}
+.cb-sheet{min-width:0;min-height:0;overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;overflow-wrap:anywhere}
+/* a long unbroken word (an id, a key, a path) wraps instead of widening the sheet */
+.cb-sheetModal h2{min-width:0;overflow-wrap:anywhere}
 .cb-cardInSheet{padding:0;box-shadow:none;background:transparent;border-radius:0}
 .cb-detail{display:flex;flex-direction:column;gap:14px;margin-top:4px}
 .cb-detailText{margin:0;color:var(--dsw-alias-label-secondary);font-size:14px;line-height:21px;white-space:pre-wrap}
@@ -288,6 +290,7 @@ button.cb-cardMore{border:0;background:transparent;padding:0;font:inherit;cursor
 .cb-openRow .cb-detail{margin-top:0}
 .cb-openActions{display:flex;flex-direction:column;gap:8px;min-width:0}
 .cb-openButtons{display:flex;flex-wrap:wrap;align-items:center;gap:6px;min-width:0}
+.cb-openButtons>.ua-bar{display:contents}
 .cb-doneBoxLabelled{justify-content:flex-start;padding:0 10px 0 6px;border-radius:8px;box-shadow:inset 0 0 0 .5px var(--dsw-alias-border-l3);font-size:12px;line-height:18px;color:var(--dsw-alias-label-secondary)}
 /* the opened view shows every word: nothing is cut to a line or two */
 .cb-sheet .cb-trunc{white-space:normal;display:block;-webkit-line-clamp:unset;overflow:visible;text-overflow:clip}
