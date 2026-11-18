@@ -7,6 +7,14 @@ const done = { kind: 'done', id: 'a:done' }
 const ids = list => list.map(action => action.id)
 
 describe('the Ask button every row has', () => {
+  it('still offers the built-in Ask on a row whose declared chat button a view-only viewer lost', async () => {
+    const { withoutActions } = await import('../src/access.js')
+    const declared = { title: 'q', actions: [{ kind: 'chat', id: 'q:answer', payload: { prompt: 'My answer: ' } }] }
+    assert.deepEqual(ids(rowButtons(declared)), ['q:answer'])
+    const [row] = withoutActions({ type: 'list', data: { rows: [declared] } }).data.rows
+    assert.deepEqual(rowButtons(row), [{ kind: 'chat', id: '_ask' }])
+  })
+
   it('is added after the row’s own buttons, and to a row with none', () => {
     assert.deepEqual(ids(rowButtons({ title: 'a', actions: [done] })), ['a:done', '_ask'])
     assert.deepEqual(rowButtons({ title: 'a' }), [{ kind: 'chat', id: '_ask' }])

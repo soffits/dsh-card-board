@@ -7,7 +7,7 @@ import { Context } from '@deepseek-ai/cordis'
 import * as connectionPlugin from '@deepseek-ai/dsh-client-connection'
 import { WebServer } from '@deepseek-ai/dsh-host-webserver'
 import * as cardBoard from '../index.js'
-import { createPeople, mayAct, maySee, personKey, viewerOf, withoutPresses } from '../src/access.js'
+import { createPeople, mayAct, maySee, personKey, viewerOf, withoutActions } from '../src/access.js'
 import { createMessages } from '../src/messages.js'
 import { createPresses } from '../src/presses.js'
 import { createRoutes } from '../src/routes.js'
@@ -94,15 +94,15 @@ describe('access', () => {
     assert.equal(mayAct({ mode: 'owner' }, { viewers: ['robin'], actors: [] }), true)
   })
 
-  it('takes the pressing buttons off a card and keeps chat and link, without a session of its own', () => {
+  it('takes every declared button off a card except links, chat included', () => {
     const when = { type: 'list', title: 'x', updatedAt: '2026-03-02T00:00:00Z', actions: [{ kind: 'done', id: 'a' }, { kind: 'snooze', id: 'b' }], data: { rows: [
       { title: 'one', actions: [{ kind: 'step', id: 's', label: 'Go' }, { kind: 'event', id: 'e', label: 'Lock' }] },
       { title: 'two', actions: [{ kind: 'done', id: 'd' }, { kind: 'chat', id: 'c', payload: { prompt: 'Hi', session: 'owners-session' } }, { kind: 'link', id: 'l', payload: { url: 'https://example.com' } }] },
     ] } }
-    const result = withoutPresses(when)
+    const result = withoutActions(when)
     assert.equal('actions' in result, false)
     assert.equal('actions' in result.data.rows[0], false)
-    assert.deepEqual(result.data.rows[1].actions, [{ kind: 'chat', id: 'c', payload: { prompt: 'Hi' } }, { kind: 'link', id: 'l', payload: { url: 'https://example.com' } }])
+    assert.deepEqual(result.data.rows[1].actions, [{ kind: 'link', id: 'l', payload: { url: 'https://example.com' } }])
     assert.equal(when.actions.length, 2)
   })
 
@@ -722,10 +722,10 @@ describe('boards someone may see but not act on', () => {
     assert.equal(board.readOnly, true)
     assert.equal(board.cards[0].card.title, 'Chores')
     assert.equal('actions' in board.cards[0].card, false)
-    assert.deepEqual(board.cards[0].card.data.rows[0].actions, [{ kind: 'chat', id: 'water:ask', label: 'Ask' }])
+    assert.equal('actions' in board.cards[0].card.data.rows[0], false)
     assert.equal(board.cards[0].presses, undefined)
     const one = (await call('/api/card-board/card?board=trust&id=chores')).body
-    assert.equal(one.card.data.rows[0].actions.length, 1)
+    assert.equal('actions' in one.card.data.rows[0], false)
     assert.equal((await call('/api/card-board/boards')).body.boards.some(b => b.id === 'trust'), true)
     const before = published.length
     assert.equal((await call('/api/card-board/action', {}, press)).status, 403)
@@ -733,6 +733,16 @@ describe('boards someone may see but not act on', () => {
     const pressed = published.find(event => event.data.source.board === 'trust')
     assert.equal((await call('/api/card-board/action', {}, { undo: pressed.data.press, board: 'trust', card: 'chores' })).status, 403)
     assert.equal(published.length, before)
+  })
+
+  it('keeps a declared chat button for an actor and takes it from a viewer', async () => {
+    const { call, state } = routes()
+    const chatOf = body => body.cards[0].card.data.rows[0].actions?.filter(action => action.kind === 'chat') ?? []
+    state.id = 'sub-alex'
+    assert.deepEqual(chatOf((await call('/api/card-board/board?id=trust')).body).map(action => action.id), ['water:ask'])
+    state.id = 'sub-robin'
+    assert.deepEqual(chatOf((await call('/api/card-board/board?id=trust')).body), [])
+    assert.deepEqual(chatOf({ cards: [(await call('/api/card-board/card?board=trust&id=chores')).body] }), [])
   })
 
   it('answers a viewer and an actor differently even with the same card tag', async () => {
