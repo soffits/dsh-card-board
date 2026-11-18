@@ -103,7 +103,7 @@ h3.cb-truncOpen{overflow:visible}
 .cb-rows .cb-row:first-child{border-top:0}
 .cb-row+.cb-row{border-top-left-radius:0;border-top-right-radius:0}
 .cb-rowNow{background:color-mix(in srgb,var(--dsw-alias-state-business-primary) 6%,transparent)}
-.cb-rowText{flex:1;min-width:0}
+.cb-rowText{flex:1 1 10em;min-width:0}
 .cb-rowTitle{display:flex;align-items:center;gap:6px;min-width:0;font-size:14px;line-height:20px}
 .cb-rowSub{color:var(--dsw-alias-label-tertiary);font-size:12px;line-height:18px}
 .cb-done .cb-rowTitle{color:var(--dsw-alias-label-tertiary);text-decoration:line-through}
@@ -154,7 +154,7 @@ h3.cb-truncOpen{overflow:visible}
 
 /* narrow cards: meta and buttons move under the words */
 @container (width<360px){
-.cb-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;column-gap:10px}
+.cb-row{display:grid;grid-template-columns:auto minmax(0,1fr) fit-content(50%);align-items:center;column-gap:10px}
 .cb-row>.cb-rowText{grid-column:2}
 .cb-row>.cb-rowMeta,.cb-row>.cb-statusSpark{grid-column:2/-1;max-width:none;justify-content:flex-start}
 .cb-row>.cb-rowActions{grid-column:3;grid-row:1}
@@ -253,7 +253,14 @@ button.cb-cardMore{border:0;background:transparent;padding:0;font:inherit;cursor
 .cb-facts dd{margin:0;color:var(--dsw-alias-label-primary);overflow-wrap:anywhere}
 .cb-detailHistory h4{margin:0 0 6px;font-size:12px;font-weight:500;color:var(--dsw-alias-label-tertiary);-webkit-user-select:none;user-select:none}
 .cb-sheetChat{display:flex;justify-content:flex-end}
-.cb-rowSheet{display:flex;flex-direction:column;gap:12px}
+.cb-openRow{display:flex;flex-direction:column;gap:14px;min-width:0}
+.cb-openFacts{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;min-width:0;font-size:13px;line-height:20px}
+.cb-openFacts>*{min-width:0;max-width:100%}
+.cb-openFacts .cb-rowSub{font-size:13px;line-height:20px;overflow-wrap:anywhere}
+.cb-openRow .cb-detail{margin-top:0}
+.cb-openActions{display:flex;flex-direction:column;gap:8px;min-width:0}
+.cb-openButtons{display:flex;flex-wrap:wrap;align-items:center;gap:6px;min-width:0}
+.cb-doneBoxLabelled{justify-content:flex-start;padding:0 10px 0 6px;border-radius:8px;box-shadow:inset 0 0 0 .5px var(--dsw-alias-border-l3);font-size:12px;line-height:18px;color:var(--dsw-alias-label-secondary)}
 /* the opened view shows every word: nothing is cut to a line or two */
 .cb-sheet .cb-trunc{white-space:normal;display:block;-webkit-line-clamp:unset;overflow:visible;text-overflow:clip}
 @media (width<=640px){.cb-sheetModal.cb-sheetModal{width:calc(100vw - 16px)}}
@@ -261,6 +268,8 @@ button.cb-cardMore{border:0;background:transparent;padding:0;font:inherit;cursor
 .cb-cardLink{width:40px;height:40px;margin:-9px 0}
 .cb-doneBox{min-width:40px;min-height:40px;margin:-6px -6px -6px -10px}
 .cb-doneBox label{display:inline-flex;align-items:center;justify-content:center;min-width:40px;min-height:40px}
+.cb-doneBoxLabelled{margin:0}
+.cb-doneBoxLabelled label{justify-content:flex-start;gap:6px}
 .cb-cardChat{margin:-9px -10px -9px 0}
 .cb-reset{min-height:40px}
 }

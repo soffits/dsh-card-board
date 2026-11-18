@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.17.3
+
+An opened row reads well on a phone. The sheet used to draw it as a list row, so on a narrow screen its title was squeezed into a column a word wide beside its chip and buttons, under a heading that already said the same. Now the heading is the title, and under it come the row's facts on one wrapping line (chip, sub, day), its detail, and every button with its label on a wrapping row: the detail's, the row's own (an unlabelled done as a labelled box), then Ask. List rows on a card keep their layout, but their words no longer shrink below a readable width: what doesn't fit beside them wraps underneath, and in a narrow card the buttons take at most half the row.
+
 ## 0.17.2
 
 An opened row's detail buttons show their labels (a chat button said nothing but its icon).
