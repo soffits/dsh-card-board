@@ -72,6 +72,18 @@ describe('checkCard', () => {
     assert.deepEqual(checkCard(stat([{ ...item, strip: [{ label: '14', value: 12.8, icon: 'sun', on: true }, { label: '15', value: 'n/a', icon: 'Sun!' }] }])), ['data.items[0].strip[1].icon: must be an icon name like plane-takeoff'])
   })
 
+  it('takes an icon on a stat item, with its own tile tone, and one beside a countdown', () => {
+    const stat = items => ({ ...base, type: 'stat', tone: 'violet', data: { items } })
+    assert.deepEqual(checkCard(stat([{ label: 'Balance', value: 31, icon: 'coins', iconTone: 'warn' }, { label: 'Today', value: '+21', icon: 'sparkles' }])), [])
+    assert.deepEqual(checkCard(stat([{ label: 'Balance', value: 31, icon: 'Coins!' }])), ['data.items[0].icon: must be an icon name like plane-takeoff'])
+    assert.deepEqual(checkCard(stat([{ label: 'Balance', value: 31, icon: 'coins', iconTone: 'gold' }])), ['data.items[0].iconTone: must be one of ok, warn, bad, muted, accent, violet'])
+    assert.deepEqual(checkCard(stat([{ label: 'Balance', value: 31, iconTone: 'warn' }])), ['data.items[0].iconTone: needs an icon'])
+    assert.deepEqual(checkCard({ ...card('savings'), stat: { items: [{ label: 'Total', value: 1, icon: 'piggy-bank' }] } }), [])
+    const countdown = card('countdown')
+    assert.deepEqual(checkCard({ ...countdown, data: { ...countdown.data, icon: 'plane' } }), [])
+    assert.deepEqual(checkCard({ ...countdown, data: { ...countdown.data, icon: 'a plane' } }), ['data.icon: must be an icon name like plane-takeoff'])
+  })
+
   it('takes an icon, a tone, a key and an active window on rows; keys are unique in a card', () => {
     const list = rows => ({ ...base, type: 'list', icon: 'utensils', tone: 'violet', data: { rows } })
     const lunch = { title: 'Lunch', icon: 'sandwich', tone: 'accent', key: 'meal:lunch', active: { from: '2026-03-02T12:00:00+01:00', to: '2026-03-02T13:30:00+01:00' } }

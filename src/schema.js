@@ -289,13 +289,16 @@ function statData(c, data, path) {
   if (!c.array(data.items, join(path, 'items'), { min: 1, max: 6 })) return
   data.items.forEach((item, i) => {
     const p = join(join(path, 'items'), i)
-    if (!c.object(item, p, ['label', 'value'], ['unit', 'delta', 'sub', 'tone', 'spark', 'progress', 'strip', 'link'])) return
+    if (!c.object(item, p, ['label', 'value'], ['unit', 'delta', 'sub', 'tone', 'icon', 'iconTone', 'spark', 'progress', 'strip', 'link'])) return
     c.optional(item, 'link', v => isSafeLink(v) || c.fail(join(p, 'link'), 'must be an http(s) URL or a path starting with /'))
     c.label(item.label, join(p, 'label'))
     c.labelOrNumber(item.value, join(p, 'value'))
     c.optional(item, 'unit', v => c.label(v, join(p, 'unit'), { max: 20 }))
     c.optional(item, 'sub', v => c.label(v, join(p, 'sub')))
     tone(c, item, p)
+    icon(c, item, p)
+    c.optional(item, 'iconTone', v => c.oneOf(v, join(p, 'iconTone'), TONES))
+    if (item.iconTone !== undefined && item.icon === undefined) c.fail(join(p, 'iconTone'), 'needs an icon')
     c.optional(item, 'delta', delta => {
       const dp = join(p, 'delta')
       if (!c.object(delta, dp, ['text'], ['tone', 'dir'])) return
@@ -521,8 +524,9 @@ function summaryData(c, data, path) {
 }
 
 function countdownData(c, data, path) {
-  if (!c.object(data, path, ['to', 'label'], ['sub', 'steps', 'expiresAt'])) return
+  if (!c.object(data, path, ['to', 'label'], ['sub', 'icon', 'steps', 'expiresAt'])) return
   const toOk = c.dateTime(data.to, join(path, 'to'))
+  icon(c, data, path)
   c.label(data.label, join(path, 'label'))
   c.optional(data, 'sub', v => c.label(v, join(path, 'sub')))
   c.optional(data, 'expiresAt', v => {

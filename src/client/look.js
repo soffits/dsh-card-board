@@ -70,6 +70,19 @@ h3.cb-truncOpen{overflow:visible}
 .cb-delta{display:flex;align-items:center;gap:3px;font-size:12px;font-weight:500;line-height:18px}
 .cb-statSub{color:var(--dsw-alias-label-tertiary);font-size:12px;line-height:18px}
 .cb-statProgress{display:flex;flex-direction:column;gap:4px;min-width:180px;margin-top:4px}
+/* an item with an icon: a big tinted tile beside its label and number, the rest under the words */
+.cb-stats{--cb-statTile:48px}
+.cb-statsCompact{--cb-statTile:44px}
+.cb-statsIcons{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,136px),1fr));gap:16px 24px}
+.cb-statsIcons>.cb-statWide{grid-column:1/-1}
+.cb-statIcon .cb-statProgress{min-width:0}
+.cb-statIcon{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:12px;row-gap:2px;align-content:start}
+.cb-statIcon>*{grid-column:2}
+.cb-statIcon>.cb-statTile{grid-column:1;grid-row:1/span 2;align-self:center}
+.cb-statIcon>.cb-strip{grid-column:1/-1}
+.cb-statTile.uk-tile,.cb-countdownTile.uk-tile{width:var(--cb-statTile);height:var(--cb-statTile);border-radius:calc(var(--cb-statTile) * .3)}
+.cb-statTile svg,.cb-countdownTile svg{width:calc(var(--cb-statTile) * .54);height:calc(var(--cb-statTile) * .54)}
+.cb-countdownHead{--cb-statTile:52px}
 .cb-strip{display:flex;justify-content:space-between;gap:4px;margin:10px 0 0;padding:0;list-style:none}
 .cb-strip li{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:0;color:var(--dsw-alias-label-tertiary);font-size:11px;font-variant-numeric:tabular-nums}
 .cb-strip b{color:var(--dsw-alias-label-primary);font-size:13px;font-weight:500}
@@ -165,6 +178,14 @@ h3.cb-truncOpen{overflow:visible}
 .cb-card-summary{position:relative}
 .cb-summaryText{font-size:16px;line-height:24px}
 .cb-statValue{font-size:24px;line-height:30px}
+.cb-stats{--cb-statTile:42px}
+.cb-statsIcons{column-gap:16px}
+.cb-statIcon{column-gap:10px}
+.cb-statsPaired>.cb-statIcon:not(.cb-statWide){grid-template-columns:minmax(0,1fr)}
+.cb-statsPaired>.cb-statIcon:not(.cb-statWide)>*{grid-column:1}
+.cb-statsPaired>.cb-statIcon:not(.cb-statWide)>.cb-statTile{grid-row:auto;align-self:start;margin-bottom:6px}
+.cb-statsCompact{--cb-statTile:40px}
+.cb-countdownHead{--cb-statTile:46px}
 }
 /* Touch and pointer: cards and rows answer a hover and a press, in DSH's own interactive colours and motion. */
 .cb-card{transition:box-shadow var(--ds-transition-duration,.2s) var(--ds-ease-in-out,ease),transform var(--ds-transition-duration,.2s) var(--ds-ease-in-out,ease)}
