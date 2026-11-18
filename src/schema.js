@@ -24,6 +24,8 @@ export const INVERSE_KINDS = Object.freeze(['done', 'snooze', 'event'])
 export const UNDO_KIND = 'undo'
 /** Suggested steps per card or row: a few clear next moves, not a menu. */
 export const MAX_STEPS = 3
+/** Stops on a countdown's track: a whole travel day is more than eight. */
+export const MAX_COUNTDOWN_STEPS = 24
 export const ACTION_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,99}$/
 /** Row keys: stable ids, so the page can tell which row changed. The same shape as action ids. */
 export const KEY_PATTERN = ACTION_ID_PATTERN
@@ -533,7 +535,7 @@ function countdownData(c, data, path) {
     if (c.dateTime(v, join(path, 'expiresAt')) && toOk && Date.parse(v) < Date.parse(data.to)) c.fail(join(path, 'expiresAt'), 'must not be before to')
   })
   c.optional(data, 'steps', steps => {
-    if (!c.array(steps, join(path, 'steps'), { min: 1, max: 8 })) return
+    if (!c.array(steps, join(path, 'steps'), { min: 1, max: MAX_COUNTDOWN_STEPS })) return
     steps.forEach((step, i) => {
       const p = join(join(path, 'steps'), i)
       if (!c.object(step, p, ['at', 'label'], ['sub', 'zone'])) return
