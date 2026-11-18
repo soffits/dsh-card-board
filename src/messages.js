@@ -41,13 +41,12 @@ export function messagesFor(languages, tag) {
 }
 
 /**
+ * The words for a language, read from the folder on every request. DSH swaps a plugin's browser half as
+ * soon as its files change, before the host half is reloaded, so words kept from start would hand a
+ * freshly updated page the old table (raw keys for every new message).
  * @param {string} directory - the package's `locale` folder
  * @returns {(tag: string) => Promise<{ tag: string, messages: Record<string, string> }>}
  */
 export function createMessages(directory) {
-  let languages
-  return async tag => {
-    languages ??= readLanguages(directory)
-    return messagesFor(await languages, tag)
-  }
+  return async tag => messagesFor(await readLanguages(directory), tag)
 }

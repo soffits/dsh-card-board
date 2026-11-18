@@ -57,6 +57,21 @@ describe('messagesFor', () => {
   })
 })
 
+describe('serving the words', () => {
+  it('reads the folder on every request, so words an update adds show at once', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'card-board-locale-'))
+    try {
+      await writeFile(join(dir, 'en.json'), JSON.stringify({ ui: { panel: 'Panels' } }))
+      const messages = createMessages(dir)
+      assert.deepEqual((await messages('en')).messages, { panel: 'Panels' })
+      await writeFile(join(dir, 'en.json'), JSON.stringify({ ui: { panel: 'Panels', countdown: 'Countdown' } }))
+      assert.equal((await messages('en')).messages.countdown, 'Countdown')
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
+  })
+})
+
 describe('adding a language', () => {
   it('is one new file, with no change to the code', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'card-board-locale-'))
