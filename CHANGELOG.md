@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.15.0
+
+A shared board can keep a card for only some of its viewers: `cardViewers` in `board.json` maps a card id to the people who may see it. Everyone else gets the board without it; its route answers 404, the events stream leaves it out and its buttons refuse a press, all decided on the server.
+
 ## 0.14.2
 
 An opened card or row that is taller than the window scrolls inside its sheet instead of running off the screen. `@deepseek-ai/schemastery` is a peer dependency, so an update never moves a private copy out from under the plugin.

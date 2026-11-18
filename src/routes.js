@@ -17,7 +17,7 @@
  * in it is new since the viewer last looked, `fresh: { card: true, rows: [keys] }`.
  */
 import { join } from 'node:path'
-import { maySee, viewerOf } from './access.js'
+import { maySee, maySeeCard, viewerOf } from './access.js'
 import { parseArrangement } from './arrange.js'
 import { LANGUAGE_ID } from './messages.js'
 import { ID_PATTERN, PRESS_KINDS, findAction } from './schema.js'
@@ -113,7 +113,9 @@ export function createRoutes({ dataDir, people, identity, pollSeconds, presses, 
     const tag = await boardTag(root, id, `${version}\0${viewer.mode}\0${person ?? ''}\0${await seen.tag(person)}\0${await arrange.tag(person)}\0${JSON.stringify(states)}`)
     if (request.headers.get('if-none-match') === tag) return new Response(null, { status: 304, headers: { ...HEADERS, etag: tag } })
     const seenBoard = await seen.board(person, id)
-    const cards = (await readCards(root, id, entry.board)).map(card => decorate(card, states, seenBoard))
+    const cards = (await readCards(root, id, entry.board))
+      .filter(card => maySeeCard(viewer, entry.board, card.id))
+      .map(card => decorate(card, states, seenBoard))
     const arrangement = await arrange.get(person, id)
     return json(200, { id, title: entry.board?.title ?? id, ...(entry.board?.assistant ? { assistant: entry.board.assistant } : {}), ...(arrangement ? { arrangement } : {}), problems: entry.problems, cards }, { etag: tag })
   }
@@ -126,6 +128,8 @@ export function createRoutes({ dataDir, people, identity, pollSeconds, presses, 
     const found = await access(boardId)
     if (found.refused) return found.refused
     const { viewer, root, entry, person } = found
+    // A card someone may not see answers like one that isn't there.
+    if (!maySeeCard(viewer, entry.board, id)) return json(404, { error: 'No such card.' })
     const states = await pressStates(root, boardId)
     const tag = await cardTag(root, boardId, id, `${version}\0${viewer.mode}\0${person ?? ''}\0${await seen.tag(person)}\0${JSON.stringify(states[id] ?? null)}`)
     if (request.headers.get('if-none-match') === tag) return new Response(null, { status: 304, headers: { ...HEADERS, etag: tag } })
@@ -172,6 +176,10 @@ export function createRoutes({ dataDir, people, identity, pollSeconds, presses, 
               return
             }
           }
+          if (change.type === 'card') {
+            const now = await readBoard(found.root, id)
+            if (!maySeeCard(found.viewer, now?.board, change.id)) return
+          }
           data(change)
         })
         if (!open) unwatch()
@@ -195,7 +203,8 @@ export function createRoutes({ dataDir, people, identity, pollSeconds, presses, 
     if (body === undefined) return json(400, { error: 'The body must be { board, cards: { <id>: { v, rows? } } }.' })
     const found = await access(body.board)
     if (found.refused) return found.refused
-    const present = new Set((await readCards(found.root, body.board, found.entry.board)).map(entry => entry.id))
+    const present = new Set((await readCards(found.root, body.board, found.entry.board))
+      .filter(entry => maySeeCard(found.viewer, found.entry.board, entry.id)).map(entry => entry.id))
     await seen.record(found.person, body.board, body.cards, present)
     return json(200, { ok: true })
   }
@@ -247,7 +256,7 @@ export function createRoutes({ dataDir, people, identity, pollSeconds, presses, 
     if (viewer.unavailable) return json(503, { error: NO_PROVIDER })
     const root = await resolveDataDir(dataDir)
     const entry = root === undefined ? undefined : await readBoard(root, board)
-    if (!maySee(viewer, entry?.board) || entry === undefined) return json(403, { error: 'You can’t act on this board.' })
+    if (!maySee(viewer, entry?.board) || entry === undefined || !maySeeCard(viewer, entry.board, card)) return json(403, { error: 'You can’t act on this board.' })
     const found = findAction(await readCard(root, board, card), id, row)
     if (found === undefined || !PRESS_KINDS.includes(found.kind)) return json(409, { error: 'This action isn’t on the card any more.' })
     const payload = { ...(found.payload ?? {}), ...(found.kind === 'snooze' && until !== undefined && found.payload?.until === undefined ? { until } : {}) }
@@ -271,7 +280,7 @@ export function createRoutes({ dataDir, people, identity, pollSeconds, presses, 
     if (viewer.unavailable) return json(503, { error: NO_PROVIDER })
     const root = await resolveDataDir(dataDir)
     const entry = root === undefined ? undefined : await readBoard(root, board)
-    if (!maySee(viewer, entry?.board) || entry === undefined) return json(403, { error: 'You can’t act on this board.' })
+    if (!maySee(viewer, entry?.board) || entry === undefined || !maySeeCard(viewer, entry.board, card)) return json(403, { error: 'You can’t act on this board.' })
     const result = await presses.undo({ press: undo, person: viewer.mode === 'owner' ? 'owner' : viewer.person, user: identity()?.current?.()?.id, board, card })
     if (result.problem === 'forbidden') return json(403, { error: 'You can’t act on this board.' })
     if (result.problem) return json(409, { error: 'This action can’t be undone.' })
