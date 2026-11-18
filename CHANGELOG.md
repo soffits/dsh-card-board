@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.17.1
+
+Tapping a row that has a `detail` opens it again. The row is itself a button (`role=button`), and the check that keeps a tap on one of a row's own buttons from opening it counted the row too, so no row ever opened.
+
 ## 0.17.0
 
 A `detail` can carry `actions`: buttons shown only when its card or row is opened, below the detail, and pressed like any other (the server finds them by id on that card or row). They let a row stay short on the board, a chip and a snooze, while its answers sit under the note that asks the question. View-only viewers get none of them, as with the row's own buttons. Why: `docs/decisions/detail-actions.md`.

@@ -11,7 +11,12 @@ export function openLink(link) {
   window.dispatchEvent(new PopStateEvent('popstate'))
 }
 
-/** True when a click started on something with its own behaviour (a button, a link, a checkbox, a field). */
+/**
+ * True when a click started on something with its own behaviour (a button, a link, a checkbox, a field) inside the
+ * element listening. The listener itself may be such a thing (a row that opens is a `role=button`), and a click on it
+ * is its own, not a control's.
+ */
 export function onControl(event) {
-  return Boolean(event.target?.closest?.('button,a,input,select,textarea,label,[role=button],[role=checkbox],[role=menuitem]'))
+  const control = event.target?.closest?.('button,a,input,select,textarea,label,[role=button],[role=link],[role=checkbox],[role=menuitem]')
+  return Boolean(control) && control !== event.currentTarget
 }
