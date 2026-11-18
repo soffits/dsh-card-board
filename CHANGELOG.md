@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.14.1
+
+The page's words are read from the locale files on each request instead of once, so a page updated in place gets its new words right away instead of showing raw keys until it is reloaded.
+
 ## 0.14.0
 
 A countdown can carry up to 24 steps (was 8), enough for a whole travel day from waking up to landing. The next step is still marked and the passed ones dimmed.
