@@ -4,8 +4,11 @@
  * tested directly.
  */
 
-/** The action that ticks a row: its `done` action. */
-export const doneOf = row => row?.actions?.find(action => action.kind === 'done')
+/**
+ * The action that ticks a row: its unlabelled `done` action. A labelled done is a choice (one answer among several)
+ * and stays a button of its own.
+ */
+export const doneOf = row => row?.actions?.find(action => action.kind === 'done' && action.label === undefined)
 
 /**
  * What to keep of a row that was just ticked: the row as it was, with only its done action left (the other buttons

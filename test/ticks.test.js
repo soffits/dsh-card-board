@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { doneState, keepOf, keepTicked, withKept } from '../src/client/ticks.js'
+import { doneOf, doneState, keepOf, keepTicked, withKept } from '../src/client/ticks.js'
 
 const row = (name, extra = {}) => ({ title: name, actions: [{ kind: 'done', id: `${name}:done` }, { kind: 'snooze', id: `${name}:snooze` }], ...extra })
 
@@ -32,5 +32,15 @@ describe('rows ticked this visit', () => {
   it('replaces an earlier entry for the same row', () => {
     const first = keepOf(row('a'), 0)
     assert.equal(withKept(withKept([], first), keepOf(row('a'), 2)).length, 1)
+  })
+})
+
+describe('choices', () => {
+  it('ticks only with an unlabelled done; a labelled done is a choice, a button of its own', () => {
+    const row = { title: 'White or oak?', actions: [{ kind: 'done', id: 'answer-1', label: 'White' }, { kind: 'done', id: 'answer-2', label: 'Oak' }] }
+    assert.equal(doneOf(row), undefined)
+    assert.equal(keepOf(row, 0), undefined)
+    const both = { title: 'Water the plants', actions: [{ kind: 'done', id: 'answer-1', label: 'Later' }, { kind: 'done', id: 'water:done' }] }
+    assert.equal(doneOf(both).id, 'water:done')
   })
 })
