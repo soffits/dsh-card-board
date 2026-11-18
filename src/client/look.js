@@ -234,6 +234,7 @@ button.cb-cardMore{border:0;background:transparent;padding:0;font:inherit;cursor
 .cb-card[data-axis=y][data-drop=after]::after{bottom:-9px;left:6px;right:6px;height:3px}
 .cb-heading .cb-sub{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px}
 .cb-reset{margin:-4px 0}
+.cb-readOnly{padding:0 8px;border:1px solid var(--dsw-alias-border-l2);border-radius:10px;color:var(--dsw-alias-label-secondary);font-size:12px}
 .cb-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 /* The point under the pointer on a chart */
 .cb-chart{position:relative}

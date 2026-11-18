@@ -333,6 +333,7 @@ export function BoardsPage() {
       h('div', { className: 'cb-heading' },
         h('h1', null, boards?.length === 1 ? titleOf(boards[0]) : t('title')),
         board && h('div', { className: 'cb-sub' }, h(kit.LiveStatus, { status, updatedAt: newest || undefined }),
+          board.readOnly && h('span', { className: 'cb-readOnly', title: t('readOnly.hint') }, t('readOnly')),
           board.arrangement && h(Button, { variant: 'ghost', size: 'sm', className: 'cb-reset', title: t('arrange.resetHint'), onClick: () => { keepArrangement(null, board.id); setSaid(t('arrange.resetDone')) } }, t('arrange.reset')))),
       boards && boards.length > 1 && h('div', { className: 'cb-tabs', role: 'tablist' }, boards.map(b =>
         h(Pill, { key: b.id, active: b.id === current, role: 'tab', 'aria-selected': b.id === current, title: titleOf(b), onClick: () => choose(b.id) }, titleOf(b)))),

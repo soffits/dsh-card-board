@@ -48,6 +48,8 @@ With no `people` and no `peopleFile`, the plugin assumes a single-person DSH: ev
 
 With a mapping, each request is checked on the server. The plugin asks the `requestIdentity` service who made the request, maps that user id to a person id, and serves only boards whose `viewers` list that person. A request without a verified identity sees no boards; a board the person may not see answers 403, the same as one that doesn't exist. The tabs in the page come only from the server's list. Person ids compare without regard to case.
 
+Seeing and acting are separate. A board can name `actors`, the people who may press its buttons; without it, the viewers may, so a board that never heard of `actors` behaves as it always did. Someone who may see a board but isn't an actor gets it with its `done`, `snooze`, `step` and `event` buttons left out and a "View only" note beside the title, and their presses answer 403. Chat and link buttons stay (a chat button opens a draft in the viewer's own conversation, never in a session the card names). Acting needs seeing: naming someone in `actors` who isn't in `viewers` gives them nothing. Reading, marking cards seen and arranging the board for yourself stay open to every viewer, since they only touch the viewer's own view. This is how a person lets someone they trust look at their board without that person's taps landing on their items: `"viewers": ["alex", "sam"], "actors": ["alex"]`. Why it is shaped this way: [docs/decisions/board-actors.md](docs/decisions/board-actors.md).
+
 `requestIdentity` is a small service any sign-in plugin can provide. [dsh-oidc](https://github.com/soffits/dsh-oidc) (0.3.0-alpha.9 or later) does; another plugin can provide the same interface:
 
 ```ts
@@ -78,6 +80,7 @@ Board and card ids are lowercase letters, digits, `-` and `_`, up to 64 characte
 {
   "title": "Home",
   "viewers": ["alex", "sam"],
+  "actors": ["alex"],
   "cardViewers": { "alex-todo": ["alex"] },
   "order": ["weather", "savings", "energy"],
   "layout": { "weather": { "size": "small" }, "energy": { "size": "wide" } },
@@ -85,7 +88,7 @@ Board and card ids are lowercase letters, digits, `-` and `_`, up to 64 characte
 }
 ```
 
-`cardViewers` is optional: a card listed there shows only to the people it names ([Who sees what](#who-sees-what)). `order` lists cards to put first; the rest follow by id. This is the default: each person can [arrange their own view](#order-pins-and-raised-cards). `layout` sets how wide a card is: `small` (a third of a wide screen), `medium` (a half), `large` (two thirds) or `wide` (all of it). Without it a card takes its type's default: `summary` and `timeline` are wide, `countdown` large, `stat` small, the rest medium; a summary is always wide. On a tablet small and medium cards take half the width and large and wide ones all of it; on a phone every card is full width. Heights are the cards' own: the board packs them like masonry, so a long card never stretches its neighbours and short ones fill the space beside it. A list longer than six rows shows six, then "N more", which opens the rest in place (a row that is new or just changed always shows). `assistant` is optional: the name the chat buttons ask ("Ask Robin" instead of "Ask"). `title` can be [text in several languages](#languages).
+`actors` is optional: the viewers who may also press the board's buttons, all of them when it is left out (`[]` makes a board nobody can press). `cardViewers` is optional: a card listed there shows only to the people it names ([Who sees what](#who-sees-what)). `order` lists cards to put first; the rest follow by id. This is the default: each person can [arrange their own view](#order-pins-and-raised-cards). `layout` sets how wide a card is: `small` (a third of a wide screen), `medium` (a half), `large` (two thirds) or `wide` (all of it). Without it a card takes its type's default: `summary` and `timeline` are wide, `countdown` large, `stat` small, the rest medium; a summary is always wide. On a tablet small and medium cards take half the width and large and wide ones all of it; on a phone every card is full width. Heights are the cards' own: the board packs them like masonry, so a long card never stretches its neighbours and short ones fill the space beside it. A list longer than six rows shows six, then "N more", which opens the rest in place (a row that is new or just changed always shows). `assistant` is optional: the name the chat buttons ask ("Ask Robin" instead of "Ask"). `title` can be [text in several languages](#languages).
 
 A card:
 

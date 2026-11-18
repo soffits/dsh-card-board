@@ -1,4 +1,4 @@
-/* @soffits/dsh-card-board 0.15.1: built by scripts/build.mjs from src/client/. Do not edit. */
+/* @soffits/dsh-card-board 0.16.0: built by scripts/build.mjs from src/client/. Do not edit. */
 window.__ModuleLoader__.load({
   id: "@soffits/dsh-card-board",
   factory: (require) => {
@@ -262,6 +262,7 @@ button.cb-cardMore{border:0;background:transparent;padding:0;font:inherit;cursor
 .cb-card[data-axis=y][data-drop=after]::after{bottom:-9px;left:6px;right:6px;height:3px}
 .cb-heading .cb-sub{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px}
 .cb-reset{margin:-4px 0}
+.cb-readOnly{padding:0 8px;border:1px solid var(--dsw-alias-border-l2);border-radius:10px;color:var(--dsw-alias-label-secondary);font-size:12px}
 .cb-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 /* The point under the pointer on a chart */
 .cb-chart{position:relative}
@@ -2158,6 +2159,7 @@ function BoardsPage() {
           "div",
           { className: "cb-sub" },
           (0, import_react15.createElement)(kit.LiveStatus, { status, updatedAt: newest || void 0 }),
+          board.readOnly && (0, import_react15.createElement)("span", { className: "cb-readOnly", title: t("readOnly.hint") }, t("readOnly")),
           board.arrangement && (0, import_react15.createElement)(import_dsh_client_ui_primitives5.Button, { variant: "ghost", size: "sm", className: "cb-reset", title: t("arrange.resetHint"), onClick: () => {
             keepArrangement(null, board.id);
             setSaid(t("arrange.resetDone"));

@@ -7,7 +7,7 @@ import { Context } from '@deepseek-ai/cordis'
 import * as connectionPlugin from '@deepseek-ai/dsh-client-connection'
 import { WebServer } from '@deepseek-ai/dsh-host-webserver'
 import * as cardBoard from '../index.js'
-import { createPeople, maySee, personKey, viewerOf } from '../src/access.js'
+import { createPeople, mayAct, maySee, personKey, viewerOf, withoutPresses } from '../src/access.js'
 import { createMessages } from '../src/messages.js'
 import { createPresses } from '../src/presses.js'
 import { createRoutes } from '../src/routes.js'
@@ -81,6 +81,29 @@ describe('access', () => {
     assert.equal(maySee({ mode: 'people', person: 'robin' }, { viewers: ['Robin'] }), true)
     assert.equal(maySee({ mode: 'people', person: undefined }, { viewers: ['robin'] }), false)
     assert.equal(maySee({ mode: 'owner' }, undefined), true)
+  })
+
+  it('lets the viewers act unless the board names its actors; acting needs seeing', () => {
+    const alex = { mode: 'people', person: 'alex' }
+    assert.equal(mayAct(alex, { viewers: ['Alex'] }), true)
+    assert.equal(mayAct(alex, { viewers: ['alex', 'robin'], actors: ['Robin'] }), false)
+    assert.equal(mayAct(alex, { viewers: ['alex', 'robin'], actors: ['ALEX'] }), true)
+    assert.equal(mayAct(alex, { viewers: ['alex'], actors: [] }), false)
+    assert.equal(mayAct(alex, { viewers: ['robin'], actors: ['alex'] }), false)
+    assert.equal(mayAct({ mode: 'people', person: undefined }, { actors: ['alex'] }), false)
+    assert.equal(mayAct({ mode: 'owner' }, { viewers: ['robin'], actors: [] }), true)
+  })
+
+  it('takes the pressing buttons off a card and keeps chat and link, without a session of its own', () => {
+    const when = { type: 'list', title: 'x', updatedAt: '2026-03-02T00:00:00Z', actions: [{ kind: 'done', id: 'a' }, { kind: 'snooze', id: 'b' }], data: { rows: [
+      { title: 'one', actions: [{ kind: 'step', id: 's', label: 'Go' }, { kind: 'event', id: 'e', label: 'Lock' }] },
+      { title: 'two', actions: [{ kind: 'done', id: 'd' }, { kind: 'chat', id: 'c', payload: { prompt: 'Hi', session: 'owners-session' } }, { kind: 'link', id: 'l', payload: { url: 'https://example.com' } }] },
+    ] } }
+    const result = withoutPresses(when)
+    assert.equal('actions' in result, false)
+    assert.equal('actions' in result.data.rows[0], false)
+    assert.deepEqual(result.data.rows[1].actions, [{ kind: 'chat', id: 'c', payload: { prompt: 'Hi' } }, { kind: 'link', id: 'l', payload: { url: 'https://example.com' } }])
+    assert.equal(when.actions.length, 2)
   })
 
   it('maps from a people file under a key and re-reads it when it changes', async () => {
@@ -664,5 +687,71 @@ describe('cards only some viewers see', () => {
     assert.deepEqual(checkBoard({ title: 'x', cardViewers: { mine: ['alex'] } }), [])
     assert.ok(checkBoard({ title: 'x', cardViewers: { 'Not An Id': ['alex'] } }).length > 0)
     assert.ok(checkBoard({ title: 'x', cardViewers: { mine: 'alex' } }).length > 0)
+  })
+})
+
+describe('boards someone may see but not act on', () => {
+  const card = { type: 'list', title: 'Chores', updatedAt: '2026-03-02T00:00:00Z', actions: [{ kind: 'snooze', id: 'later' }], data: { rows: [{ title: 'Water the plants', actions: [{ kind: 'done', id: 'water:done', inverse: { kind: 'reopen' } }, { kind: 'chat', id: 'water:ask', label: 'Ask' }] }] } }
+  before(async () => {
+    await mkdir(join(dir, 'trust', 'cards'), { recursive: true })
+    await writeFile(join(dir, 'trust', 'board.json'), JSON.stringify({ title: 'Trust', viewers: ['alex', 'robin'], actors: ['alex'] }))
+    await writeFile(join(dir, 'trust', 'cards', 'chores.json'), JSON.stringify(card))
+    await mkdir(join(dir, 'ghost', 'cards'), { recursive: true })
+    await writeFile(join(dir, 'ghost', 'board.json'), JSON.stringify({ title: 'Ghost', viewers: ['alex'], actors: ['robin'] }))
+    await writeFile(join(dir, 'ghost', 'cards', 'chores.json'), JSON.stringify(card))
+  })
+  const press = { board: 'trust', card: 'chores', row: 0, id: 'water:done' }
+
+  it('gives an actor the board as it is', async () => {
+    const { call, state } = routes()
+    state.id = 'sub-alex'
+    const body = (await call('/api/card-board/board?id=trust')).body
+    assert.equal(body.readOnly, undefined)
+    assert.equal(body.cards[0].card.data.rows[0].actions.length, 2)
+    assert.equal((await call('/api/card-board/action', {}, press)).status, 200)
+  })
+
+  it('gives a viewer the board without its pressing buttons, marked read-only, and refuses their presses', async () => {
+    const { call, state, published } = routes()
+    state.id = 'sub-alex'
+    await call('/api/card-board/action', {}, press)
+    const mine = (await call('/api/card-board/board?id=trust')).body.cards[0].presses
+    assert.equal(mine.length, 1)
+    state.id = 'sub-robin'
+    const board = (await call('/api/card-board/board?id=trust')).body
+    assert.equal(board.readOnly, true)
+    assert.equal(board.cards[0].card.title, 'Chores')
+    assert.equal('actions' in board.cards[0].card, false)
+    assert.deepEqual(board.cards[0].card.data.rows[0].actions, [{ kind: 'chat', id: 'water:ask', label: 'Ask' }])
+    assert.equal(board.cards[0].presses, undefined)
+    const one = (await call('/api/card-board/card?board=trust&id=chores')).body
+    assert.equal(one.card.data.rows[0].actions.length, 1)
+    assert.equal((await call('/api/card-board/boards')).body.boards.some(b => b.id === 'trust'), true)
+    const before = published.length
+    assert.equal((await call('/api/card-board/action', {}, press)).status, 403)
+    assert.equal((await call('/api/card-board/action', {}, { ...press, id: 'later', row: undefined })).status, 403)
+    const pressed = published.find(event => event.data.source.board === 'trust')
+    assert.equal((await call('/api/card-board/action', {}, { undo: pressed.data.press, board: 'trust', card: 'chores' })).status, 403)
+    assert.equal(published.length, before)
+  })
+
+  it('answers a viewer and an actor differently even with the same card tag', async () => {
+    const { call, state } = routes()
+    state.id = 'sub-alex'
+    const first = await call('/api/card-board/board?id=trust')
+    state.id = 'sub-robin'
+    assert.equal((await call('/api/card-board/board?id=trust', { 'if-none-match': first.etag })).status, 200)
+  })
+
+  it('does not let an actor who is not a viewer see or act', async () => {
+    const { call, state } = routes()
+    state.id = 'sub-robin'
+    assert.equal((await call('/api/card-board/board?id=ghost')).status, 403)
+    assert.equal((await call('/api/card-board/action', {}, { ...press, board: 'ghost' })).status, 403)
+  })
+
+  it('lets everyone DSH admits act on a single-person DSH', async () => {
+    const { call } = routes({ people: {} })
+    assert.equal((await call('/api/card-board/action', {}, press)).status, 200)
   })
 })

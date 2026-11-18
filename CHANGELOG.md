@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.16.0
+
+A board can say who may act on it: `actors` in `board.json` lists the viewers who may press its buttons, and without it every viewer may, so existing boards behave as before. Someone who may see a board but isn't an actor gets it with its `done`, `snooze`, `step` and `event` buttons left out (chat and link stay, and a chat button never names someone else's session), a "View only" note beside the title (English, French and Chinese) and a 403 on any press or undo. All decided on the server. Why: `docs/decisions/board-actors.md`.
+
 ## 0.15.1
 
 A labelled `done` on a row is a choice, not a tick: it stays a button of its own, so a row can offer several answers (an ask's options). Only an unlabelled done becomes the row's checkbox; before, the first done of any kind did and the others vanished.

@@ -608,12 +608,13 @@ export function findAction(card, actionId, row) {
 /** Problems with a board.json's parsed content. */
 export function checkBoard(board) {
   const c = new Check()
-  if (!c.object(board, '', ['title'], ['viewers', 'cardViewers', 'order', 'layout', 'assistant'])) return c.problems
+  if (!c.object(board, '', ['title'], ['viewers', 'actors', 'cardViewers', 'order', 'layout', 'assistant'])) return c.problems
   c.label(board.title, 'title', { max: 80 })
   c.optional(board, 'assistant', v => c.text(v, 'assistant', { max: 40 }))
-  c.optional(board, 'viewers', viewers => {
-    if (c.array(viewers, 'viewers', { max: 100 })) viewers.forEach((v, i) => c.text(v, join('viewers', i), { max: 100 }))
-  })
+  for (const key of ['viewers', 'actors'])
+    c.optional(board, key, people => {
+      if (c.array(people, key, { max: 100 })) people.forEach((v, i) => c.text(v, join(key, i), { max: 100 }))
+    })
   c.optional(board, 'cardViewers', only => {
     if (typeof only !== 'object' || only === null || Array.isArray(only)) return c.fail('cardViewers', 'must be an object of card id to viewers')
     for (const [id, viewers] of Object.entries(only)) {

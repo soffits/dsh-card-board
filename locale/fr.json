@@ -53,6 +53,8 @@
     "arrange.unpin": "Désépingler",
     "arrange.up": "Monter",
     "arrange.down": "Descendre",
+    "readOnly": "Lecture seule",
+    "readOnly.hint": "Vous pouvez voir ce tableau, mais seules les personnes à qui il appartient peuvent en actionner les boutons",
     "arrange.reset": "Rétablir l’ordre",
     "arrange.resetHint": "Revenir à l’ordre d’origine de ce tableau",
     "arrange.raised": "En haut pour l’instant",
