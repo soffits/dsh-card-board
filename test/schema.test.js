@@ -177,6 +177,13 @@ describe('checkCard', () => {
 })
 
 describe('checkBoard', () => {
+  it('takes actors as a list of people, like viewers', () => {
+    assert.deepEqual(checkBoard({ title: 'B', viewers: ['a', 'b'], actors: ['a'] }), [])
+    assert.deepEqual(checkBoard({ title: 'B', actors: [] }), [])
+    assert.equal(checkBoard({ title: 'B', actors: 'a' }).length, 1)
+    assert.equal(checkBoard({ title: 'B', actors: [''] }).length, 1)
+  })
+
   it('takes a localized title and the assistant’s name', () => {
     assert.deepEqual(checkBoard({ title: { en: 'Home', fr: 'Maison' }, assistant: 'Robin' }), [])
     assert.deepEqual(checkBoard({ title: 'B', assistant: '' }), ['assistant: must not be empty'])

@@ -53,6 +53,8 @@
     "arrange.unpin": "取消置顶",
     "arrange.up": "上移",
     "arrange.down": "下移",
+    "readOnly": "仅查看",
+    "readOnly.hint": "你可以看这个看板，但只有它的主人能按上面的按钮",
     "arrange.reset": "恢复默认顺序",
     "arrange.resetHint": "回到这个看板自带的顺序",
     "arrange.raised": "暂时靠前",

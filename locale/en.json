@@ -53,6 +53,8 @@
     "arrange.unpin": "Unpin",
     "arrange.up": "Move up",
     "arrange.down": "Move down",
+    "readOnly": "View only",
+    "readOnly.hint": "You can see this board, but only the people it belongs to can press its buttons",
     "arrange.reset": "Reset order",
     "arrange.resetHint": "Back to the order this board comes with",
     "arrange.raised": "Up for now",
