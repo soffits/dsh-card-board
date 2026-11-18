@@ -226,7 +226,7 @@ Each bar has a single `value` or named `values`; with `values` and no `stacked`,
 }
 ```
 
-A row with a `done` action shows a checkbox, and ticking it presses that action (the row's separate done button then goes); `checked: true` shows it ticked. A row without a `done` action shows no checkbox. `progress` draws a ring above the rows, with its `label` and an optional `sub`.
+A row with a `done` action shows a checkbox, and ticking it presses that action (the row's separate done button then goes); `checked: true` shows it ticked. A row without a `done` action shows no checkbox. A `done` with a `label` is a choice rather than a tick (one answer of a question, say "White" or "Oak"): it stays a button of its own, so a row can offer several. `progress` draws a ring above the rows, with its `label` and an optional `sub`.
 
 Rows (of lists and status cards) may also have an `icon` and a `tone` (a tile before the row), a `key` (a stable id, so the page can tell which row changed) and `active: { from, to }`: during that window the row is highlighted and says "now", earlier the same day it says "from 18:00". The page decides when, so nobody has to rewrite the file at noon. A row's `date` shows relative to today ("tomorrow", "in 3 days") and moves on by itself. A row may have a `link` (an `http(s)` URL, opened in a new tab, or a `/path` of this app, opened in place): tapping the row goes there. A keyed row may have a `detail` (below): tapping it opens it. Stat items take a `link` too.
 

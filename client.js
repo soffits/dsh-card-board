@@ -1,4 +1,4 @@
-/* @soffits/dsh-card-board 0.15.0: built by scripts/build.mjs from src/client/. Do not edit. */
+/* @soffits/dsh-card-board 0.15.1: built by scripts/build.mjs from src/client/. Do not edit. */
 window.__ModuleLoader__.load({
   id: "@soffits/dsh-card-board",
   factory: (require) => {
@@ -967,7 +967,7 @@ function dropAfter(rect, x, y, single) {
 }
 
 // src/client/ticks.js
-var doneOf = (row) => row?.actions?.find((action) => action.kind === "done");
+var doneOf = (row) => row?.actions?.find((action) => action.kind === "done" && action.label === void 0);
 function keepOf(row, index) {
   const done = doneOf(row);
   return done === void 0 ? void 0 : { id: done.id, index, row: { ...row, checked: true, actions: [done] } };
@@ -1157,7 +1157,7 @@ function ListCard({ data, live, locale, t, rowActions, ask, all = false, onOpenR
     listed.length === 0 ? (0, import_react6.createElement)("p", { className: "cb-muted" }, data.empty ?? t("listEmpty")) : (0, import_react6.createElement)("ul", { className: "cb-rows" }, rows.map((row, i) => (0, import_react6.createElement)(Row, {
       key: row.key ?? i,
       index: data.rows.indexOf(row),
-      row: doneOf(row) && rowControls ? { ...row, actions: row.actions.filter((a) => a.kind !== "done") } : row,
+      row: doneOf(row) && rowControls ? { ...row, actions: row.actions.filter((a) => a !== doneOf(row)) } : row,
       rowActions: data.rows.includes(row) ? rowActions : void 0,
       ask,
       onOpenRow,

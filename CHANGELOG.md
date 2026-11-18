@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.15.1
+
+A labelled `done` on a row is a choice, not a tick: it stays a button of its own, so a row can offer several answers (an ask's options). Only an unlabelled done becomes the row's checkbox; before, the first done of any kind did and the others vanished.
+
 ## 0.15.0
 
 A shared board can keep a card for only some of its viewers: `cardViewers` in `board.json` maps a card id to the people who may see it. Everyone else gets the board without it; its route answers 404, the events stream leaves it out and its buttons refuse a press, all decided on the server.
