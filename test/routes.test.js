@@ -602,3 +602,67 @@ describe('arrangements', () => {
     assert.equal((await stat(join(folder, files[0]))).mode & 0o077, 0)
   })
 })
+
+describe('cards only some viewers see', () => {
+  const card = title => ({ type: 'list', title, updatedAt: '2026-03-02T00:00:00Z', data: { rows: [{ title: 'Water the plants', actions: [{ kind: 'done', id: 'water:done' }] }] } })
+  before(async () => {
+    await mkdir(join(dir, 'shared', 'cards'), { recursive: true })
+    await writeFile(join(dir, 'shared', 'board.json'), JSON.stringify({ title: 'Shared', viewers: ['alex', 'robin'], cardViewers: { mine: ['Alex'] } }))
+    await writeFile(join(dir, 'shared', 'cards', 'mine.json'), JSON.stringify(card('Alex’s asks')))
+    await writeFile(join(dir, 'shared', 'cards', 'ours.json'), JSON.stringify(card('Both')))
+  })
+
+  it('serves a card listed in cardViewers only to the people it names', async () => {
+    const { call, state } = routes()
+    state.id = 'sub-alex'
+    assert.deepEqual((await call('/api/card-board/board?id=shared')).body.cards.map(c => c.id), ['mine', 'ours'])
+    assert.equal((await call('/api/card-board/card?board=shared&id=mine')).status, 200)
+    state.id = 'sub-robin'
+    assert.deepEqual((await call('/api/card-board/board?id=shared')).body.cards.map(c => c.id), ['ours'])
+    assert.equal((await call('/api/card-board/card?board=shared&id=mine')).status, 404)
+    assert.equal((await call('/api/card-board/action', {}, { board: 'shared', card: 'mine', row: 0, id: 'water:done' })).status, 403)
+    assert.equal((await call('/api/card-board/action', {}, { board: 'shared', card: 'ours', row: 0, id: 'water:done' })).status, 200)
+  })
+
+  it('tells a viewer nothing about a card they may not see changing', async () => {
+    const { state } = routes()
+    state.id = 'sub-robin'
+    const list = createRoutes({
+      dataDir: dir, people: createPeople({ people: PEOPLE }), identity: () => identityFor(state), pollSeconds: 30,
+      presses: createPresses({ logPath: join(dir, '.actions-cv.jsonl'), publisher: () => undefined, timeoutSeconds: 300 }),
+      seen: createSeenStore(join(dir, '.seen-cv')), arrange: createArrangeStore(join(dir, '.arrange-cv')), watches,
+      messages: createMessages(new URL('../locale', import.meta.url).pathname), version: 'test',
+    })
+    const route = list.find(r => r.path === '/api/card-board/events')
+    const controller = new AbortController()
+    const response = await route.fetch(new Request('http://dsh.internal/api/card-board/events?board=shared', { signal: controller.signal }))
+    const reader = response.body.getReader()
+    const seen = []
+    const reading = (async () => {
+      const decoder = new TextDecoder()
+      let text = ''
+      while (true) {
+        const { value, done } = await reader.read()
+        if (done) break
+        text += decoder.decode(value)
+        for (const line of text.split('\n\n')) if (line.startsWith('data: ')) seen.push(JSON.parse(line.slice(6)))
+        text = text.endsWith('\n\n') ? '' : text.slice(text.lastIndexOf('\n\n') + 2)
+        if (seen.some(m => m.type === 'card')) break
+      }
+    })()
+    await new Promise(resolve => setTimeout(resolve, 300))
+    await writeFile(join(dir, 'shared', 'cards', 'mine.json'), JSON.stringify(card('Alex’s asks, again')))
+    await new Promise(resolve => setTimeout(resolve, 500))
+    await writeFile(join(dir, 'shared', 'cards', 'ours.json'), JSON.stringify(card('Both, again')))
+    await reading
+    controller.abort()
+    assert.deepEqual(seen.filter(m => m.type === 'card'), [{ type: 'card', id: 'ours' }])
+  })
+
+  it('checks cardViewers in board.json', async () => {
+    const { checkBoard } = await import('../src/schema.js')
+    assert.deepEqual(checkBoard({ title: 'x', cardViewers: { mine: ['alex'] } }), [])
+    assert.ok(checkBoard({ title: 'x', cardViewers: { 'Not An Id': ['alex'] } }).length > 0)
+    assert.ok(checkBoard({ title: 'x', cardViewers: { mine: 'alex' } }).length > 0)
+  })
+})

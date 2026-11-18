@@ -57,6 +57,8 @@ interface RequestIdentityService {
 }
 ```
 
+A shared board can carry cards meant for only some of its viewers: `cardViewers` in `board.json` maps a card id to the people who may see it (a person's own to-do card on a family board). Everyone else gets the board without that card: it is left out of the board, its own route answers 404 as if it weren't there, the events stream never mentions it, and its buttons can't be pressed. The board's `viewers` still decide who sees the board at all.
+
 The card board reads it with `ctx.get('requestIdentity')` at request time, so it doesn't depend on any one sign-in plugin. Deciding who a request is, including one that reaches DSH without passing the sign-in (a local port), is the provider's job; the board only maps the id it gets. With a mapping configured and no provider running, the board routes answer 503 rather than showing everything.
 
 ## Data layout
@@ -76,13 +78,14 @@ Board and card ids are lowercase letters, digits, `-` and `_`, up to 64 characte
 {
   "title": "Home",
   "viewers": ["alex", "sam"],
+  "cardViewers": { "alex-todo": ["alex"] },
   "order": ["weather", "savings", "energy"],
   "layout": { "weather": { "size": "small" }, "energy": { "size": "wide" } },
   "assistant": "Robin"
 }
 ```
 
-`order` lists cards to put first; the rest follow by id. This is the default: each person can [arrange their own view](#order-pins-and-raised-cards). `layout` sets how wide a card is: `small` (a third of a wide screen), `medium` (a half), `large` (two thirds) or `wide` (all of it). Without it a card takes its type's default: `summary` and `timeline` are wide, `countdown` large, `stat` small, the rest medium; a summary is always wide. On a tablet small and medium cards take half the width and large and wide ones all of it; on a phone every card is full width. Heights are the cards' own: the board packs them like masonry, so a long card never stretches its neighbours and short ones fill the space beside it. A list longer than six rows shows six, then "N more", which opens the rest in place (a row that is new or just changed always shows). `assistant` is optional: the name the chat buttons ask ("Ask Robin" instead of "Ask"). `title` can be [text in several languages](#languages).
+`cardViewers` is optional: a card listed there shows only to the people it names ([Who sees what](#who-sees-what)). `order` lists cards to put first; the rest follow by id. This is the default: each person can [arrange their own view](#order-pins-and-raised-cards). `layout` sets how wide a card is: `small` (a third of a wide screen), `medium` (a half), `large` (two thirds) or `wide` (all of it). Without it a card takes its type's default: `summary` and `timeline` are wide, `countdown` large, `stat` small, the rest medium; a summary is always wide. On a tablet small and medium cards take half the width and large and wide ones all of it; on a phone every card is full width. Heights are the cards' own: the board packs them like masonry, so a long card never stretches its neighbours and short ones fill the space beside it. A list longer than six rows shows six, then "N more", which opens the rest in place (a row that is new or just changed always shows). `assistant` is optional: the name the chat buttons ask ("Ask Robin" instead of "Ask"). `title` can be [text in several languages](#languages).
 
 A card:
 

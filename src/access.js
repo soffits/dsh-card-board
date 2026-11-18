@@ -84,6 +84,17 @@ export async function viewerOf(people, identityService) {
   return { mode: 'people', person: await people.personFor(identity?.id) }
 }
 
+/**
+ * Whether a viewer who may see `board` may also see its card `card`: a card listed in the board's `cardViewers`
+ * shows only to the people named there, so a shared board can carry cards about one person.
+ */
+export function maySeeCard(viewer, board, card) {
+  if (viewer.mode === 'owner') return true
+  const only = board?.cardViewers?.[card]
+  if (only === undefined) return true
+  return viewer.person !== undefined && only.some(person => personKey(person) === viewer.person)
+}
+
 /** Whether a viewer may see a board (its board.json already validated). */
 export function maySee(viewer, board) {
   if (viewer.mode === 'owner') return true
