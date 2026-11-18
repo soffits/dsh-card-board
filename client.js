@@ -1,4 +1,4 @@
-/* @soffits/dsh-card-board 0.14.1: built by scripts/build.mjs from src/client/. Do not edit. */
+/* @soffits/dsh-card-board 0.14.2: built by scripts/build.mjs from src/client/. Do not edit. */
 window.__ModuleLoader__.load({
   id: "@soffits/dsh-card-board",
   factory: (require) => {
@@ -270,8 +270,8 @@ button.cb-cardMore{border:0;background:transparent;padding:0;font:inherit;cursor
 .cb-bubble{position:absolute;top:4px;z-index:1;pointer-events:none;padding:5px 8px;border-radius:8px;background:var(--dsw-alias-bg-base);box-shadow:0 2px 10px color-mix(in srgb,var(--dsw-alias-label-primary) 14%,transparent),inset 0 0 0 .5px var(--dsw-alias-border-l2);color:var(--dsw-alias-label-primary);font-size:12px;line-height:17px;white-space:nowrap;font-variant-numeric:tabular-nums}
 .cb-bubbleHead{color:var(--dsw-alias-label-tertiary)}
 /* The opened card */
-.cb-sheetModal.cb-sheetModal{width:min(720px,calc(100vw - 32px));max-width:none}
-.cb-sheet{min-width:0}
+.cb-sheetModal.cb-sheetModal{width:min(720px,calc(100vw - 32px));max-width:none;max-height:100%}
+.cb-sheet{min-width:0;min-height:0;overflow-y:auto;overscroll-behavior:contain}
 .cb-cardInSheet{padding:0;box-shadow:none;background:transparent;border-radius:0}
 .cb-detail{display:flex;flex-direction:column;gap:14px;margin-top:4px}
 .cb-detailText{margin:0;color:var(--dsw-alias-label-secondary);font-size:14px;line-height:21px;white-space:pre-wrap}

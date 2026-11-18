@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.14.2
+
+An opened card or row that is taller than the window scrolls inside its sheet instead of running off the screen. `@deepseek-ai/schemastery` is a peer dependency, so an update never moves a private copy out from under the plugin.
+
 ## 0.14.1
 
 The page's words are read from the locale files on each request instead of once, so a page updated in place gets its new words right away instead of showing raw keys until it is reloaded.
