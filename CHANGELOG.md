@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.14.0
+
+A countdown can carry up to 24 steps (was 8), enough for a whole travel day from waking up to landing. The next step is still marked and the passed ones dimmed.
+
 ## 0.13.0
 
 A stat item can carry an `icon`: a big tinted tile beside its label and number, like a Home Assistant tile, coloured with `iconTone`, the item's `tone` or the card's. A stat block with icons lays its numbers out in an even grid, and on a phone, where two numbers share a row, each tile sits above its words so the numbers keep their width. A countdown's `data.icon` sits the same way before the big number. The tile is 48 px (44 above a chart or rows, 40–42 on a phone). Needs dsh-ui-kit 0.5.0 for `trophy`, `medal`, `weight` and the high and low thermometers.

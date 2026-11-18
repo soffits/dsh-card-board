@@ -143,7 +143,7 @@ A chip with `to` (an ISO time) gets a ticking "in 1d 19h" after its text.
 
 ### countdown
 
-A big ticking number until `to`, and the stops on the way with the next one marked. After `to` it says "now"; after `expiresAt` the card hides itself, so whoever writes it needn't remove it on time.
+A big ticking number until `to`, and the stops on the way (up to 24) with the next one marked and the passed ones dimmed. After `to` it says "now"; after `expiresAt` the card hides itself, so whoever writes it needn't remove it on time.
 
 ```json
 { "to": "2026-03-04T07:40:00+01:00", "label": "until the train leaves", "sub": "3 h 10 m, one change", "icon": "luggage",

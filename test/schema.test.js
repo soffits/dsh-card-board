@@ -101,6 +101,9 @@ describe('checkCard', () => {
     const countdown = card('countdown')
     assert.deepEqual(checkCard({ ...countdown, data: { ...countdown.data, expiresAt: '2026-03-01T00:00:00Z' } }), ['data.expiresAt: must not be before to'])
     assert.deepEqual(checkCard({ ...countdown, data: { ...countdown.data, steps: [{ at: '2026-03-04T07:15:00+01:00', label: 'x', zone: 'Mars/Olympus' }] } }), ['data.steps[0].zone: must be an IANA time zone like Europe/Paris'])
+    const stops = n => Array.from({ length: n }, (_, i) => ({ at: '2026-03-04T07:15:00+01:00', label: `stop ${i}` }))
+    assert.deepEqual(checkCard({ ...countdown, data: { ...countdown.data, steps: stops(24) } }), [])
+    assert.equal(checkCard({ ...countdown, data: { ...countdown.data, steps: stops(25) } }).length, 1)
   })
 
   it('checks bars have exactly one of value and values', () => {
