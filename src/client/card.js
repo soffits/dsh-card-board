@@ -5,7 +5,7 @@
 import { createElement as h, useLayoutEffect, useRef, useState } from 'react'
 import { IconFullscreenOutlineRegular, IconRightUpOutlineRegular, Tag } from '@deepseek-ai/dsh-client-ui-primitives'
 import { BarChart, Donut, LineChart, Timeline } from './charts.js'
-import { CountdownBody, ListCard, StatBlock, StatusCard, SummaryBody } from './cards.js'
+import { CountdownBody, ListCard, OpenedRow, StatBlock, StatusCard, SummaryBody } from './cards.js'
 import { formatAge } from './format.js'
 import { listRowLine, statusRowLine, summaryLines } from './quote.js'
 import { OWNER, useButtons, useKit } from './services.js'
@@ -148,15 +148,8 @@ export function Card({ entry, live, boardId, assistant, tracks, active, locale, 
     const index = card.data.rows?.findIndex(r => r.key === openRow) ?? -1
     const target = index >= 0 ? card.data.rows[index] : null
     if (!target) return h('p', { className: 'cb-muted' }, t('rowGone'))
-    const opened = target.detail?.actions ?? []
-    return h('div', { className: 'cb-rowSheet' },
-      h(Body, { card: { ...card, data: { ...card.data, rows: [target], progress: undefined } }, live, wash: false, locale, t, rowActions: rowActions && ((_, list, part) => rowActions(index, list, part)), all: true,
-        rowControls: { ...rowControls, kept: [], press: (_, action) => rowControls.press(index, action), state: (_, id) => rowControls.state(index, id), latest: (_, id) => rowControls.latest(index, id) } }),
-      h(DetailParts, { detail: target.detail, locale, t }),
-      // The opened row has room, so its detail's buttons say what they do.
-      rowActions && opened.length > 0 && h('footer', { className: 'cb-cardActions' },
-        opened.some(action => action.kind === 'step') && rowActions(index, opened, 'steps', false),
-        rowActions(index, opened, 'buttons', false)))
+    return h(OpenedRow, { row: target, kind: card.type, index, live, locale, t, rowActions, ask: card.ask, rowControls,
+      detail: h(DetailParts, { detail: target.detail, locale, t }) })
   }
 
   if (card.type === 'summary') {

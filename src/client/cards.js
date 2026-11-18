@@ -12,7 +12,7 @@ import { onControl, openLink } from './links.js'
 import { stepTimes } from './steps.js'
 import { LIST_ROWS, shownRows } from './layout.js'
 import { doneOf, doneState, keepTicked } from './ticks.js'
-import { rowButtons } from './ask.js'
+import { openedButtons, rowButtons } from './ask.js'
 
 const STATE_OF_TONE = { ok: 'done', warn: 'warning', bad: 'error' }
 const DIRECTION_ICON = { up: 'trending-up', down: 'trending-down' }
@@ -109,15 +109,15 @@ function Row({ lead, title, sub, meta, value, spark, row, index, washCount, fres
  * A row's done action as a checkbox: ticked when the row says so or once the press went through, and, when the card
  * offered a way back, unticking it takes the press back. A kept row is no longer on the card, so only a way back works.
  */
-function DoneBox({ row, index, done, rowControls, t }) {
+function DoneBox({ row, index, done, rowControls, t, labelled = false }) {
   const { checked, undo } = doneState(row, rowControls.latest(index, done.id))
   const label = t(checked ? (undo ? 'markNotDone' : 'checked') : 'markDone')
-  return h('span', { className: 'cb-doneBox', onClick: event => event.stopPropagation() },
+  return h('span', { className: `cb-doneBox${labelled ? ' cb-doneBoxLabelled' : ''}`, onClick: event => event.stopPropagation() },
     h(Checkbox, {
       checked,
       disabled: checked ? undo === undefined : index < 0,
       title: label,
-      label: h('span', { className: 'cb-visuallyHidden' }, label),
+      label: h('span', { className: labelled ? undefined : 'cb-visuallyHidden' }, label),
       onChange: value => { if (value) rowControls.press(index, done); else if (undo) rowControls.undo(undo) },
     }))
 }
@@ -157,6 +157,36 @@ export function ListCard({ data, live, locale, t, rowActions, ask, all = false, 
       }))),
     !all && (hidden > 0 || open) && listed.length > LIST_ROWS + 1 && h(Button, { variant: 'ghost', size: 'sm', className: 'cb-more', onClick: () => setOpen(value => !value) },
       open ? t('showFewer') : t('showMore', { n: hidden })))
+}
+
+/**
+ * One list or status row opened in the sheet, laid out for reading instead of scanning: the sheet's heading is its title,
+ * so here come its facts on one wrapping line (tile, chip or state, sub, day, value), then its detail, then every button
+ * with its label on a wrapping row. Nothing sits beside the words, so no width squeezes them.
+ */
+export function OpenedRow({ row, kind, index, live, locale, t, rowActions, ask, rowControls, detail }) {
+  const kit = useKit()
+  const wash = kit.useWash(live.rows?.[row.key] ?? 0, row.key)
+  const status = kind === 'status'
+  const done = doneOf(row)
+  const buttons = rowActions ? openedButtons(row, ask) : []
+  const facts = [
+    row.icon && h(kit.Tile, { key: 'tile', icon: row.icon, tone: row.tone ?? 'muted', size: 24 }),
+    status && !row.icon && h(StateDot, { key: 'dot', state: STATE_OF_TONE[row.tone] ?? 'idle' }),
+    !status && row.chip && h(Tag, { key: 'chip', tone: kit.tagTone(row.chip.tone ?? 'muted') }, row.chip.text),
+    status && h('span', { key: 'value', className: 'cb-statusValue', style: row.tone === 'bad' || row.tone === 'warn' ? { color: kit.toneColor(row.tone) } : undefined }, formatNumber(row.value, locale)),
+    status && row.spark && h('span', { key: 'spark', className: 'cb-statusSpark' }, h(kit.Spark, { values: row.spark, tone: row.tone === 'ok' ? 'ok' : row.tone, height: 22 })),
+    row.sub && h('span', { key: 'sub', className: 'cb-rowSub' }, row.sub),
+    !status && h(RowWhen, { key: 'when', row, locale, t }),
+  ].filter(Boolean)
+  return h('div', { className: ['cb-openRow', wash].filter(Boolean).join(' ') },
+    facts.length > 0 && h('div', { className: 'cb-openFacts' }, facts),
+    detail,
+    (buttons.length > 0 || (done && rowControls)) && h('footer', { className: 'cb-openActions' },
+      buttons.some(action => action.kind === 'step') && rowActions(index, buttons, 'steps', false),
+      h('div', { className: 'cb-openButtons' },
+        done && rowControls && h(DoneBox, { row, index, done, rowControls, t, labelled: true }),
+        buttons.some(action => action.kind !== 'step') && rowActions(index, buttons, 'buttons', false))))
 }
 
 export function StatusCard({ data, live, locale, rowActions, ask, onOpenRow }) {

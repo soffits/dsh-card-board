@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import { checkCard } from '../src/schema.js'
-import { rowButtons } from '../src/client/ask.js'
+import { openedButtons, rowButtons } from '../src/client/ask.js'
 
 const done = { kind: 'done', id: 'a:done' }
 const ids = list => list.map(action => action.id)
@@ -45,5 +45,26 @@ describe('the Ask button every row has', () => {
     assert.deepEqual(checkCard({ type: 'status', title: 'T', updatedAt: at, data: { rows: [{ label: 'a', value: 1, tone: 'ok', ask: false }] } }), [])
     assert.notDeepEqual(checkCard({ type: 'list', title: 'T', updatedAt: at, data: { rows: [{ title: 'a', ask: 'no' }] } }), [])
     assert.notDeepEqual(checkCard({ type: 'list', title: 'T', updatedAt: at, ask: 1, data: { rows: [{ title: 'a' }] } }), [])
+  })
+})
+
+describe('the buttons of an opened row', () => {
+  const snooze = { kind: 'snooze', id: 'a:snooze' }
+  const answer = { kind: 'chat', id: 'a:answer', label: 'Answer' }
+  const yes = { kind: 'done', id: 'a:yes', label: 'Yes' }
+
+  it('lead with the detail’s, then the row’s own, then the Ask', () => {
+    const row = { title: 'a', actions: [snooze], detail: { text: 'why', actions: [answer, yes] } }
+    assert.deepEqual(ids(openedButtons(row)), ['a:answer', 'a:yes', 'a:snooze', '_ask'])
+  })
+
+  it('leave the tick to the opened row’s box, but keep a labelled done as a choice', () => {
+    assert.deepEqual(ids(openedButtons({ title: 'a', actions: [done, snooze] })), ['a:snooze', '_ask'])
+    assert.deepEqual(ids(openedButtons({ title: 'a', actions: [yes] })), ['a:yes', '_ask'])
+  })
+
+  it('follow the row’s and the card’s Ask opt-out', () => {
+    assert.deepEqual(ids(openedButtons({ title: 'a', ask: false, detail: { actions: [answer] } })), ['a:answer'])
+    assert.deepEqual(ids(openedButtons({ title: 'a', actions: [snooze] }, false)), ['a:snooze'])
   })
 })

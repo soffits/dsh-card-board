@@ -1,4 +1,4 @@
-/* @soffits/dsh-card-board 0.17.2: built by scripts/build.mjs from src/client/. Do not edit. */
+/* @soffits/dsh-card-board 0.17.3: built by scripts/build.mjs from src/client/. Do not edit. */
 window.__ModuleLoader__.load({
   id: "@soffits/dsh-card-board",
   factory: (require) => {
@@ -131,7 +131,7 @@ h3.cb-truncOpen{overflow:visible}
 .cb-rows .cb-row:first-child{border-top:0}
 .cb-row+.cb-row{border-top-left-radius:0;border-top-right-radius:0}
 .cb-rowNow{background:color-mix(in srgb,var(--dsw-alias-state-business-primary) 6%,transparent)}
-.cb-rowText{flex:1;min-width:0}
+.cb-rowText{flex:1 1 10em;min-width:0}
 .cb-rowTitle{display:flex;align-items:center;gap:6px;min-width:0;font-size:14px;line-height:20px}
 .cb-rowSub{color:var(--dsw-alias-label-tertiary);font-size:12px;line-height:18px}
 .cb-done .cb-rowTitle{color:var(--dsw-alias-label-tertiary);text-decoration:line-through}
@@ -182,7 +182,7 @@ h3.cb-truncOpen{overflow:visible}
 
 /* narrow cards: meta and buttons move under the words */
 @container (width<360px){
-.cb-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;column-gap:10px}
+.cb-row{display:grid;grid-template-columns:auto minmax(0,1fr) fit-content(50%);align-items:center;column-gap:10px}
 .cb-row>.cb-rowText{grid-column:2}
 .cb-row>.cb-rowMeta,.cb-row>.cb-statusSpark{grid-column:2/-1;max-width:none;justify-content:flex-start}
 .cb-row>.cb-rowActions{grid-column:3;grid-row:1}
@@ -281,7 +281,14 @@ button.cb-cardMore{border:0;background:transparent;padding:0;font:inherit;cursor
 .cb-facts dd{margin:0;color:var(--dsw-alias-label-primary);overflow-wrap:anywhere}
 .cb-detailHistory h4{margin:0 0 6px;font-size:12px;font-weight:500;color:var(--dsw-alias-label-tertiary);-webkit-user-select:none;user-select:none}
 .cb-sheetChat{display:flex;justify-content:flex-end}
-.cb-rowSheet{display:flex;flex-direction:column;gap:12px}
+.cb-openRow{display:flex;flex-direction:column;gap:14px;min-width:0}
+.cb-openFacts{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;min-width:0;font-size:13px;line-height:20px}
+.cb-openFacts>*{min-width:0;max-width:100%}
+.cb-openFacts .cb-rowSub{font-size:13px;line-height:20px;overflow-wrap:anywhere}
+.cb-openRow .cb-detail{margin-top:0}
+.cb-openActions{display:flex;flex-direction:column;gap:8px;min-width:0}
+.cb-openButtons{display:flex;flex-wrap:wrap;align-items:center;gap:6px;min-width:0}
+.cb-doneBoxLabelled{justify-content:flex-start;padding:0 10px 0 6px;border-radius:8px;box-shadow:inset 0 0 0 .5px var(--dsw-alias-border-l3);font-size:12px;line-height:18px;color:var(--dsw-alias-label-secondary)}
 /* the opened view shows every word: nothing is cut to a line or two */
 .cb-sheet .cb-trunc{white-space:normal;display:block;-webkit-line-clamp:unset;overflow:visible;text-overflow:clip}
 @media (width<=640px){.cb-sheetModal.cb-sheetModal{width:calc(100vw - 16px)}}
@@ -289,6 +296,8 @@ button.cb-cardMore{border:0;background:transparent;padding:0;font:inherit;cursor
 .cb-cardLink{width:40px;height:40px;margin:-9px 0}
 .cb-doneBox{min-width:40px;min-height:40px;margin:-6px -6px -6px -10px}
 .cb-doneBox label{display:inline-flex;align-items:center;justify-content:center;min-width:40px;min-height:40px}
+.cb-doneBoxLabelled{margin:0}
+.cb-doneBoxLabelled label{justify-content:flex-start;gap:6px}
 .cb-cardChat{margin:-9px -10px -9px 0}
 .cb-reset{min-height:40px}
 }
@@ -997,6 +1006,10 @@ function rowButtons(row, cardAsk) {
   if (own.some((action) => action.kind === "chat") || own.length >= MAX_ACTIONS) return own;
   return [...own, { kind: "chat", id: "_ask" }];
 }
+function openedButtons(row, cardAsk) {
+  const done = doneOf(row);
+  return [...row.detail?.actions ?? [], ...rowButtons(row, cardAsk).filter((action) => action !== done)];
+}
 
 // src/client/cards.js
 var STATE_OF_TONE = { ok: "done", warn: "warning", bad: "error" };
@@ -1107,17 +1120,17 @@ function Row({ lead, title, sub, meta, value, spark, row, index, washCount, fres
     )
   );
 }
-function DoneBox({ row, index, done, rowControls, t }) {
+function DoneBox({ row, index, done, rowControls, t, labelled = false }) {
   const { checked, undo } = doneState(row, rowControls.latest(index, done.id));
   const label = t(checked ? undo ? "markNotDone" : "checked" : "markDone");
   return (0, import_react6.createElement)(
     "span",
-    { className: "cb-doneBox", onClick: (event) => event.stopPropagation() },
+    { className: `cb-doneBox${labelled ? " cb-doneBoxLabelled" : ""}`, onClick: (event) => event.stopPropagation() },
     (0, import_react6.createElement)(import_dsh_client_ui_primitives.Checkbox, {
       checked,
       disabled: checked ? undo === void 0 : index < 0,
       title: label,
-      label: (0, import_react6.createElement)("span", { className: "cb-visuallyHidden" }, label),
+      label: (0, import_react6.createElement)("span", { className: labelled ? void 0 : "cb-visuallyHidden" }, label),
       onChange: (value) => {
         if (value) rowControls.press(index, done);
         else if (undo) rowControls.undo(undo);
@@ -1182,6 +1195,39 @@ function ListCard({ data, live, locale, t, rowActions, ask, all = false, onOpenR
       import_dsh_client_ui_primitives.Button,
       { variant: "ghost", size: "sm", className: "cb-more", onClick: () => setOpen((value) => !value) },
       open ? t("showFewer") : t("showMore", { n: hidden })
+    )
+  );
+}
+function OpenedRow({ row, kind, index, live, locale, t, rowActions, ask, rowControls, detail }) {
+  const kit = useKit();
+  const wash = kit.useWash(live.rows?.[row.key] ?? 0, row.key);
+  const status = kind === "status";
+  const done = doneOf(row);
+  const buttons = rowActions ? openedButtons(row, ask) : [];
+  const facts = [
+    row.icon && (0, import_react6.createElement)(kit.Tile, { key: "tile", icon: row.icon, tone: row.tone ?? "muted", size: 24 }),
+    status && !row.icon && (0, import_react6.createElement)(import_dsh_client_ui_primitives.StateDot, { key: "dot", state: STATE_OF_TONE[row.tone] ?? "idle" }),
+    !status && row.chip && (0, import_react6.createElement)(import_dsh_client_ui_primitives.Tag, { key: "chip", tone: kit.tagTone(row.chip.tone ?? "muted") }, row.chip.text),
+    status && (0, import_react6.createElement)("span", { key: "value", className: "cb-statusValue", style: row.tone === "bad" || row.tone === "warn" ? { color: kit.toneColor(row.tone) } : void 0 }, formatNumber(row.value, locale)),
+    status && row.spark && (0, import_react6.createElement)("span", { key: "spark", className: "cb-statusSpark" }, (0, import_react6.createElement)(kit.Spark, { values: row.spark, tone: row.tone === "ok" ? "ok" : row.tone, height: 22 })),
+    row.sub && (0, import_react6.createElement)("span", { key: "sub", className: "cb-rowSub" }, row.sub),
+    !status && (0, import_react6.createElement)(RowWhen, { key: "when", row, locale, t })
+  ].filter(Boolean);
+  return (0, import_react6.createElement)(
+    "div",
+    { className: ["cb-openRow", wash].filter(Boolean).join(" ") },
+    facts.length > 0 && (0, import_react6.createElement)("div", { className: "cb-openFacts" }, facts),
+    detail,
+    (buttons.length > 0 || done && rowControls) && (0, import_react6.createElement)(
+      "footer",
+      { className: "cb-openActions" },
+      buttons.some((action) => action.kind === "step") && rowActions(index, buttons, "steps", false),
+      (0, import_react6.createElement)(
+        "div",
+        { className: "cb-openButtons" },
+        done && rowControls && (0, import_react6.createElement)(DoneBox, { row, index, done, rowControls, t, labelled: true }),
+        buttons.some((action) => action.kind !== "step") && rowActions(index, buttons, "buttons", false)
+      )
     )
   );
 }
@@ -1561,29 +1607,18 @@ function Card({ entry, live, boardId, assistant, tracks, active, locale, t, pres
     const index = card.data.rows?.findIndex((r) => r.key === openRow) ?? -1;
     const target = index >= 0 ? card.data.rows[index] : null;
     if (!target) return (0, import_react10.createElement)("p", { className: "cb-muted" }, t("rowGone"));
-    const opened2 = target.detail?.actions ?? [];
-    return (0, import_react10.createElement)(
-      "div",
-      { className: "cb-rowSheet" },
-      (0, import_react10.createElement)(Body, {
-        card: { ...card, data: { ...card.data, rows: [target], progress: void 0 } },
-        live,
-        wash: false,
-        locale,
-        t,
-        rowActions: rowActions && ((_, list, part2) => rowActions(index, list, part2)),
-        all: true,
-        rowControls: { ...rowControls, kept: [], press: (_, action) => rowControls.press(index, action), state: (_, id) => rowControls.state(index, id), latest: (_, id) => rowControls.latest(index, id) }
-      }),
-      (0, import_react10.createElement)(DetailParts, { detail: target.detail, locale, t }),
-      // The opened row has room, so its detail's buttons say what they do.
-      rowActions && opened2.length > 0 && (0, import_react10.createElement)(
-        "footer",
-        { className: "cb-cardActions" },
-        opened2.some((action) => action.kind === "step") && rowActions(index, opened2, "steps", false),
-        rowActions(index, opened2, "buttons", false)
-      )
-    );
+    return (0, import_react10.createElement)(OpenedRow, {
+      row: target,
+      kind: card.type,
+      index,
+      live,
+      locale,
+      t,
+      rowActions,
+      ask: card.ask,
+      rowControls,
+      detail: (0, import_react10.createElement)(DetailParts, { detail: target.detail, locale, t })
+    });
   }
   if (card.type === "summary") {
     return (0, import_react10.createElement)(
