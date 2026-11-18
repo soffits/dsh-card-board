@@ -34,4 +34,4 @@
 
 - Conventional Commits, one-line subjects. Squash merges. PR titles are Conventional Commit subjects.
 - Versions follow semver from the commit types since the last tag (below 1.0: feat or breaking → minor, fix → patch); `.github/scripts/release-bump-check.py` checks a tag.
-- Releases: bump `package.json` and `CHANGELOG.md`, merge, tag `vX.Y.Z`, `npm publish --access public`, then a GitHub release with the changelog section.
+- Releases: bump `package.json` and `CHANGELOG.md`, merge, then push the tag `vX.Y.Z`. `.github/workflows/publish.yml` publishes to npm by trusted publishing (OIDC, with provenance, no stored token; the package's trusted publisher on npmjs.com names this repo and `publish.yml`, so renaming either breaks it) and creates the GitHub release from the changelog section. Don't publish by hand.
