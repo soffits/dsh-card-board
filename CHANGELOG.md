@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.16.1
+
+Someone who may see a board but isn't an actor no longer gets its declared chat buttons. Those are the board owner's buttons, often a prompt in the owner's own words ("My answer to …:"), so a view-only viewer could still speak for the owner through a conversation. Now only plain `link` buttons survive the filter, plus the page's own "Chat about this" and "Ask", which ask about what the viewer sees in their own new conversation. A row whose chat button is taken away gets the built-in "Ask" back.
+
 ## 0.16.0
 
 A board can say who may act on it: `actors` in `board.json` lists the viewers who may press its buttons, and without it every viewer may, so existing boards behave as before. Someone who may see a board but isn't an actor gets it with its `done`, `snooze`, `step` and `event` buttons left out (chat and link stay, and a chat button never names someone else's session), a "View only" note beside the title (English, French and Chinese) and a 403 on any press or undo. All decided on the server. Why: `docs/decisions/board-actors.md`.

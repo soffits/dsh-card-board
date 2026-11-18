@@ -17,7 +17,7 @@
  * in it is new since the viewer last looked, `fresh: { card: true, rows: [keys] }`.
  */
 import { join } from 'node:path'
-import { mayAct, maySee, maySeeCard, viewerOf, withoutPresses } from './access.js'
+import { mayAct, maySee, maySeeCard, viewerOf, withoutActions } from './access.js'
 import { parseArrangement } from './arrange.js'
 import { LANGUAGE_ID } from './messages.js'
 import { ID_PATTERN, PRESS_KINDS, findAction } from './schema.js'
@@ -77,7 +77,7 @@ export function createRoutes({ dataDir, people, identity, pollSeconds, presses, 
 
   /** A card entry with its versions, its press states and what is new in it for this viewer. */
   function decorate(card, states, seenBoard, canAct) {
-    if (!canAct && card.card !== undefined) card = { ...card, card: withoutPresses(card.card) }
+    if (!canAct && card.card !== undefined) card = { ...card, card: withoutActions(card.card) }
     let entry = states[card.id] ? { ...card, presses: states[card.id] } : card
     if (card.card === undefined) return entry
     const versions = cardVersions(card.card)

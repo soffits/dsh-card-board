@@ -5,8 +5,8 @@
  * plugin that verifies the person behind an `/api` request can provide it
  * (`current()` returns `{ id, ... }` or null). The verified user id maps to a
  * person id through the configured mapping, and a board lists the person ids
- * that may see it in `viewers`. A board can also say who may act on it (press its done, snooze, step and event
- * buttons) in `actors`; without `actors` the viewers may, so a board that never heard of the field behaves as before.
+ * that may see it in `viewers`. A board can also say who may act on it (use the buttons it declares) in `actors`;
+ * without `actors` the viewers may, so a board that never heard of the field behaves as before.
  * Acting needs seeing: a name in `actors` that isn't in `viewers` gets nothing extra.
  *
  * Two modes:
@@ -17,7 +17,6 @@
  *   which is what a single-person DSH wants.
  */
 import { readFile, stat } from 'node:fs/promises'
-import { PRESS_KINDS } from './schema.js'
 
 /** Person ids compare without regard to case or surrounding space. */
 export function personKey(value) {
@@ -113,20 +112,16 @@ export function mayAct(viewer, board) {
 }
 
 /**
- * A card as someone who may see but not act gets it: the buttons that press something on the server (done, snooze,
- * step, event) are left out, so nothing on it can change another person's item. Chat and link buttons stay; a chat
- * button names no session, so its draft opens in the viewer's own conversation and never in one the card's owner has.
+ * A card as someone who may see but not act gets it: every button it declares is left out except plain links. Buttons
+ * belong to the people who may act on the board, and a declared chat button is one of them (it asks in the owner's
+ * words, for the owner), only routed through a conversation. The page's own "Chat about this" and "Ask" are not on
+ * the card, so they stay: they ask about what the viewer sees, in the viewer's own new conversation.
  */
-export function withoutPresses(card) {
-  const own = action => {
-    if (action.kind !== 'chat' || action.payload?.session === undefined) return action
-    const { session: _theirs, ...payload } = action.payload
-    return { ...action, payload }
-  }
-  /** `holder` without its `actions` key, then with the ones that stay if any. */
+export function withoutActions(card) {
+  /** `holder` without its `actions` key, then with the links if any. */
   const trimmed = holder => {
     const { actions, ...rest } = holder
-    const kept = (actions ?? []).filter(action => !PRESS_KINDS.includes(action.kind)).map(own)
+    const kept = (actions ?? []).filter(action => action.kind === 'link')
     return kept.length > 0 ? { ...rest, actions: kept } : rest
   }
   const rows = card.data?.rows
