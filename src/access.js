@@ -122,6 +122,7 @@ export function withoutActions(card) {
   const trimmed = holder => {
     const { actions, ...rest } = holder
     const kept = (actions ?? []).filter(action => action.kind === 'link')
+    if (Array.isArray(rest.detail?.actions)) rest.detail = trimmed(rest.detail)
     return kept.length > 0 ? { ...rest, actions: kept } : rest
   }
   const rows = card.data?.rows

@@ -99,7 +99,10 @@ describe('access', () => {
       { title: 'one', actions: [{ kind: 'step', id: 's', label: 'Go' }, { kind: 'event', id: 'e', label: 'Lock' }] },
       { title: 'two', actions: [{ kind: 'done', id: 'd' }, { kind: 'chat', id: 'c', payload: { prompt: 'Hi', session: 'owners-session' } }, { kind: 'link', id: 'l', payload: { url: 'https://example.com' } }] },
     ] } }
+    when.data.rows[0].key = 'one'
+    when.data.rows[0].detail = { text: 'More', actions: [{ kind: 'done', id: 'x', label: 'Pick' }, { kind: 'link', id: 'y', payload: { url: 'https://example.com/y' } }] }
     const result = withoutActions(when)
+    assert.deepEqual(result.data.rows[0].detail, { text: 'More', actions: [{ kind: 'link', id: 'y', payload: { url: 'https://example.com/y' } }] }, 'an opened row offers no buttons either')
     assert.equal('actions' in result, false)
     assert.equal('actions' in result.data.rows[0], false)
     assert.deepEqual(result.data.rows[1].actions, [{ kind: 'link', id: 'l', payload: { url: 'https://example.com' } }])
@@ -356,6 +359,15 @@ describe('actions', () => {
       source: { plugin: 'dsh-card-board', board: 'home', card: 'chores', row: 1 },
     })
     assert.equal((await presses.list()).length, 1)
+  })
+
+  it('records a press of a button the row shows only when opened', async () => {
+    const { call, state, published } = routes()
+    state.id = 'sub-alex'
+    const result = await call(...press({ board: 'home', card: 'chores', row: 1, id: 'library-books:returned-elm' }))
+    assert.equal(result.status, 200)
+    assert.deepEqual([published[0].channel, published[0].data.payload], ['ui.action.done', { branch: 'elm' }])
+    assert.equal((await call(...press({ board: 'home', card: 'chores', row: 2, id: 'library-books:returned-elm' }))).status, 409)
   })
 
   it('records a step press: the person\'s go-ahead for what its label says', async () => {

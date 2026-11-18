@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.17.0
+
+A `detail` can carry `actions`: buttons shown only when its card or row is opened, below the detail, and pressed like any other (the server finds them by id on that card or row). They let a row stay short on the board, a chip and a snooze, while its answers sit under the note that asks the question. View-only viewers get none of them, as with the row's own buttons. Why: `docs/decisions/detail-actions.md`.
+
 ## 0.16.1
 
 Someone who may see a board but isn't an actor no longer gets its declared chat buttons. Those are the board owner's buttons, often a prompt in the owner's own words ("My answer to …:"), so a view-only viewer could still speak for the owner through a conversation. Now only plain `link` buttons survive the filter, plus the page's own "Chat about this" and "Ask", which ask about what the viewer sees in their own new conversation. A row whose chat button is taken away gets the built-in "Ask" back.

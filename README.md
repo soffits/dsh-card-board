@@ -285,11 +285,12 @@ Tapping a card (anywhere that isn't one of its buttons, links or rows that open 
   "text": "Three books, due at the branch on Elm Street.",
   "facts": [{ "label": "Renewals left", "value": 1 }, { "label": "Fine per day", "value": "0.25 EUR" }],
   "chart": { "type": "bar", "data": { "bars": [{ "x": "2026-02", "value": 4 }, { "x": "2026-03", "value": 3 }] } },
-  "history": [{ "at": "2026-02-20T15:10:00+01:00", "text": "Borrowed" }]
+  "history": [{ "at": "2026-02-20T15:10:00+01:00", "text": "Borrowed" }],
+  "actions": [{ "kind": "done", "id": "library-books:returned-elm", "label": "Returned at Elm Street" }]
 }
 ```
 
-Every part is optional: `text`, `facts` (label and value, up to 24), `chart` (a `line` or `bar` card's `data`) and `history` (newest first, up to 100). A row needs a `key` to carry a `detail`.
+Every part is optional: `text`, `facts` (label and value, up to 24), `chart` (a `line` or `bar` card's `data`), `history` (newest first, up to 100) and `actions`, buttons shown only in the opened view, below the detail ([Actions](#actions); their ids must differ from the card's or row's own buttons, since a press names its button by id). Buttons that only make sense with the detail in view go there, so the row on the board stays short: a question's answers under the note that asks it, with only a chip and a snooze on the row. A row needs a `key` to carry a `detail`.
 
 On a chart, hovering or tapping shows the value and date of the point under the pointer. Cards and rows answer a hover and a press; a row's buttons show on hover with a mouse and are always there on touch. A card that changes settles into place, numbers ease to their new value and rows that a list opens fade in; nothing moves with reduced motion. Buttons, tags, axes and other chrome aren't selectable; titles, notes and numbers are.
 

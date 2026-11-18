@@ -72,8 +72,8 @@ function Body({ card, live, wash, locale, t, rowActions, all, onOpenRow, rowCont
  * the card a drag would land before or after.
  *
  * `onOpen(rowKey?)` opens the card (or one of its rows) in the sheet; `sheet` draws the card inside it: no head (the
- * sheet has the title), the whole list, a taller chart and the card's `detail`; with `row`, just that row and its
- * detail and buttons.
+ * sheet has the title), the whole list, a taller chart and the card's `detail` with the buttons only it shows; with
+ * `row`, just that row and its detail and buttons.
  */
 export function Card({ entry, live, boardId, assistant, tracks, active, locale, t, press, undo, kept, onOpen, sheet = false, row: openRow, arrange, raised = false, dragging = null, drop }) {
   const kit = useKit()
@@ -131,6 +131,13 @@ export function Card({ entry, live, boardId, assistant, tracks, active, locale, 
   const footer = actions && others.length > 0 && h('footer', { className: 'cb-cardActions' }, h(actions.ActionBar, {
     actions: named(others), part: 'buttons', states: statesOf(entry.presses, undefined), about: about(), onPress: onPress({}),
   }))
+  // Buttons the card's detail keeps for when it is open: with the whole card in view.
+  const opened = sheet && actions && card.detail?.actions?.length > 0 && [
+    card.detail.actions.some(action => action.kind === 'step') && h(kit.Suggested, { key: 'steps', actions: card.detail.actions, about: about(), states: statesOf(entry.presses, undefined), onPress: onPress({}) }),
+    h('footer', { key: 'buttons', className: 'cb-cardActions' }, h(actions.ActionBar, {
+      actions: named(card.detail.actions.filter(action => action.kind !== 'step')), part: 'buttons', states: statesOf(entry.presses, undefined), about: about(), onPress: onPress({}),
+    })),
+  ]
   const openable = !sheet && onOpen && card.type !== 'summary'
   const className = ['cb-card', `cb-card-${card.type}`, stale && 'cb-cardStale', openable && 'cb-cardOpenable', sheet && 'cb-cardInSheet', raised && 'cb-cardRaised', dragging && 'cb-cardDragging', wash].filter(Boolean).join(' ')
   // Tapping the card's own surface (not one of its buttons, links or rows that open themselves) opens it.
@@ -141,10 +148,14 @@ export function Card({ entry, live, boardId, assistant, tracks, active, locale, 
     const index = card.data.rows?.findIndex(r => r.key === openRow) ?? -1
     const target = index >= 0 ? card.data.rows[index] : null
     if (!target) return h('p', { className: 'cb-muted' }, t('rowGone'))
+    const opened = target.detail?.actions ?? []
     return h('div', { className: 'cb-rowSheet' },
       h(Body, { card: { ...card, data: { ...card.data, rows: [target], progress: undefined } }, live, wash: false, locale, t, rowActions: rowActions && ((_, list, part) => rowActions(index, list, part)), all: true,
         rowControls: { ...rowControls, kept: [], press: (_, action) => rowControls.press(index, action), state: (_, id) => rowControls.state(index, id), latest: (_, id) => rowControls.latest(index, id) } }),
-      h(DetailParts, { detail: target.detail, locale, t }))
+      h(DetailParts, { detail: target.detail, locale, t }),
+      rowActions && opened.length > 0 && h('footer', { className: 'cb-cardActions' },
+        opened.some(action => action.kind === 'step') && rowActions(index, opened, 'steps'),
+        rowActions(index, opened, 'buttons')))
   }
 
   if (card.type === 'summary') {
@@ -172,6 +183,7 @@ export function Card({ entry, live, boardId, assistant, tracks, active, locale, 
       ? h('div', { className: 'cb-split' }, statBlock, h('div', { className: 'cb-cardBody' }, body))
       : [statBlock && h('div', { key: 'stat' }, statBlock), h('div', { key: 'body', className: 'cb-cardBody' }, body)],
     sheet && h(DetailParts, { detail: card.detail, locale, t }),
+    opened,
     steps,
     footer,
     sheet && chat && h('div', { className: 'cb-sheetChat' }, chat))

@@ -1,4 +1,4 @@
-/* @soffits/dsh-card-board 0.16.1: built by scripts/build.mjs from src/client/. Do not edit. */
+/* @soffits/dsh-card-board 0.17.0: built by scripts/build.mjs from src/client/. Do not edit. */
 window.__ModuleLoader__.load({
   id: "@soffits/dsh-card-board",
   factory: (require) => {
@@ -1540,6 +1540,16 @@ function Card({ entry, live, boardId, assistant, tracks, active, locale, t, pres
     about: about(),
     onPress: onPress({})
   }));
+  const opened = sheet && actions && card.detail?.actions?.length > 0 && [
+    card.detail.actions.some((action) => action.kind === "step") && (0, import_react10.createElement)(kit.Suggested, { key: "steps", actions: card.detail.actions, about: about(), states: statesOf(entry.presses, void 0), onPress: onPress({}) }),
+    (0, import_react10.createElement)("footer", { key: "buttons", className: "cb-cardActions" }, (0, import_react10.createElement)(actions.ActionBar, {
+      actions: named(card.detail.actions.filter((action) => action.kind !== "step")),
+      part: "buttons",
+      states: statesOf(entry.presses, void 0),
+      about: about(),
+      onPress: onPress({})
+    }))
+  ];
   const openable = !sheet && onOpen && card.type !== "summary";
   const className = ["cb-card", `cb-card-${card.type}`, stale && "cb-cardStale", openable && "cb-cardOpenable", sheet && "cb-cardInSheet", raised && "cb-cardRaised", dragging && "cb-cardDragging", wash].filter(Boolean).join(" ");
   const openOnTap = openable ? { onClick: (event) => {
@@ -1550,6 +1560,7 @@ function Card({ entry, live, boardId, assistant, tracks, active, locale, t, pres
     const index = card.data.rows?.findIndex((r) => r.key === openRow) ?? -1;
     const target = index >= 0 ? card.data.rows[index] : null;
     if (!target) return (0, import_react10.createElement)("p", { className: "cb-muted" }, t("rowGone"));
+    const opened2 = target.detail?.actions ?? [];
     return (0, import_react10.createElement)(
       "div",
       { className: "cb-rowSheet" },
@@ -1563,7 +1574,13 @@ function Card({ entry, live, boardId, assistant, tracks, active, locale, t, pres
         all: true,
         rowControls: { ...rowControls, kept: [], press: (_, action) => rowControls.press(index, action), state: (_, id) => rowControls.state(index, id), latest: (_, id) => rowControls.latest(index, id) }
       }),
-      (0, import_react10.createElement)(DetailParts, { detail: target.detail, locale, t })
+      (0, import_react10.createElement)(DetailParts, { detail: target.detail, locale, t }),
+      rowActions && opened2.length > 0 && (0, import_react10.createElement)(
+        "footer",
+        { className: "cb-cardActions" },
+        opened2.some((action) => action.kind === "step") && rowActions(index, opened2, "steps"),
+        rowActions(index, opened2, "buttons")
+      )
     );
   }
   if (card.type === "summary") {
@@ -1601,6 +1618,7 @@ function Card({ entry, live, boardId, assistant, tracks, active, locale, t, pres
     ),
     statBlock && ["line", "bar", "donut"].includes(card.type) ? (0, import_react10.createElement)("div", { className: "cb-split" }, statBlock, (0, import_react10.createElement)("div", { className: "cb-cardBody" }, body)) : [statBlock && (0, import_react10.createElement)("div", { key: "stat" }, statBlock), (0, import_react10.createElement)("div", { key: "body", className: "cb-cardBody" }, body)],
     sheet && (0, import_react10.createElement)(DetailParts, { detail: card.detail, locale, t }),
+    opened,
     steps,
     footer,
     sheet && chat && (0, import_react10.createElement)("div", { className: "cb-sheetChat" }, chat)

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, it } from 'node:test'
-import { checkBoard, checkCard, isSafeLink } from '../src/schema.js'
+import { checkBoard, checkCard, findAction, isSafeLink } from '../src/schema.js'
 
 const EXAMPLES = new URL('../examples/boards/home/', import.meta.url).pathname
 const card = name => JSON.parse(readFileSync(join(EXAMPLES, 'cards', `${name}.json`), 'utf8'))
@@ -18,6 +18,20 @@ describe('checkCard', () => {
       types.add(value.type)
     }
     assert.deepEqual([...types].sort(), ['bar', 'countdown', 'donut', 'line', 'list', 'stat', 'status', 'summary', 'timeline'])
+  })
+
+  it('takes buttons in a detail, shown only when it is opened, with ids of their own', () => {
+    const row = (detail, actions = [{ kind: 'snooze', id: 's' }]) => ({ ...base, type: 'list', data: { rows: [{ title: 'x', key: 'x', actions, detail }] } })
+    const answers = [{ kind: 'done', id: 'a1', label: 'White' }, { kind: 'chat', id: 'c', label: 'Answer', payload: { session: 'session-1' } }]
+    assert.deepEqual(checkCard(row({ text: 'Which one?', actions: answers })), [])
+    assert.deepEqual(checkCard(row({ actions: [{ kind: 'done', id: 's' }] })), ['data.rows[0].detail.actions[0].id: repeats one of the buttons it opens from'])
+    assert.deepEqual(checkCard(row({ actions: [{ kind: 'nope', id: 'n' }] })).length, 1)
+    assert.deepEqual(checkCard({ ...base, type: 'list', data: { rows: [] }, actions: [{ kind: 'done', id: 'd' }], detail: { actions: [{ kind: 'done', id: 'd' }] } }),
+      ['detail.actions[0].id: repeats one of the buttons it opens from'])
+    const card = row({ actions: answers })
+    assert.equal(findAction(card, 'a1', 0).label, 'White', 'a press can name a button its detail shows')
+    assert.equal(findAction(card, 's', 0).kind, 'snooze')
+    assert.equal(findAction(card, 'a1'), undefined, 'only on the row it belongs to')
   })
 
   it('checks an action\'s inverse: a name and a small payload, on actions a press can undo', () => {

@@ -245,11 +245,13 @@ function actions(c, list, path) {
 
 /**
  * The more a card or a row shows when it is opened: some text, facts (label and value), a chart (a line or bar card's
- * data) and a history, newest first. Every part is optional; the opened view also shows the whole body and all actions.
- * Exported so other row shapes can check theirs the same way.
+ * data), a history, newest first, and buttons that only make sense with all of that in view. Every part is optional;
+ * the opened view also shows the whole body and all actions. `own` is the holder's own actions: an opened button's
+ * id must differ from them, since a press names its button by id. Exported so other row shapes can check theirs the
+ * same way.
  */
-export function checkDetail(c, detail, path) {
-  if (!c.object(detail, path, [], ['text', 'facts', 'chart', 'history'])) return
+export function checkDetail(c, detail, path, own = []) {
+  if (!c.object(detail, path, [], ['text', 'facts', 'chart', 'history', 'actions'])) return
   c.optional(detail, 'text', v => c.label(v, join(path, 'text'), { max: 2000 }))
   c.optional(detail, 'facts', facts => {
     if (!c.array(facts, join(path, 'facts'), { max: 24 })) return
@@ -266,6 +268,12 @@ export function checkDetail(c, detail, path) {
     if (!c.oneOf(chart.type, join(cp, 'type'), ['line', 'bar'])) return
     DATA[chart.type](c, chart.data, join(cp, 'data'))
   })
+  c.optional(detail, 'actions', list => {
+    const ap = join(path, 'actions')
+    actions(c, list, ap)
+    const taken = new Set((Array.isArray(own) ? own : []).map(action => action?.id))
+    if (Array.isArray(list)) list.forEach((action, i) => { if (taken.has(action?.id)) c.fail(join(join(ap, i), 'id'), 'repeats one of the buttons it opens from') })
+  })
   c.optional(detail, 'history', history => {
     if (!c.array(history, join(path, 'history'), { max: 100 })) return
     history.forEach((entry, i) => {
@@ -281,7 +289,7 @@ export function checkDetail(c, detail, path) {
 function rowOpen(c, row, path) {
   c.optional(row, 'link', v => isSafeLink(v) || c.fail(join(path, 'link'), 'must be an http(s) URL or a path starting with /'))
   c.optional(row, 'detail', v => {
-    checkDetail(c, v, join(path, 'detail'))
+    checkDetail(c, v, join(path, 'detail'), row.actions)
     if (row.key === undefined) c.fail(join(path, 'key'), 'is required on a row with a detail: it is how the row is opened')
   })
 }
@@ -578,7 +586,7 @@ export function checkCard(card) {
   if (!c.object(card, '', ['type', 'title', 'updatedAt', 'data'], ['staleAfter', 'link', 'stat', 'actions', 'icon', 'tone', 'detail', 'raise', 'ask'])) return c.problems
   c.optional(card, 'ask', v => c.boolean(v, 'ask'))
   c.optional(card, 'raise', v => raiseWindow(c, v, 'raise'))
-  c.optional(card, 'detail', v => checkDetail(c, v, 'detail'))
+  c.optional(card, 'detail', v => checkDetail(c, v, 'detail', card.actions))
   if (!c.oneOf(card.type, 'type', CARD_TYPES)) return c.problems
   c.label(card.title, 'title', { max: 120 })
   c.dateTime(card.updatedAt, 'updatedAt')
@@ -597,12 +605,14 @@ export function checkCard(card) {
 
 /**
  * The action a press names, looked up in the card as written: on the card
- * itself, or on row `row` of a list or status card. Undefined when there is
- * no such action, so a browser can only press what the data offers.
+ * itself, or on row `row` of a list or status card, among its own buttons and
+ * those its detail shows when opened. Undefined when there is no such action,
+ * so a browser can only press what the data offers.
  */
 export function findAction(card, actionId, row) {
-  const list = row === undefined ? card?.actions : card?.data?.rows?.[row]?.actions
-  return Array.isArray(list) ? list.find(action => action?.id === actionId) : undefined
+  const holder = row === undefined ? card : card?.data?.rows?.[row]
+  const list = [holder?.actions, holder?.detail?.actions].flatMap(value => (Array.isArray(value) ? value : []))
+  return list.find(action => action?.id === actionId)
 }
 
 /** Problems with a board.json's parsed content. */
