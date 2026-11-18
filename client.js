@@ -1,4 +1,4 @@
-/* @soffits/dsh-card-board 0.17.1: built by scripts/build.mjs from src/client/. Do not edit. */
+/* @soffits/dsh-card-board 0.17.2: built by scripts/build.mjs from src/client/. Do not edit. */
 window.__ModuleLoader__.load({
   id: "@soffits/dsh-card-board",
   factory: (require) => {
@@ -1516,11 +1516,11 @@ function Card({ entry, live, boardId, assistant, tracks, active, locale, t, pres
   const askName = assistant ? t("action.chatNamed", { name: assistant }) : void 0;
   const named = (list) => assistant ? list?.map((action) => action.kind === "chat" && action.label === void 0 ? { ...action, label: askName } : action) : list;
   const onPress = (target) => (action, extra) => press(action, extra, { card: entry.id, ...target }, target.row === void 0 ? void 0 : card.data.rows?.[target.row]);
-  const rowActions = actions && ((row, list, part2) => (0, import_react10.createElement)(actions.ActionBar, {
+  const rowActions = actions && ((row, list, part2, compact = true) => (0, import_react10.createElement)(actions.ActionBar, {
     actions: named(list),
     part: part2,
     states: statesOf(entry.presses, row),
-    compact: true,
+    compact,
     about: about(row, rowLine(row)),
     onPress: onPress({ row })
   }));
@@ -1576,11 +1576,12 @@ function Card({ entry, live, boardId, assistant, tracks, active, locale, t, pres
         rowControls: { ...rowControls, kept: [], press: (_, action) => rowControls.press(index, action), state: (_, id) => rowControls.state(index, id), latest: (_, id) => rowControls.latest(index, id) }
       }),
       (0, import_react10.createElement)(DetailParts, { detail: target.detail, locale, t }),
+      // The opened row has room, so its detail's buttons say what they do.
       rowActions && opened2.length > 0 && (0, import_react10.createElement)(
         "footer",
         { className: "cb-cardActions" },
-        opened2.some((action) => action.kind === "step") && rowActions(index, opened2, "steps"),
-        rowActions(index, opened2, "buttons")
+        opened2.some((action) => action.kind === "step") && rowActions(index, opened2, "steps", false),
+        rowActions(index, opened2, "buttons", false)
       )
     );
   }

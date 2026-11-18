@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.17.2
+
+An opened row's detail buttons show their labels (a chat button said nothing but its icon).
+
 ## 0.17.1
 
 Tapping a row that has a `detail` opens it again. The row is itself a button (`role=button`), and the check that keeps a tap on one of a row's own buttons from opening it counted the row too, so no row ever opened.

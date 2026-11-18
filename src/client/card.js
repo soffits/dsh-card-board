@@ -114,8 +114,8 @@ export function Card({ entry, live, boardId, assistant, tracks, active, locale, 
   const named = list => (assistant ? list?.map(action => (action.kind === 'chat' && action.label === undefined ? { ...action, label: askName } : action)) : list)
   // A press carries the row as it stood, so a row ticked done can stay in view when the card is rewritten without it.
   const onPress = target => (action, extra) => press(action, extra, { card: entry.id, ...target }, target.row === undefined ? undefined : card.data.rows?.[target.row])
-  const rowActions = actions && ((row, list, part) => h(actions.ActionBar, {
-    actions: named(list), part, states: statesOf(entry.presses, row), compact: true, about: about(row, rowLine(row)), onPress: onPress({ row }),
+  const rowActions = actions && ((row, list, part, compact = true) => h(actions.ActionBar, {
+    actions: named(list), part, states: statesOf(entry.presses, row), compact, about: about(row, rowLine(row)), onPress: onPress({ row }),
   }))
   const rowControls = {
     press: (row, action) => onPress({ row })(action),
@@ -153,9 +153,10 @@ export function Card({ entry, live, boardId, assistant, tracks, active, locale, 
       h(Body, { card: { ...card, data: { ...card.data, rows: [target], progress: undefined } }, live, wash: false, locale, t, rowActions: rowActions && ((_, list, part) => rowActions(index, list, part)), all: true,
         rowControls: { ...rowControls, kept: [], press: (_, action) => rowControls.press(index, action), state: (_, id) => rowControls.state(index, id), latest: (_, id) => rowControls.latest(index, id) } }),
       h(DetailParts, { detail: target.detail, locale, t }),
+      // The opened row has room, so its detail's buttons say what they do.
       rowActions && opened.length > 0 && h('footer', { className: 'cb-cardActions' },
-        opened.some(action => action.kind === 'step') && rowActions(index, opened, 'steps'),
-        rowActions(index, opened, 'buttons')))
+        opened.some(action => action.kind === 'step') && rowActions(index, opened, 'steps', false),
+        rowActions(index, opened, 'buttons', false)))
   }
 
   if (card.type === 'summary') {
