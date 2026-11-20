@@ -68,7 +68,7 @@ export function apply(ctx, config) {
     timeoutSeconds: config.actionTimeoutSeconds ?? 300,
     warn: message => logger.warn(message),
   })
-  const watches = createWatches()
+  const watches = createWatches({ warn: message => logger.warn(message) })
   ctx.effect(() => () => watches.close())
   const { routes, close } = createRoutes({
     dataDir,

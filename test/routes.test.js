@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { cp, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises'
+import { chmod, cp, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { after, before, describe, it } from 'node:test'
@@ -832,5 +832,53 @@ describe('boards someone may see but not act on', () => {
   it('lets everyone DSH admits act on a single-person DSH', async () => {
     const { call } = routes({ people: {} })
     assert.equal((await call('/api/card-board/action', {}, press)).status, 200)
+  })
+})
+
+describe('failures stay small', () => {
+  it('answers the board with an error entry for a card it can find but not read', async () => {
+    await mkdir(join(dir, 'locked', 'cards'), { recursive: true })
+    await writeFile(join(dir, 'locked', 'board.json'), JSON.stringify({ title: 'Locked', viewers: ['alex'] }))
+    await writeFile(join(dir, 'locked', 'cards', 'ok.json'), card('OK'))
+    await writeFile(join(dir, 'locked', 'cards', 'shut.json'), card('Shut'))
+    await chmod(join(dir, 'locked', 'cards', 'shut.json'), 0o000)
+    try {
+      const { call, state } = routes()
+      state.id = 'sub-alex'
+      const answer = await call('/api/card-board/board?id=locked')
+      assert.equal(answer.status, 200)
+      const shut = answer.body.cards.find(entry => entry.id === 'shut')
+      assert.equal(shut.card, undefined)
+      assert.ok(shut.problems.length > 0)
+      assert.ok(answer.body.cards.find(entry => entry.id === 'ok').card)
+    } finally {
+      await chmod(join(dir, 'locked', 'cards', 'shut.json'), 0o600)
+    }
+  })
+
+  it('keeps answering when the action log can\'t be read', async () => {
+    const presses = createPresses({ logPath: dir, publisher: () => undefined, timeoutSeconds: 300 })
+    assert.deepEqual(await presses.list(), [])
+  })
+
+  it('keeps a failing change listener from becoming an unhandled rejection', async () => {
+    const own = createWatches({ pollMs: 50, settleMs: 10 })
+    await mkdir(join(dir, 'watched', 'cards'), { recursive: true })
+    const unhandled = []
+    const onUnhandled = reason => unhandled.push(reason)
+    process.on('unhandledRejection', onUnhandled)
+    try {
+      let heard
+      const heardOnce = new Promise(resolve => { heard = resolve })
+      const unwatch = await own.watch(join(dir, 'watched'), async () => { heard(); throw new Error('listener failed') })
+      await writeFile(join(dir, 'watched', 'cards', 'x.json'), card('X'))
+      await heardOnce
+      await new Promise(resolve => setTimeout(resolve, 50))
+      unwatch()
+      assert.deepEqual(unhandled, [])
+    } finally {
+      process.off('unhandledRejection', onUnhandled)
+      own.close()
+    }
   })
 })

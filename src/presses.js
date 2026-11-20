@@ -64,7 +64,10 @@ async function readTail(path) {
  */
 export function createPresses({ logPath, publisher, notify = () => {}, timeoutSeconds, warn = () => {}, now = Date.now }) {
   let recent
-  const loaded = readTail(logPath).then(events => { recent = events })
+  const loaded = readTail(logPath).then(events => { recent = events }, error => {
+    warn(`action log ${logPath} unreadable, starting without recent presses: ${error.message}`)
+    recent = []
+  })
 
   async function list() {
     await loaded
