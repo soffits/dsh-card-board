@@ -11,7 +11,7 @@ import { useEased } from './motion.js'
 import { onControl, openLink } from './links.js'
 import { stepTimes } from './steps.js'
 import { LIST_ROWS, shownRows } from './layout.js'
-import { doneOf, doneState, keepTicked } from './ticks.js'
+import { doneOf, doneState, keepTicked, rowRef } from './ticks.js'
 import { openedButtons, rowButtons } from './ask.js'
 
 const STATE_OF_TONE = { ok: 'done', warn: 'warning', bad: 'error' }
@@ -101,8 +101,8 @@ function Row({ lead, title, sub, meta, value, spark, row, index, washCount, fres
     value,
     // The row's own buttons on the right: its steps first (a step starts the work on one tap), then the others.
     buttons?.length > 0 && h('span', { className: 'cb-rowActions' },
-      buttons.some(action => action.kind === 'step') && rowActions(index, buttons, 'steps'),
-      rowActions(index, buttons, 'buttons')))
+      buttons.some(action => action.kind === 'step') && rowActions(rowRef(row, index), buttons, 'steps'),
+      rowActions(rowRef(row, index), buttons, 'buttons')))
 }
 
 /**
@@ -110,7 +110,8 @@ function Row({ lead, title, sub, meta, value, spark, row, index, washCount, fres
  * offered a way back, unticking it takes the press back. A kept row is no longer on the card, so only a way back works.
  */
 function DoneBox({ row, index, done, rowControls, t, labelled = false }) {
-  const { checked, undo } = doneState(row, rowControls.latest(index, done.id))
+  const ref = rowRef(row, index)
+  const { checked, undo } = doneState(row, rowControls.latest(ref, done.id))
   const label = t(checked ? (undo ? 'markNotDone' : 'checked') : 'markDone')
   return h('span', { className: `cb-doneBox${labelled ? ' cb-doneBoxLabelled' : ''}`, onClick: event => event.stopPropagation() },
     h(Checkbox, {
@@ -118,7 +119,7 @@ function DoneBox({ row, index, done, rowControls, t, labelled = false }) {
       disabled: checked ? undo === undefined : index < 0,
       title: label,
       label: h('span', { className: labelled ? undefined : 'cb-visuallyHidden' }, label),
-      onChange: value => { if (value) rowControls.press(index, done); else if (undo) rowControls.undo(undo) },
+      onChange: value => { if (value) rowControls.press(ref, done); else if (undo) rowControls.undo(undo) },
     }))
 }
 
@@ -132,7 +133,7 @@ export function ListCard({ data, live, locale, t, rowActions, ask, all = false, 
   const listed = keepTicked(data.rows, rowControls?.kept)
   const rows = shownRows(listed, open || all, LIST_ROWS, live)
   const hidden = listed.length - rows.length
-  const ticked = row => { const done = doneOf(row); return done !== undefined && rowControls !== undefined ? doneState(row, rowControls.latest(data.rows.indexOf(row), done.id)).checked : row.checked === true }
+  const ticked = row => { const done = doneOf(row); return done !== undefined && rowControls !== undefined ? doneState(row, rowControls.latest(rowRef(row, data.rows.indexOf(row)), done.id)).checked : row.checked === true }
   const progress = data.progress
   return h('div', { className: 'cb-list' },
     progress && h('div', { className: 'cb-progress' },
@@ -183,10 +184,10 @@ export function OpenedRow({ row, kind, index, live, locale, t, rowActions, ask, 
     facts.length > 0 && h('div', { className: 'cb-openFacts' }, facts),
     detail,
     (buttons.length > 0 || (done && rowControls)) && h('footer', { className: 'cb-openActions' },
-      buttons.some(action => action.kind === 'step') && rowActions(index, buttons, 'steps', false),
+      buttons.some(action => action.kind === 'step') && rowActions(rowRef(row, index), buttons, 'steps', false),
       h('div', { className: 'cb-openButtons' },
         done && rowControls && h(DoneBox, { row, index, done, rowControls, t, labelled: true }),
-        buttons.some(action => action.kind !== 'step') && rowActions(index, buttons, 'buttons', false))))
+        buttons.some(action => action.kind !== 'step') && rowActions(rowRef(row, index), buttons, 'buttons', false))))
 }
 
 export function StatusCard({ data, live, locale, rowActions, ask, onOpenRow }) {

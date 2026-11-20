@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { cp, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises'
+import { chmod, cp, mkdir, mkdtemp, readFile, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { after, before, describe, it } from 'node:test'
@@ -52,7 +52,7 @@ function routes({ people = PEOPLE, provider = true, state = {}, published = [], 
     timeoutSeconds: 300,
     now,
   })
-  const list = createRoutes({
+  const { routes: list } = createRoutes({
     dataDir: dir,
     people: createPeople({ people }),
     identity: () => (provider ? identityFor(state) : undefined),
@@ -293,7 +293,7 @@ describe('one card, live changes and what is new', () => {
     await writeFile(join(dir, 'live', 'board.json'), JSON.stringify({ title: 'Live', viewers: ['alex'] }))
     await writeFile(join(dir, 'live', 'cards', 'a.json'), card('A'))
     const { state } = routes()
-    const list = createRoutes({
+    const { routes: list } = createRoutes({
       dataDir: dir, people: createPeople({ people: PEOPLE }), identity: () => identityFor(state), pollSeconds: 30,
       presses: createPresses({ logPath: join(dir, '.actions-live.jsonl') }), seen: createSeenStore(join(dir, '.seen-live')), arrange: createArrangeStore(join(dir, '.arrange-live')), watches,
       messages: createMessages(new URL('../locale', import.meta.url).pathname), heartbeatMs: 50,
@@ -346,7 +346,7 @@ describe('actions', () => {
   it('records a press of an action the card offers, as an event with who pressed it', async () => {
     const { call, state, published, presses } = routes()
     state.id = 'sub-alex'
-    const result = await call(...press({ board: 'home', card: 'chores', row: 1, id: 'library-books:done' }))
+    const result = await call(...press({ board: 'home', card: 'chores', row: 'chore-2', id: 'library-books:done' }))
     assert.equal(result.status, 200)
     assert.equal(result.body.state, 'pending')
     assert.equal(result.body.undoable, true)
@@ -356,7 +356,7 @@ describe('actions', () => {
     const event = published[0].data
     assert.deepEqual({ ...event, at: undefined, press: undefined }, {
       action: 'done', id: 'library-books:done', inverse: { kind: 'reopen' }, payload: {}, person: 'alex', user: 'sub-alex', at: undefined, press: undefined,
-      source: { plugin: 'dsh-card-board', board: 'home', card: 'chores', row: 1 },
+      source: { plugin: 'dsh-card-board', board: 'home', card: 'chores', row: 'chore-2' },
     })
     assert.equal((await presses.list()).length, 1)
   })
@@ -364,16 +364,16 @@ describe('actions', () => {
   it('records a press of a button the row shows only when opened', async () => {
     const { call, state, published } = routes()
     state.id = 'sub-alex'
-    const result = await call(...press({ board: 'home', card: 'chores', row: 1, id: 'library-books:returned-elm' }))
+    const result = await call(...press({ board: 'home', card: 'chores', row: 'chore-2', id: 'library-books:returned-elm' }))
     assert.equal(result.status, 200)
     assert.deepEqual([published[0].channel, published[0].data.payload], ['ui.action.done', { branch: 'elm' }])
-    assert.equal((await call(...press({ board: 'home', card: 'chores', row: 2, id: 'library-books:returned-elm' }))).status, 409)
+    assert.equal((await call(...press({ board: 'home', card: 'chores', row: 'chore-3', id: 'library-books:returned-elm' }))).status, 409)
   })
 
   it('records a step press: the person\'s go-ahead for what its label says', async () => {
     const { call, state, published } = routes()
     state.id = 'sub-alex'
-    const result = await call(...press({ board: 'home', card: 'chores', row: 1, id: 'library-books:renew' }))
+    const result = await call(...press({ board: 'home', card: 'chores', row: 'chore-2', id: 'library-books:renew' }))
     assert.equal(result.status, 200)
     assert.equal(published[0].channel, 'ui.action.step')
     assert.equal(published[0].data.person, 'alex')
@@ -383,23 +383,43 @@ describe('actions', () => {
     assert.equal(chores.presses.find(p => p.id === 'library-books:renew').state, 'done')
   })
 
+  it('presses the row it names by key, even after the card was rewritten under the page', async () => {
+    const { call, state, published } = routes()
+    state.id = 'sub-alex'
+    const ask = key => ({ title: `Ask ${key}`, key, actions: [{ kind: 'done', id: 'done' }, { kind: 'snooze', id: 'snooze' }] })
+    const card = rows => JSON.stringify({ type: 'list', title: 'Asks', updatedAt: '2026-03-02T00:00:00Z', data: { rows } })
+    await mkdir(join(dir, 'asks', 'cards'), { recursive: true })
+    await writeFile(join(dir, 'asks', 'board.json'), JSON.stringify({ title: 'Asks', viewers: ['alex'] }))
+    await writeFile(join(dir, 'asks', 'cards', 'open.json'), card([ask('a'), ask('b'), ask('c')]))
+    // The page saw b second; meanwhile a was handled and dropped, so c now stands where b was.
+    await writeFile(join(dir, 'asks', 'cards', 'open.json'), card([ask('b'), ask('c')]))
+    assert.equal((await call(...press({ board: 'asks', card: 'open', row: 'b', id: 'done' }))).status, 200)
+    assert.equal(published[0].data.source.row, 'b')
+    assert.equal((await call(...press({ board: 'asks', card: 'open', row: 1, id: 'snooze' }))).status, 409, 'a keyed row is never pressed by its place')
+    assert.equal((await call(...press({ board: 'asks', card: 'open', row: 'a', id: 'done' }))).status, 409)
+    assert.equal((await call(...press({ board: 'asks', card: 'open', row: 'no such/key', id: 'done' }))).status, 400)
+    const presses = (await call('/api/card-board/board?id=asks')).body.cards[0].presses
+    assert.deepEqual(presses.map(p => [p.row, p.id]), [['b', 'done']])
+    await rm(join(dir, 'asks'), { recursive: true })
+  })
+
   it('takes the picked time for a snooze without one', async () => {
     const { call, state, published } = routes()
     state.id = 'sub-alex'
     const until = '2026-03-03T09:00:00.000Z'
-    assert.equal((await call(...press({ board: 'home', card: 'chores', row: 1, id: 'library-books:snooze', until }))).status, 200)
+    assert.equal((await call(...press({ board: 'home', card: 'chores', row: 'chore-2', id: 'library-books:snooze', until }))).status, 200)
     assert.deepEqual(published[0].data.payload, { until })
   })
 
   it('refuses actions the card does not offer, chat and link, and other people', async () => {
     const { call, state, published } = routes()
     state.id = 'sub-alex'
-    assert.equal((await call(...press({ board: 'home', card: 'chores', row: 0, id: 'library-books:done' }))).status, 409)
-    assert.equal((await call(...press({ board: 'home', card: 'chores', row: 2, id: 'landlord:ask' }))).status, 409)
+    assert.equal((await call(...press({ board: 'home', card: 'chores', row: 'chore-1', id: 'library-books:done' }))).status, 409)
+    assert.equal((await call(...press({ board: 'home', card: 'chores', row: 'chore-3', id: 'landlord:ask' }))).status, 409)
     assert.equal((await call(...press({ board: 'home', card: 'house', id: 'house:panel' }))).status, 409)
     assert.equal((await call(...press({ board: 'home', card: '../x', id: 'a' }))).status, 400)
     state.id = 'sub-robin'
-    assert.equal((await call(...press({ board: 'home', card: 'chores', row: 1, id: 'library-books:done' }))).status, 403)
+    assert.equal((await call(...press({ board: 'home', card: 'chores', row: 'chore-2', id: 'library-books:done' }))).status, 403)
     assert.equal(published.length, 0)
   })
 
@@ -407,7 +427,7 @@ describe('actions', () => {
     let clock = Date.now()
     const { call, state } = routes({ now: () => clock })
     state.id = 'sub-alex'
-    await call(...press({ board: 'home', card: 'house', row: 2, id: 'front-door:lock' }))
+    await call(...press({ board: 'home', card: 'house', row: 'house-3', id: 'front-door:lock' }))
     const stateOf = async () => (await call('/api/card-board/board?id=home')).body.cards.find(c => c.id === 'house').presses[0].state
     assert.equal(await stateOf(), 'pending')
     clock += 301_000
@@ -424,25 +444,25 @@ describe('actions', () => {
   it('takes a press back with the inverse the card offered, once, and keeps both records', async () => {
     const { call, state, published, presses } = routes()
     state.id = 'sub-alex'
-    const done = (await call(...press({ board: 'home', card: 'chores', row: 1, id: 'library-books:done' }))).body
+    const done = (await call(...press({ board: 'home', card: 'chores', row: 'chore-2', id: 'library-books:done' }))).body
     const undone = await call(...press({ board: 'home', card: 'chores', undo: done.press }))
     assert.equal(undone.status, 200)
     assert.equal(undone.body.undoes, done.press)
     assert.equal(published[1].channel, 'ui.action.undo')
     assert.deepEqual({ ...published[1].data, at: undefined, press: undefined }, {
       action: 'undo', of: 'done', id: 'library-books:done', undoes: done.press, inverse: 'reopen', payload: {}, person: 'alex', user: 'sub-alex', at: undefined, press: undefined,
-      source: { plugin: 'dsh-card-board', board: 'home', card: 'chores', row: 1 },
+      source: { plugin: 'dsh-card-board', board: 'home', card: 'chores', row: 'chore-2' },
     })
     assert.equal((await call(...press({ board: 'home', card: 'chores', undo: done.press }))).body.press, undone.body.press)
     assert.equal((await presses.list()).length, 2)
     const states = (await call('/api/card-board/board?id=home')).body.cards.find(c => c.id === 'chores').presses
-    assert.deepEqual(states.map(({ press, at, ...rest }) => rest), [{ id: 'library-books:done', row: 1, state: 'undone' }])
+    assert.deepEqual(states.map(({ press, at, ...rest }) => rest), [{ id: 'library-books:done', row: 'chore-2', state: 'undone' }])
   })
 
   it('takes a snooze back to the date the card declared, not the one picked', async () => {
     const { call, state, published } = routes()
     state.id = 'sub-alex'
-    const snoozed = (await call(...press({ board: 'home', card: 'chores', row: 1, id: 'library-books:snooze', until: '2026-03-09T09:00:00Z' }))).body
+    const snoozed = (await call(...press({ board: 'home', card: 'chores', row: 'chore-2', id: 'library-books:snooze', until: '2026-03-09T09:00:00Z' }))).body
     assert.equal(published[0].data.payload.until, '2026-03-09T09:00:00Z')
     await call(...press({ board: 'home', card: 'chores', undo: snoozed.press }))
     assert.deepEqual(published[1].data.payload, { until: '2026-03-02T09:00:00Z' })
@@ -452,10 +472,10 @@ describe('actions', () => {
   it('refuses to undo what has no inverse, someone else\'s press or an unknown press', async () => {
     const { call, state } = routes()
     state.id = 'sub-alex'
-    const lock = (await call(...press({ board: 'home', card: 'house', row: 2, id: 'front-door:lock' }))).body
+    const lock = (await call(...press({ board: 'home', card: 'house', row: 'house-3', id: 'front-door:lock' }))).body
     assert.equal((await call(...press({ board: 'home', card: 'house', undo: lock.press }))).status, 409)
     assert.equal((await call(...press({ board: 'home', card: 'house', undo: 'nope' }))).status, 409)
-    const done = (await call(...press({ board: 'home', card: 'chores', row: 1, id: 'library-books:done' }))).body
+    const done = (await call(...press({ board: 'home', card: 'chores', row: 'chore-2', id: 'library-books:done' }))).body
     assert.equal((await call(...press({ board: 'home', card: 'house', undo: done.press }))).status, 409)
     state.id = 'sub-robin'
     assert.equal((await call(...press({ board: 'home', card: 'chores', undo: done.press }))).status, 403)
@@ -464,9 +484,9 @@ describe('actions', () => {
   it('lets a press be made again after it was undone, even within the double-tap window', async () => {
     const { call, state, presses } = routes()
     state.id = 'sub-alex'
-    const first = (await call(...press({ board: 'home', card: 'chores', row: 1, id: 'library-books:done' }))).body
+    const first = (await call(...press({ board: 'home', card: 'chores', row: 'chore-2', id: 'library-books:done' }))).body
     await call(...press({ board: 'home', card: 'chores', undo: first.press }))
-    const again = (await call(...press({ board: 'home', card: 'chores', row: 1, id: 'library-books:done' }))).body
+    const again = (await call(...press({ board: 'home', card: 'chores', row: 'chore-2', id: 'library-books:done' }))).body
     assert.notEqual(again.press, first.press)
     assert.equal((await presses.list()).length, 3)
   })
@@ -474,7 +494,7 @@ describe('actions', () => {
   it('logs the press even when no event publisher runs', async () => {
     const { call, state, presses } = routes({ publisher: () => undefined })
     state.id = 'sub-alex'
-    assert.equal((await call(...press({ board: 'home', card: 'house', row: 2, id: 'front-door:lock' }))).status, 200)
+    assert.equal((await call(...press({ board: 'home', card: 'house', row: 'house-3', id: 'front-door:lock' }))).status, 200)
     assert.equal((await presses.list()).length, 1)
   })
 
@@ -529,7 +549,7 @@ describe('as a DSH plugin, behind the real Connection', () => {
       const pressed = await fetch(`${origin}/api/card-board/action`, {
         method: 'POST',
         headers: { cookie, 'x-test-user': 'sub-alex', 'content-type': 'application/json', origin },
-        body: JSON.stringify({ board: 'home', card: 'house', row: 2, id: 'front-door:lock' }),
+        body: JSON.stringify({ board: 'home', card: 'house', row: 'house-3', id: 'front-door:lock' }),
       })
       assert.equal(pressed.status, 200)
       assert.equal((await pressed.json()).state, 'pending')
@@ -542,6 +562,43 @@ describe('as a DSH plugin, behind the real Connection', () => {
       await writeFile(join(dir, 'home', 'cards', 'chores.json'), JSON.stringify({ ...JSON.parse(await readFile(join(dir, 'home', 'cards', 'chores.json'), 'utf8')), updatedAt: new Date().toISOString() }))
       assert.deepEqual(await reading, [{ type: 'hello' }, { type: 'card', id: 'chores' }])
       assert.equal((await fetch(`${origin}/api/card-board/events?board=home`, { headers: { cookie, 'x-test-user': 'sub-robin' } })).status, 403)
+    } finally {
+      await root.fiber.dispose()
+    }
+  })
+})
+
+describe('a reload of the plugin', () => {
+  it('ends the open streams, so pages reconnect to the new one instead of waiting on a dead one', async () => {
+    const root = new Context()
+    try {
+      root.provide('credentials')
+      const records = new Map()
+      root.set('credentials', { async modifyRecord(key, mutate) { const next = await mutate(records.get(key)); if (next !== undefined) records.set(key, next); return records.get(key) } })
+      await root.plugin(WebServer, { host: '127.0.0.1', port: 0 })
+      await root.plugin(connectionPlugin, {})
+      const scope = { id: undefined }
+      root.on('connection/request', async (req, _res, next) => {
+        scope.id = req.headers['x-test-user']
+        try { await next() } finally { scope.id = undefined }
+      })
+      root.provide('requestIdentity', identityFor(scope))
+      const board = await root.plugin(cardBoard, { dataDir: dir, people: PEOPLE, actionLog: join(dir, 'reload-actions.jsonl') })
+      root.webServer.registerFallback((req, res) => { if (root.connection.authorizeIndex(req, res)) res.end('index') })
+      const origin = root.webServer.getOrigin()
+      const bootstrap = await fetch(root.connection.authenticatedUrl(`${origin}/`), { redirect: 'manual' })
+      const cookie = (bootstrap.headers.get('set-cookie') ?? '').split(';', 1)[0]
+      const stream = await fetch(`${origin}/api/card-board/events?board=home`, { headers: { cookie, 'x-test-user': 'sub-alex', accept: 'text/event-stream' } })
+      const reader = stream.body.pipeThrough(new TextDecoderStream()).getReader()
+      let text = ''
+      while (!text.includes('"hello"')) text += (await reader.read()).value ?? ''
+      await board.dispose()
+      const ended = await Promise.race([
+        (async () => { for (;;) if ((await reader.read()).done) return true })(),
+        new Promise(resolve => setTimeout(() => resolve(false), 2000)),
+      ])
+      reader.cancel().catch(() => {})
+      assert.equal(ended, true)
     } finally {
       await root.fiber.dispose()
     }
@@ -609,7 +666,7 @@ describe('arrangements', () => {
   it('tells the person’s other open pages, and only theirs', async () => {
     const { state } = routes()
     const store = createArrangeStore(join(dir, '.arrange-events'))
-    const list = createRoutes({
+    const { routes: list } = createRoutes({
       dataDir: dir, people: createPeople({ people: PEOPLE }), identity: () => identityFor(state), pollSeconds: 30,
       presses: createPresses({ logPath: join(dir, '.actions-events.jsonl') }), seen: createSeenStore(join(dir, '.seen-events')), arrange: store, watches,
       messages: createMessages(new URL('../locale', import.meta.url).pathname), heartbeatMs: 50,
@@ -662,7 +719,7 @@ describe('cards only some viewers see', () => {
   it('tells a viewer nothing about a card they may not see changing', async () => {
     const { state } = routes()
     state.id = 'sub-robin'
-    const list = createRoutes({
+    const { routes: list } = createRoutes({
       dataDir: dir, people: createPeople({ people: PEOPLE }), identity: () => identityFor(state), pollSeconds: 30,
       presses: createPresses({ logPath: join(dir, '.actions-cv.jsonl'), publisher: () => undefined, timeoutSeconds: 300 }),
       seen: createSeenStore(join(dir, '.seen-cv')), arrange: createArrangeStore(join(dir, '.arrange-cv')), watches,
@@ -775,5 +832,53 @@ describe('boards someone may see but not act on', () => {
   it('lets everyone DSH admits act on a single-person DSH', async () => {
     const { call } = routes({ people: {} })
     assert.equal((await call('/api/card-board/action', {}, press)).status, 200)
+  })
+})
+
+describe('failures stay small', () => {
+  it('answers the board with an error entry for a card it can find but not read', async () => {
+    await mkdir(join(dir, 'locked', 'cards'), { recursive: true })
+    await writeFile(join(dir, 'locked', 'board.json'), JSON.stringify({ title: 'Locked', viewers: ['alex'] }))
+    await writeFile(join(dir, 'locked', 'cards', 'ok.json'), card('OK'))
+    await writeFile(join(dir, 'locked', 'cards', 'shut.json'), card('Shut'))
+    await chmod(join(dir, 'locked', 'cards', 'shut.json'), 0o000)
+    try {
+      const { call, state } = routes()
+      state.id = 'sub-alex'
+      const answer = await call('/api/card-board/board?id=locked')
+      assert.equal(answer.status, 200)
+      const shut = answer.body.cards.find(entry => entry.id === 'shut')
+      assert.equal(shut.card, undefined)
+      assert.ok(shut.problems.length > 0)
+      assert.ok(answer.body.cards.find(entry => entry.id === 'ok').card)
+    } finally {
+      await chmod(join(dir, 'locked', 'cards', 'shut.json'), 0o600)
+    }
+  })
+
+  it('keeps answering when the action log can\'t be read', async () => {
+    const presses = createPresses({ logPath: dir, publisher: () => undefined, timeoutSeconds: 300 })
+    assert.deepEqual(await presses.list(), [])
+  })
+
+  it('keeps a failing change listener from becoming an unhandled rejection', async () => {
+    const own = createWatches({ pollMs: 50, settleMs: 10 })
+    await mkdir(join(dir, 'watched', 'cards'), { recursive: true })
+    const unhandled = []
+    const onUnhandled = reason => unhandled.push(reason)
+    process.on('unhandledRejection', onUnhandled)
+    try {
+      let heard
+      const heardOnce = new Promise(resolve => { heard = resolve })
+      const unwatch = await own.watch(join(dir, 'watched'), async () => { heard(); throw new Error('listener failed') })
+      await writeFile(join(dir, 'watched', 'cards', 'x.json'), card('X'))
+      await heardOnce
+      await new Promise(resolve => setTimeout(resolve, 50))
+      unwatch()
+      assert.deepEqual(unhandled, [])
+    } finally {
+      process.off('unhandledRejection', onUnhandled)
+      own.close()
+    }
   })
 })

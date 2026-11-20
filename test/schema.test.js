@@ -29,9 +29,12 @@ describe('checkCard', () => {
     assert.deepEqual(checkCard({ ...base, type: 'list', data: { rows: [] }, actions: [{ kind: 'done', id: 'd' }], detail: { actions: [{ kind: 'done', id: 'd' }] } }),
       ['detail.actions[0].id: repeats one of the buttons it opens from'])
     const card = row({ actions: answers })
-    assert.equal(findAction(card, 'a1', 0).label, 'White', 'a press can name a button its detail shows')
-    assert.equal(findAction(card, 's', 0).kind, 'snooze')
+    assert.equal(findAction(card, 'a1', 'x').label, 'White', 'a press can name a button its detail shows')
+    assert.equal(findAction(card, 's', 'x').kind, 'snooze')
     assert.equal(findAction(card, 'a1'), undefined, 'only on the row it belongs to')
+    assert.equal(findAction(card, 's', 0), undefined, 'a row with a key is named by it, never by its place')
+    const unkeyed = { ...base, type: 'list', data: { rows: [{ title: 'x', actions: [{ kind: 'done', id: 'd' }] }] } }
+    assert.equal(findAction(unkeyed, 'd', 0).kind, 'done')
   })
 
   it('checks an action\'s inverse: a name and a small payload, on actions a press can undo', () => {

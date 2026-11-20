@@ -68,9 +68,9 @@ export function apply(ctx, config) {
     timeoutSeconds: config.actionTimeoutSeconds ?? 300,
     warn: message => logger.warn(message),
   })
-  const watches = createWatches()
-  ctx.on('dispose', () => watches.close())
-  const routes = createRoutes({
+  const watches = createWatches({ warn: message => logger.warn(message) })
+  ctx.effect(() => () => watches.close())
+  const { routes, close } = createRoutes({
     dataDir,
     people,
     identity: () => ctx.get('requestIdentity'),
@@ -82,6 +82,7 @@ export function apply(ctx, config) {
     messages: createMessages(fileURLToPath(new URL('./locale', import.meta.url))),
     version,
   })
+  ctx.effect(() => close)
   for (const route of routes) ctx.connection.fetch.register(route)
   logger.info(`serving boards from ${dataDir} (${people.enabled ? 'per person' : 'single owner'})`)
 }

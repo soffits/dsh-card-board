@@ -40,8 +40,9 @@ export function changes(before, after) {
  * @param {object} [options]
  * @param {number} [options.pollMs] - the stat poll's interval (default 10 s)
  * @param {number} [options.settleMs] - how long a burst of file events is gathered before one scan (default 120 ms)
+ * @param {(message: string) => void} [options.warn] - told when a change listener fails
  */
-export function createWatches({ pollMs = 10_000, settleMs = 120 } = {}) {
+export function createWatches({ pollMs = 10_000, settleMs = 120, warn = () => {} } = {}) {
   const boards = new Map()
 
   function open(dir) {
@@ -55,7 +56,9 @@ export function createWatches({ pollMs = 10_000, settleMs = 120 } = {}) {
           const files = await snapshot(dir)
           const events = entry.files === null ? [] : changes(entry.files, files)
           entry.files = files
-          for (const event of events) for (const listener of entry.listeners) listener(event)
+          for (const event of events)
+            for (const listener of entry.listeners)
+              Promise.resolve().then(() => listener(event)).catch(error => warn(`a change listener failed: ${error.message}`))
         } while (entry.again)
       })().finally(() => { entry.scanning = null })
       return entry.scanning

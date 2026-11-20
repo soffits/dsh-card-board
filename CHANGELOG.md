@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.18.0
+
+A press names its row by the row's `key` (`source.row` in the event is now that key), so it lands on the row the person tapped even when the card was rewritten in between. Before, it named the row by its place: after a handled row dropped out, or a quick second tick, a press could answer or tick the row below it, since rows often share button ids. A row without a key still goes by its place; an index that points at a keyed row is refused. Rows ticked this visit are kept apart by key too, so ticking a second one no longer hides the first.
+
+Open live streams now end when the plugin is unloaded or reloaded, so pages reconnect instead of waiting on a stream that will never send again (the cleanup was registered on an event Cordis doesn't send, so file watches leaked too). A card that can be found but not read shows as a broken card instead of failing the whole board, an unreadable action log no longer blocks every board, and a failing change listener is logged instead of escaping.
+
 ## 0.17.4
 
 The opened view wraps a long unbroken word (an id, a key, a path) in its heading and text instead of growing wider than a phone screen and scrolling sideways, and an opened row's tick box flows in one row with its other buttons.

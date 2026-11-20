@@ -1,4 +1,4 @@
-/* @soffits/dsh-card-board 0.17.4: built by scripts/build.mjs from src/client/. Do not edit. */
+/* @soffits/dsh-card-board 0.18.0: built by scripts/build.mjs from src/client/. Do not edit. */
 window.__ModuleLoader__.load({
   id: "@soffits/dsh-card-board",
   factory: (require) => {
@@ -982,12 +982,14 @@ function dropAfter(rect, x, y, single) {
 
 // src/client/ticks.js
 var doneOf = (row) => row?.actions?.find((action) => action.kind === "done" && action.label === void 0);
+var rowRef = (row, index) => row?.key ?? index;
+var keptId = (row) => row.key ?? doneOf(row)?.id;
 function keepOf(row, index) {
   const done = doneOf(row);
-  return done === void 0 ? void 0 : { id: done.id, index, row: { ...row, checked: true, actions: [done] } };
+  return done === void 0 ? void 0 : { id: keptId(row), index, row: { ...row, checked: true, actions: [done] } };
 }
 function keepTicked(rows, kept = []) {
-  const present = new Set(rows.map((row) => doneOf(row)?.id));
+  const present = new Set(rows.map(keptId));
   const missing = kept.filter((entry) => !present.has(entry.id)).sort((a, b) => a.index - b.index);
   if (missing.length === 0) return rows;
   const merged = [...rows];
@@ -1118,13 +1120,14 @@ function Row({ lead, title, sub, meta, value, spark, row, index, washCount, fres
     buttons?.length > 0 && (0, import_react6.createElement)(
       "span",
       { className: "cb-rowActions" },
-      buttons.some((action) => action.kind === "step") && rowActions(index, buttons, "steps"),
-      rowActions(index, buttons, "buttons")
+      buttons.some((action) => action.kind === "step") && rowActions(rowRef(row, index), buttons, "steps"),
+      rowActions(rowRef(row, index), buttons, "buttons")
     )
   );
 }
 function DoneBox({ row, index, done, rowControls, t, labelled = false }) {
-  const { checked, undo } = doneState(row, rowControls.latest(index, done.id));
+  const ref = rowRef(row, index);
+  const { checked, undo } = doneState(row, rowControls.latest(ref, done.id));
   const label = t(checked ? undo ? "markNotDone" : "checked" : "markDone");
   return (0, import_react6.createElement)(
     "span",
@@ -1135,7 +1138,7 @@ function DoneBox({ row, index, done, rowControls, t, labelled = false }) {
       title: label,
       label: (0, import_react6.createElement)("span", { className: labelled ? void 0 : "cb-visuallyHidden" }, label),
       onChange: (value) => {
-        if (value) rowControls.press(index, done);
+        if (value) rowControls.press(ref, done);
         else if (undo) rowControls.undo(undo);
       }
     })
@@ -1150,7 +1153,7 @@ function ListCard({ data, live, locale, t, rowActions, ask, all = false, onOpenR
   const hidden = listed.length - rows.length;
   const ticked = (row) => {
     const done = doneOf(row);
-    return done !== void 0 && rowControls !== void 0 ? doneState(row, rowControls.latest(data.rows.indexOf(row), done.id)).checked : row.checked === true;
+    return done !== void 0 && rowControls !== void 0 ? doneState(row, rowControls.latest(rowRef(row, data.rows.indexOf(row)), done.id)).checked : row.checked === true;
   };
   const progress = data.progress;
   return (0, import_react6.createElement)(
@@ -1224,12 +1227,12 @@ function OpenedRow({ row, kind, index, live, locale, t, rowActions, ask, rowCont
     (buttons.length > 0 || done && rowControls) && (0, import_react6.createElement)(
       "footer",
       { className: "cb-openActions" },
-      buttons.some((action) => action.kind === "step") && rowActions(index, buttons, "steps", false),
+      buttons.some((action) => action.kind === "step") && rowActions(rowRef(row, index), buttons, "steps", false),
       (0, import_react6.createElement)(
         "div",
         { className: "cb-openButtons" },
         done && rowControls && (0, import_react6.createElement)(DoneBox, { row, index, done, rowControls, t, labelled: true }),
-        buttons.some((action) => action.kind !== "step") && rowActions(index, buttons, "buttons", false)
+        buttons.some((action) => action.kind !== "step") && rowActions(rowRef(row, index), buttons, "buttons", false)
       )
     )
   );
@@ -1561,10 +1564,14 @@ function Card({ entry, live, boardId, assistant, tracks, active, locale, t, pres
     lines: row === void 0 ? summaryLines(card, locale, t).slice(0, 15) : [line],
     context: { board: boardId, card: entry.id, ...row === void 0 ? {} : { row }, type: card.type, updatedAt: card.updatedAt }
   });
-  const rowLine = (row) => card.type === "status" ? statusRowLine(card.data.rows[row], locale) : listRowLine(card.data.rows[row]);
+  const indexOf = (row) => typeof row === "string" ? card.data.rows.findIndex((other) => other.key === row) : row;
+  const rowLine = (row) => card.type === "status" ? statusRowLine(card.data.rows[indexOf(row)], locale) : listRowLine(card.data.rows[indexOf(row)]);
   const askName = assistant ? t("action.chatNamed", { name: assistant }) : void 0;
   const named = (list) => assistant ? list?.map((action) => action.kind === "chat" && action.label === void 0 ? { ...action, label: askName } : action) : list;
-  const onPress = (target) => (action, extra) => press(action, extra, { card: entry.id, ...target }, target.row === void 0 ? void 0 : card.data.rows?.[target.row]);
+  const onPress = (target) => (action, extra) => {
+    const index = target.row === void 0 ? -1 : indexOf(target.row);
+    return press(action, extra, { card: entry.id, ...target }, index >= 0 ? { row: card.data.rows[index], index } : void 0);
+  };
   const rowActions = actions && ((row, list, part2, compact = true) => (0, import_react10.createElement)(actions.ActionBar, {
     actions: named(list),
     part: part2,
@@ -2048,11 +2055,11 @@ function BoardsPage() {
       showToast({ text: "toast.undoFailed" });
     }
   }, [post, showToast]);
-  const press = (0, import_react15.useCallback)(async (action, extra, target, row) => {
+  const press = (0, import_react15.useCallback)(async (action, extra, target, at2) => {
     const answer = await post({ ...target, id: action.id, ...extra });
     if (answer?.undoable) {
       showToast({ text: TOAST_KEYS[action.kind] ?? "toast.event", undo: () => undo(answer.press, target.card) });
-      const keep = action.kind === "done" && row !== void 0 ? keepOf(row, target.row) : void 0;
+      const keep = action.kind === "done" && at2 !== void 0 ? keepOf(at2.row, at2.index) : void 0;
       if (keep) setKept((prev) => ({ ...prev, [target.card]: withKept(prev[target.card], keep) }));
     }
     return answer;

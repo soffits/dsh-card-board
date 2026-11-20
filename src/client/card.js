@@ -33,14 +33,14 @@ function useRowSpan() {
 }
 const CHARTS = { line: LineChart, bar: BarChart, donut: Donut, timeline: Timeline }
 
-/** Press states by action id for the card (row undefined) or one row: the latest press wins. */
+/** Press states by action id for the card (row undefined) or one row (its `rowRef`): the latest press wins. */
 function statesOf(presses, row) {
   const states = {}
   for (const press of presses ?? []) if (press.row === row) states[press.id] = press.state
   return states
 }
 
-/** The newest press of an action on a row (any row when `row` is -1: a kept row is no longer where it was). */
+/** The newest press of an action on a row (any row when `row` is -1: a kept row without a key is no longer where it was). */
 function latestOf(presses, row, id) {
   return (presses ?? []).findLast(press => press.id === id && (row < 0 || press.row === row))
 }
@@ -108,12 +108,16 @@ export function Card({ entry, live, boardId, assistant, tracks, active, locale, 
     lines: row === undefined ? summaryLines(card, locale, t).slice(0, 15) : [line],
     context: { board: boardId, card: entry.id, ...(row === undefined ? {} : { row }), type: card.type, updatedAt: card.updatedAt },
   })
-  const rowLine = row => (card.type === 'status' ? statusRowLine(card.data.rows[row], locale) : listRowLine(card.data.rows[row]))
+  const indexOf = row => (typeof row === 'string' ? card.data.rows.findIndex(other => other.key === row) : row)
+  const rowLine = row => (card.type === 'status' ? statusRowLine(card.data.rows[indexOf(row)], locale) : listRowLine(card.data.rows[indexOf(row)]))
   // A chat button without its own label says "Ask <assistant>" when the board names one.
   const askName = assistant ? t('action.chatNamed', { name: assistant }) : undefined
   const named = list => (assistant ? list?.map(action => (action.kind === 'chat' && action.label === undefined ? { ...action, label: askName } : action)) : list)
   // A press carries the row as it stood, so a row ticked done can stay in view when the card is rewritten without it.
-  const onPress = target => (action, extra) => press(action, extra, { card: entry.id, ...target }, target.row === undefined ? undefined : card.data.rows?.[target.row])
+  const onPress = target => (action, extra) => {
+    const index = target.row === undefined ? -1 : indexOf(target.row)
+    return press(action, extra, { card: entry.id, ...target }, index >= 0 ? { row: card.data.rows[index], index } : undefined)
+  }
   const rowActions = actions && ((row, list, part, compact = true) => h(actions.ActionBar, {
     actions: named(list), part, states: statesOf(entry.presses, row), compact, about: about(row, rowLine(row)), onPress: onPress({ row }),
   }))

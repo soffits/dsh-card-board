@@ -19,17 +19,17 @@ const MAX_BOARD_BYTES = 64 * 1024
 
 /** A file's content if it is a regular file inside `root` and not too big; else a reason. */
 async function readInside(root, path, maxBytes) {
-  let real
   try {
-    real = await realpath(path)
+    const real = await realpath(path)
+    if (!real.startsWith(root + sep)) return { problem: 'points outside the data folder' }
+    const info = await stat(real)
+    if (!info.isFile()) return { problem: 'is not a file' }
+    if (info.size > maxBytes) return { problem: `is larger than ${Math.round(maxBytes / 1024)} KB` }
+    return { text: await readFile(real, 'utf8') }
   } catch (error) {
+    // Gone between two of the reads (a producer replacing it) counts as missing, like gone before them.
     return { missing: error.code === 'ENOENT', problem: error.code === 'ENOENT' ? 'file not found' : `cannot read: ${error.code ?? error.message}` }
   }
-  if (!real.startsWith(root + sep)) return { problem: 'points outside the data folder' }
-  const info = await stat(real)
-  if (!info.isFile()) return { problem: 'is not a file' }
-  if (info.size > maxBytes) return { problem: `is larger than ${Math.round(maxBytes / 1024)} KB` }
-  return { text: await readFile(real, 'utf8') }
 }
 
 async function readJson(root, path, maxBytes, check) {

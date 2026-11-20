@@ -329,16 +329,18 @@ The plugin doesn't act on a press itself. It checks that the person may see the 
   "person": "alex",
   "user": "<verified user id>",
   "at": "2026-03-02T09:41:12.000Z",
-  "source": { "plugin": "dsh-card-board", "board": "home", "card": "chores", "row": 1 }
+  "source": { "plugin": "dsh-card-board", "board": "home", "card": "chores", "row": "chore-2" }
 }
 ```
+
+`source.row` names the row by its `key`, so a press lands on the row the person saw even when the card was rewritten in between; a row without a key goes by its place in `rows`, which a rewrite can shift, so give every row with buttons a key.
 
 It's appended to the action log, emitted in-process as the Cordis event `card-board/action`, and published on channel `ui.action.<kind>` through [dsh-cron-jobs](https://github.com/soffits/dsh-cron-jobs) when that's installed, so a job subscribed to `ui.action.done` can mark the thing done wherever it lives. `person` is `owner` on a single-person DSH.
 
 Taking a press back is another press, appended to the same log, so every record says who, when, what and whether it was undone. Its `action` is `undo` (channel `ui.action.undo`), `undoes` names the press, `of` is the kind it takes back, `inverse` the declared name, and `payload` is the action's own payload without the time the person picked, plus the inverse's. The press keeps the inverse as the card offered it, so an undo works after the card was rewritten, and a press taken back shows as `undone`. A handler that receives a press and its undo in one batch should treat the pair as nothing happening.
 
 ```json
-{ "press": "5d0f…", "action": "undo", "of": "done", "id": "library-books:done", "undoes": "fcb114dd-3890-42e6-af4b-b23173edf8e0", "inverse": "reopen", "payload": {}, "person": "alex", "at": "2026-03-02T09:41:15.000Z", "source": { "plugin": "dsh-card-board", "board": "home", "card": "chores", "row": 1 } }
+{ "press": "5d0f…", "action": "undo", "of": "done", "id": "library-books:done", "undoes": "fcb114dd-3890-42e6-af4b-b23173edf8e0", "inverse": "reopen", "payload": {}, "person": "alex", "at": "2026-03-02T09:41:15.000Z", "source": { "plugin": "dsh-card-board", "board": "home", "card": "chores", "row": "chore-2" } }
 ```
 
 The press log is never a second source of the item's state: a press only marks the gap until the owner of the item writes the card again, and after that a row's box follows the card's `checked`.

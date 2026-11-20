@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { doneOf, doneState, keepOf, keepTicked, withKept } from '../src/client/ticks.js'
+import { doneOf, doneState, keepOf, keepTicked, rowRef, withKept } from '../src/client/ticks.js'
 
 const row = (name, extra = {}) => ({ title: name, actions: [{ kind: 'done', id: `${name}:done` }, { kind: 'snooze', id: `${name}:snooze` }], ...extra })
 
@@ -27,6 +27,15 @@ describe('rows ticked this visit', () => {
     assert.deepEqual(doneState(keepOf(row('a'), 0).row, { press: 'p1', state: 'done', undoable: true }), { checked: true, undo: 'p1' })
     assert.deepEqual(doneState(keepOf(row('a'), 0).row, { press: 'p1', state: 'undone' }), { checked: false, undo: undefined })
     assert.deepEqual(doneState(row('a', { checked: true }), undefined), { checked: true, undo: undefined })
+  })
+
+  it('tells keyed rows apart when they share their done action\'s id', () => {
+    const ask = key => ({ title: key, key, actions: [{ kind: 'done', id: 'done' }] })
+    const kept = withKept(withKept([], keepOf(ask('a'), 0)), keepOf(ask('b'), 1))
+    assert.equal(kept.length, 2, 'ticking b keeps a')
+    assert.deepEqual(keepTicked([ask('c')], kept).map(r => r.title), ['a', 'b', 'c'], 'c having a done of the same id does not hide them')
+    assert.equal(rowRef(ask('b'), 1), 'b')
+    assert.equal(rowRef(row('x'), 3), 3)
   })
 
   it('replaces an earlier entry for the same row', () => {
