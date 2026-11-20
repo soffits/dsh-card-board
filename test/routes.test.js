@@ -52,7 +52,7 @@ function routes({ people = PEOPLE, provider = true, state = {}, published = [], 
     timeoutSeconds: 300,
     now,
   })
-  const list = createRoutes({
+  const { routes: list } = createRoutes({
     dataDir: dir,
     people: createPeople({ people }),
     identity: () => (provider ? identityFor(state) : undefined),
@@ -293,7 +293,7 @@ describe('one card, live changes and what is new', () => {
     await writeFile(join(dir, 'live', 'board.json'), JSON.stringify({ title: 'Live', viewers: ['alex'] }))
     await writeFile(join(dir, 'live', 'cards', 'a.json'), card('A'))
     const { state } = routes()
-    const list = createRoutes({
+    const { routes: list } = createRoutes({
       dataDir: dir, people: createPeople({ people: PEOPLE }), identity: () => identityFor(state), pollSeconds: 30,
       presses: createPresses({ logPath: join(dir, '.actions-live.jsonl') }), seen: createSeenStore(join(dir, '.seen-live')), arrange: createArrangeStore(join(dir, '.arrange-live')), watches,
       messages: createMessages(new URL('../locale', import.meta.url).pathname), heartbeatMs: 50,
@@ -568,6 +568,43 @@ describe('as a DSH plugin, behind the real Connection', () => {
   })
 })
 
+describe('a reload of the plugin', () => {
+  it('ends the open streams, so pages reconnect to the new one instead of waiting on a dead one', async () => {
+    const root = new Context()
+    try {
+      root.provide('credentials')
+      const records = new Map()
+      root.set('credentials', { async modifyRecord(key, mutate) { const next = await mutate(records.get(key)); if (next !== undefined) records.set(key, next); return records.get(key) } })
+      await root.plugin(WebServer, { host: '127.0.0.1', port: 0 })
+      await root.plugin(connectionPlugin, {})
+      const scope = { id: undefined }
+      root.on('connection/request', async (req, _res, next) => {
+        scope.id = req.headers['x-test-user']
+        try { await next() } finally { scope.id = undefined }
+      })
+      root.provide('requestIdentity', identityFor(scope))
+      const board = await root.plugin(cardBoard, { dataDir: dir, people: PEOPLE, actionLog: join(dir, 'reload-actions.jsonl') })
+      root.webServer.registerFallback((req, res) => { if (root.connection.authorizeIndex(req, res)) res.end('index') })
+      const origin = root.webServer.getOrigin()
+      const bootstrap = await fetch(root.connection.authenticatedUrl(`${origin}/`), { redirect: 'manual' })
+      const cookie = (bootstrap.headers.get('set-cookie') ?? '').split(';', 1)[0]
+      const stream = await fetch(`${origin}/api/card-board/events?board=home`, { headers: { cookie, 'x-test-user': 'sub-alex', accept: 'text/event-stream' } })
+      const reader = stream.body.pipeThrough(new TextDecoderStream()).getReader()
+      let text = ''
+      while (!text.includes('"hello"')) text += (await reader.read()).value ?? ''
+      await board.dispose()
+      const ended = await Promise.race([
+        (async () => { for (;;) if ((await reader.read()).done) return true })(),
+        new Promise(resolve => setTimeout(() => resolve(false), 2000)),
+      ])
+      reader.cancel().catch(() => {})
+      assert.equal(ended, true)
+    } finally {
+      await root.fiber.dispose()
+    }
+  })
+})
+
 describe('arrangements', () => {
   const both = { title: 'Both', viewers: ['alex', 'robin'], order: ['a', 'b', 'c'] }
   const arrange = (call, body) => call('/api/card-board/arrange', {}, body)
@@ -629,7 +666,7 @@ describe('arrangements', () => {
   it('tells the person’s other open pages, and only theirs', async () => {
     const { state } = routes()
     const store = createArrangeStore(join(dir, '.arrange-events'))
-    const list = createRoutes({
+    const { routes: list } = createRoutes({
       dataDir: dir, people: createPeople({ people: PEOPLE }), identity: () => identityFor(state), pollSeconds: 30,
       presses: createPresses({ logPath: join(dir, '.actions-events.jsonl') }), seen: createSeenStore(join(dir, '.seen-events')), arrange: store, watches,
       messages: createMessages(new URL('../locale', import.meta.url).pathname), heartbeatMs: 50,
@@ -682,7 +719,7 @@ describe('cards only some viewers see', () => {
   it('tells a viewer nothing about a card they may not see changing', async () => {
     const { state } = routes()
     state.id = 'sub-robin'
-    const list = createRoutes({
+    const { routes: list } = createRoutes({
       dataDir: dir, people: createPeople({ people: PEOPLE }), identity: () => identityFor(state), pollSeconds: 30,
       presses: createPresses({ logPath: join(dir, '.actions-cv.jsonl'), publisher: () => undefined, timeoutSeconds: 300 }),
       seen: createSeenStore(join(dir, '.seen-cv')), arrange: createArrangeStore(join(dir, '.arrange-cv')), watches,

@@ -63,6 +63,9 @@ const NO_PROVIDER = 'This board needs a sign-in plugin that provides requestIden
  * @param {number} [options.heartbeatMs]
  */
 export function createRoutes({ dataDir, people, identity, pollSeconds, presses, seen, arrange, watches, messages, version = '', heartbeatMs = HEARTBEAT_MS }) {
+  /** Ends each open events stream. DSH only drops a route on unload, so a stream it already answered would live on. */
+  const streams = new Set()
+
   /** The viewer and their board, or the Response that refuses them. */
   async function access(board) {
     const viewer = await viewerOf(people, identity())
@@ -154,14 +157,20 @@ export function createRoutes({ dataDir, people, identity, pollSeconds, presses, 
         let unwatch = () => {}
         let unarrange = () => {}
         const heartbeat = setInterval(() => send(': ping\n\n'), heartbeatMs)
+        const end = () => {
+          finish()
+          try { controller.close() } catch { /* already closed */ }
+        }
         finish = () => {
           if (!open) return
           open = false
           clearInterval(heartbeat)
           unwatch()
           unarrange()
+          streams.delete(end)
           request.signal?.removeEventListener?.('abort', finish)
         }
+        streams.add(end)
         request.signal?.addEventListener?.('abort', finish)
         send(': connected\n\n')
         // The viewer's own arrangement changing elsewhere (another device) reaches this page too.
@@ -172,8 +181,7 @@ export function createRoutes({ dataDir, people, identity, pollSeconds, presses, 
             const again = await access(id)
             if (again.refused) {
               data({ type: 'gone' })
-              finish()
-              try { controller.close() } catch { /* already closed */ }
+              end()
               return
             }
           }
@@ -288,7 +296,7 @@ export function createRoutes({ dataDir, people, identity, pollSeconds, presses, 
     return json(200, { press: result.event.press, state: 'pending', at: result.event.at, undoes: result.event.undoes })
   }
 
-  return [
+  const routes = [
     { path: BOARDS_PATH, methods: ['GET'], requestBody: 'buffered', fetch: boards },
     { path: BOARD_PATH, methods: ['GET'], requestBody: 'buffered', fetch: board },
     { path: CARD_PATH, methods: ['GET'], requestBody: 'buffered', fetch: card },
@@ -298,4 +306,5 @@ export function createRoutes({ dataDir, people, identity, pollSeconds, presses, 
     { path: LOCALE_PATH, methods: ['GET'], requestBody: 'buffered', fetch: locale },
     { path: ACTION_PATH, methods: ['POST'], requestBody: 'buffered', fetch: action },
   ]
+  return { routes, close: () => { for (const end of [...streams]) end() } }
 }
