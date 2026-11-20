@@ -20,7 +20,7 @@ import { join } from 'node:path'
 import { mayAct, maySee, maySeeCard, viewerOf, withoutActions } from './access.js'
 import { parseArrangement } from './arrange.js'
 import { LANGUAGE_ID } from './messages.js'
-import { ID_PATTERN, PRESS_KINDS, findAction } from './schema.js'
+import { ID_PATTERN, KEY_PATTERN, PRESS_KINDS, findAction } from './schema.js'
 import { cardVersions, freshness, parseSeen } from './seen.js'
 import { boardTag, cardPath, cardTag, listBoards, readBoard, readCard, readCards, resolveDataDir } from './store.js'
 
@@ -250,7 +250,7 @@ export function createRoutes({ dataDir, people, identity, pollSeconds, presses, 
     if (undo !== undefined) return undoPress({ board, card, undo })
     if (typeof board !== 'string' || !ID_PATTERN.test(board) || typeof card !== 'string' || !ID_PATTERN.test(card) || typeof id !== 'string')
       return json(400, { error: 'Say which board, card and action.' })
-    if (row !== undefined && !(Number.isInteger(row) && row >= 0)) return json(400, { error: 'row must be a row index.' })
+    if (row !== undefined && !(Number.isInteger(row) && row >= 0) && !(typeof row === 'string' && KEY_PATTERN.test(row))) return json(400, { error: 'row must be a row key, or the index of a row without one.' })
     if (until !== undefined && (typeof until !== 'string' || !DATE_TIME.test(until) || Number.isNaN(Date.parse(until))))
       return json(400, { error: 'until must be an ISO date-time with a zone.' })
     const viewer = await viewerOf(people, identity())

@@ -199,11 +199,11 @@ export function BoardsPage() {
 
   // A press of done, snooze, event or a step goes to this plugin's server. One the card can take back offers Undo for a
   // few seconds, and a done row stays in view, ticked, in the place it had.
-  const press = useCallback(async (action, extra, target, row) => {
+  const press = useCallback(async (action, extra, target, at) => {
     const answer = await post({ ...target, id: action.id, ...extra })
     if (answer?.undoable) {
       showToast({ text: TOAST_KEYS[action.kind] ?? 'toast.event', undo: () => undo(answer.press, target.card) })
-      const keep = action.kind === 'done' && row !== undefined ? keepOf(row, target.row) : undefined
+      const keep = action.kind === 'done' && at !== undefined ? keepOf(at.row, at.index) : undefined
       if (keep) setKept(prev => ({ ...prev, [target.card]: withKept(prev[target.card], keep) }))
     }
     return answer

@@ -604,13 +604,24 @@ export function checkCard(card) {
 }
 
 /**
+ * The row a press names: by its `key`, so a press still finds it after the card
+ * was rewritten; only a row without a key goes by its place.
+ */
+export function findRow(card, row) {
+  const rows = card?.data?.rows
+  if (!Array.isArray(rows)) return undefined
+  if (typeof row === 'string') return rows.find(candidate => candidate?.key === row)
+  return rows[row]?.key === undefined ? rows[row] : undefined
+}
+
+/**
  * The action a press names, looked up in the card as written: on the card
- * itself, or on row `row` of a list or status card, among its own buttons and
- * those its detail shows when opened. Undefined when there is no such action,
- * so a browser can only press what the data offers.
+ * itself, or on a row of a list or status card (`findRow`), among its own
+ * buttons and those its detail shows when opened. Undefined when there is no
+ * such action, so a browser can only press what the data offers.
  */
 export function findAction(card, actionId, row) {
-  const holder = row === undefined ? card : card?.data?.rows?.[row]
+  const holder = row === undefined ? card : findRow(card, row)
   const list = [holder?.actions, holder?.detail?.actions].flatMap(value => (Array.isArray(value) ? value : []))
   return list.find(action => action?.id === actionId)
 }

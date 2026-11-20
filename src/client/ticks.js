@@ -11,17 +11,26 @@
 export const doneOf = row => row?.actions?.find(action => action.kind === 'done' && action.label === undefined)
 
 /**
+ * How a press names a row: its key, so the press still finds it after the card is rewritten; a row without one goes by
+ * its place (`index`, -1 for a kept row the card no longer has).
+ */
+export const rowRef = (row, index) => row?.key ?? index
+
+/** Which row a kept entry stands for: its key, or for a row without one its done action's id. */
+const keptId = row => row.key ?? doneOf(row)?.id
+
+/**
  * What to keep of a row that was just ticked: the row as it was, with only its done action left (the other buttons
  * would press a row the card no longer has), and where it stood.
  */
 export function keepOf(row, index) {
   const done = doneOf(row)
-  return done === undefined ? undefined : { id: done.id, index, row: { ...row, checked: true, actions: [done] } }
+  return done === undefined ? undefined : { id: keptId(row), index, row: { ...row, checked: true, actions: [done] } }
 }
 
 /** A list with the kept rows put back where they were, unless the card still has them. */
 export function keepTicked(rows, kept = []) {
-  const present = new Set(rows.map(row => doneOf(row)?.id))
+  const present = new Set(rows.map(keptId))
   const missing = kept.filter(entry => !present.has(entry.id)).sort((a, b) => a.index - b.index)
   if (missing.length === 0) return rows
   const merged = [...rows]
