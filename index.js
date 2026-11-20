@@ -11,9 +11,8 @@ import { homedir } from 'node:os'
 import { isAbsolute, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import z from '@deepseek-ai/schemastery'
-import { createPeople, expandHome } from './src/access.js'
+import { createEventStreams, createPeople, expandHome, readLocales, tableFor } from '@soffits/dsh-host-kit'
 import { createArrangeStore } from './src/arrange-store.js'
-import { createMessages } from './src/messages.js'
 import { createPresses } from './src/presses.js'
 import { createRoutes } from './src/routes.js'
 import { createSeenStore } from './src/seen.js'
@@ -70,7 +69,10 @@ export function apply(ctx, config) {
   })
   const watches = createWatches({ warn: message => logger.warn(message) })
   ctx.effect(() => () => watches.close())
-  const { routes, close } = createRoutes({
+  const streams = createEventStreams()
+  ctx.effect(() => () => streams.close())
+  const localeDir = fileURLToPath(new URL('./locale', import.meta.url))
+  const routes = createRoutes({
     dataDir,
     people,
     identity: () => ctx.get('requestIdentity'),
@@ -79,10 +81,11 @@ export function apply(ctx, config) {
     seen: createSeenStore(join(dataDir, '.seen')),
     arrange: createArrangeStore(join(dataDir, '.arrange')),
     watches,
-    messages: createMessages(fileURLToPath(new URL('./locale', import.meta.url))),
+    // Read on each request, so an update that changes only words shows without a restart.
+    messages: async tag => tableFor(await readLocales(localeDir, { warn: message => logger.warn(message) }), tag),
+    streams,
     version,
   })
-  ctx.effect(() => close)
   for (const route of routes) ctx.connection.fetch.register(route)
   logger.info(`serving boards from ${dataDir} (${people.enabled ? 'per person' : 'single owner'})`)
 }

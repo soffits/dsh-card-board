@@ -1,4 +1,4 @@
-/* @soffits/dsh-card-board 0.18.0: built by scripts/build.mjs from src/client/. Do not edit. */
+/* @soffits/dsh-card-board 0.18.1: built from src/client/. Do not edit. */
 window.__ModuleLoader__.load({
   id: "@soffits/dsh-card-board",
   factory: (require) => {

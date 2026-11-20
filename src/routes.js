@@ -17,9 +17,9 @@
  * in it is new since the viewer last looked, `fresh: { card: true, rows: [keys] }`.
  */
 import { join } from 'node:path'
-import { mayAct, maySee, maySeeCard, viewerOf, withoutActions } from './access.js'
+import { TAG, viewerOf } from '@soffits/dsh-host-kit'
+import { mayAct, maySee, maySeeCard, withoutActions } from './access.js'
 import { parseArrangement } from './arrange.js'
-import { LANGUAGE_ID } from './messages.js'
 import { ID_PATTERN, KEY_PATTERN, PRESS_KINDS, findAction } from './schema.js'
 import { cardVersions, freshness, parseSeen } from './seen.js'
 import { boardTag, cardPath, cardTag, listBoards, readBoard, readCard, readCards, resolveDataDir } from './store.js'
@@ -33,8 +33,6 @@ export const ARRANGE_PATH = '/api/card-board/arrange'
 export const ACTION_PATH = '/api/card-board/action'
 export const LOCALE_PATH = '/api/card-board/locale'
 const DATE_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:\d{2})$/
-/** A comment line now and then keeps proxies from closing a quiet stream. */
-export const HEARTBEAT_MS = 25_000
 
 const HEADERS = {
   'content-type': 'application/json; charset=utf-8',
@@ -51,7 +49,7 @@ const NO_PROVIDER = 'This board needs a sign-in plugin that provides requestIden
 /**
  * @param {object} options
  * @param {string} options.dataDir - the data folder (absolute)
- * @param {ReturnType<import('./access.js').createPeople>} options.people
+ * @param {ReturnType<import('@soffits/dsh-host-kit').createPeople>} options.people
  * @param {() => object | undefined} options.identity - the requestIdentity service right now, if any
  * @param {number} options.pollSeconds
  * @param {ReturnType<import('./presses.js').createPresses>} options.presses
@@ -60,11 +58,9 @@ const NO_PROVIDER = 'This board needs a sign-in plugin that provides requestIden
  * @param {ReturnType<import('./watch.js').createWatches>} options.watches
  * @param {(tag: string) => Promise<object>} options.messages - the page's words for a language
  * @param {string} [options.version] - mixed into ETags, so a plugin update refreshes open pages
- * @param {number} [options.heartbeatMs]
+ * @param {ReturnType<import('@soffits/dsh-host-kit').createEventStreams>} options.streams - the open event streams, ended when the plugin unloads
  */
-export function createRoutes({ dataDir, people, identity, pollSeconds, presses, seen, arrange, watches, messages, version = '', heartbeatMs = HEARTBEAT_MS }) {
-  /** Ends each open events stream. DSH only drops a route on unload, so a stream it already answered would live on. */
-  const streams = new Set()
+export function createRoutes({ dataDir, people, identity, pollSeconds, presses, seen, arrange, watches, messages, streams, version = '' }) {
 
   /** The viewer and their board, or the Response that refuses them. */
   async function access(board) {
@@ -91,7 +87,7 @@ export function createRoutes({ dataDir, people, identity, pollSeconds, presses, 
 
   async function locale(request) {
     const tag = new URL(request.url).searchParams.get('tag') ?? 'en'
-    if (!LANGUAGE_ID.test(tag)) return json(400, { error: 'Not a language id.' })
+    if (!TAG.test(tag)) return json(400, { error: 'Not a language id.' })
     return json(200, await messages(tag))
   }
 
@@ -147,40 +143,17 @@ export function createRoutes({ dataDir, people, identity, pollSeconds, presses, 
     if (!ID_PATTERN.test(id)) return json(400, { error: 'Not a board id.' })
     const found = await access(id)
     if (found.refused) return found.refused
-    const encoder = new TextEncoder()
-    let finish = () => {}
-    const body = new ReadableStream({
-      async start(controller) {
-        let open = true
-        const send = text => { if (open) controller.enqueue(encoder.encode(text)) }
-        const data = value => send(`data: ${JSON.stringify(value)}\n\n`)
-        let unwatch = () => {}
-        let unarrange = () => {}
-        const heartbeat = setInterval(() => send(': ping\n\n'), heartbeatMs)
-        const end = () => {
-          finish()
-          try { controller.close() } catch { /* already closed */ }
-        }
-        finish = () => {
-          if (!open) return
-          open = false
-          clearInterval(heartbeat)
-          unwatch()
-          unarrange()
-          streams.delete(end)
-          request.signal?.removeEventListener?.('abort', finish)
-        }
-        streams.add(end)
-        request.signal?.addEventListener?.('abort', finish)
-        send(': connected\n\n')
-        // The viewer's own arrangement changing elsewhere (another device) reaches this page too.
-        unarrange = arrange.subscribe((who, board) => { if (who === found.person && board === id) data({ type: 'arrange' }) })
+    return streams.respond(request, async ({ send, end }) => {
+      // The viewer's own arrangement changing elsewhere (another device) reaches this page too.
+      const unarrange = arrange.subscribe((who, board) => { if (who === found.person && board === id) send({ type: 'arrange' }) })
+      let unwatch
+      try {
         unwatch = await watches.watch(join(found.root, id), async change => {
           if (change.type === 'board') {
             // Viewers may have changed: someone who may no longer see the board hears that and nothing else.
             const again = await access(id)
             if (again.refused) {
-              data({ type: 'gone' })
+              send({ type: 'gone' })
               end()
               return
             }
@@ -189,16 +162,17 @@ export function createRoutes({ dataDir, people, identity, pollSeconds, presses, 
             const now = await readBoard(found.root, id)
             if (!maySeeCard(found.viewer, now?.board, change.id)) return
           }
-          data(change)
+          send(change)
         })
-        if (!open) unwatch()
-        else data({ type: 'hello' })
-      },
-      cancel() { finish() },
-    })
-    return new Response(body, {
-      status: 200,
-      headers: { 'content-type': 'text/event-stream; charset=utf-8', 'cache-control': 'no-cache, no-transform', 'x-accel-buffering': 'no', 'x-content-type-options': 'nosniff' },
+      } catch (error) {
+        unarrange()
+        throw error
+      }
+      send({ type: 'hello' })
+      return () => {
+        unwatch()
+        unarrange()
+      }
     })
   }
 
@@ -306,5 +280,5 @@ export function createRoutes({ dataDir, people, identity, pollSeconds, presses, 
     { path: LOCALE_PATH, methods: ['GET'], requestBody: 'buffered', fetch: locale },
     { path: ACTION_PATH, methods: ['POST'], requestBody: 'buffered', fetch: action },
   ]
-  return { routes, close: () => { for (const end of [...streams]) end() } }
+  return routes
 }

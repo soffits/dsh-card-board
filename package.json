@@ -1,6 +1,6 @@
 {
   "name": "@soffits/dsh-card-board",
-  "version": "0.18.0",
+  "version": "0.18.1",
   "description": "A data-driven card board for DeepSeek Harness: scripts write small JSON cards, the Web UI shows each person the boards they may see.",
   "type": "module",
   "license": "MIT",
@@ -71,6 +71,9 @@
     "build": "node scripts/build.mjs",
     "check": "node scripts/build.mjs --check && for f in index.js client.js bin/*.js src/*.js src/client/*.js test/*.js; do node --check \"$f\" || exit 1; done && node bin/dsh-card-board.js check --dir examples/boards",
     "test": "node --test test/*.test.js"
+  },
+  "dependencies": {
+    "@soffits/dsh-host-kit": "^0.1.0"
   },
   "devDependencies": {
     "@deepseek-ai/cordis": "^4.1.0",

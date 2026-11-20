@@ -7,8 +7,8 @@ import { Context } from '@deepseek-ai/cordis'
 import * as connectionPlugin from '@deepseek-ai/dsh-client-connection'
 import { WebServer } from '@deepseek-ai/dsh-host-webserver'
 import * as cardBoard from '../index.js'
-import { createPeople, mayAct, maySee, personKey, viewerOf, withoutActions } from '../src/access.js'
-import { createMessages } from '../src/messages.js'
+import { createEventStreams, createPeople, personKey, readLocales, tableFor, viewerOf } from '@soffits/dsh-host-kit'
+import { mayAct, maySee, withoutActions } from '../src/access.js'
 import { createPresses } from '../src/presses.js'
 import { createRoutes } from '../src/routes.js'
 import { createSeenStore } from '../src/seen.js'
@@ -37,6 +37,8 @@ after(async () => {
 /** The example board names itself in two languages. */
 const HOME_TITLE = { en: 'Home', zh: '家' }
 const PEOPLE = { 'sub-alex': 'Alex', 'sub-robin': 'robin' }
+const LOCALE = new URL('../locale', import.meta.url).pathname
+const words = async tag => tableFor(await readLocales(LOCALE), tag)
 /** A stand-in identity provider whose current caller the test sets. */
 function identityFor(state) {
   return { current: () => (state.id ? { provider: 'test', issuer: 'https://id.example', id: state.id } : null) }
@@ -52,7 +54,7 @@ function routes({ people = PEOPLE, provider = true, state = {}, published = [], 
     timeoutSeconds: 300,
     now,
   })
-  const { routes: list } = createRoutes({
+  const list = createRoutes({
     dataDir: dir,
     people: createPeople({ people }),
     identity: () => (provider ? identityFor(state) : undefined),
@@ -61,9 +63,9 @@ function routes({ people = PEOPLE, provider = true, state = {}, published = [], 
     seen: createSeenStore(join(dir, `.seen-${logCount}`)),
     arrange: createArrangeStore(join(dir, `.arrange-${logCount}`)),
     watches,
-    messages: createMessages(new URL('../locale', import.meta.url).pathname),
+    messages: words,
     version: 'test',
-    heartbeatMs,
+    streams: createEventStreams({ heartbeatMs }),
   })
   const call = async (path, headers = {}, body) => {
     const route = list.find(r => path.split('?')[0] === r.path)
@@ -293,10 +295,10 @@ describe('one card, live changes and what is new', () => {
     await writeFile(join(dir, 'live', 'board.json'), JSON.stringify({ title: 'Live', viewers: ['alex'] }))
     await writeFile(join(dir, 'live', 'cards', 'a.json'), card('A'))
     const { state } = routes()
-    const { routes: list } = createRoutes({
+    const list = createRoutes({
       dataDir: dir, people: createPeople({ people: PEOPLE }), identity: () => identityFor(state), pollSeconds: 30,
       presses: createPresses({ logPath: join(dir, '.actions-live.jsonl') }), seen: createSeenStore(join(dir, '.seen-live')), arrange: createArrangeStore(join(dir, '.arrange-live')), watches,
-      messages: createMessages(new URL('../locale', import.meta.url).pathname), heartbeatMs: 50,
+      messages: words, streams: createEventStreams({ heartbeatMs: 50 }),
     })
     const events = list.find(route => route.path === '/api/card-board/events')
     state.id = 'sub-robin'
@@ -666,10 +668,10 @@ describe('arrangements', () => {
   it('tells the person’s other open pages, and only theirs', async () => {
     const { state } = routes()
     const store = createArrangeStore(join(dir, '.arrange-events'))
-    const { routes: list } = createRoutes({
+    const list = createRoutes({
       dataDir: dir, people: createPeople({ people: PEOPLE }), identity: () => identityFor(state), pollSeconds: 30,
       presses: createPresses({ logPath: join(dir, '.actions-events.jsonl') }), seen: createSeenStore(join(dir, '.seen-events')), arrange: store, watches,
-      messages: createMessages(new URL('../locale', import.meta.url).pathname), heartbeatMs: 50,
+      messages: words, streams: createEventStreams({ heartbeatMs: 50 }),
     })
     const events = list.find(route => route.path === '/api/card-board/events')
     state.id = 'sub-alex'
@@ -719,11 +721,11 @@ describe('cards only some viewers see', () => {
   it('tells a viewer nothing about a card they may not see changing', async () => {
     const { state } = routes()
     state.id = 'sub-robin'
-    const { routes: list } = createRoutes({
+    const list = createRoutes({
       dataDir: dir, people: createPeople({ people: PEOPLE }), identity: () => identityFor(state), pollSeconds: 30,
       presses: createPresses({ logPath: join(dir, '.actions-cv.jsonl'), publisher: () => undefined, timeoutSeconds: 300 }),
       seen: createSeenStore(join(dir, '.seen-cv')), arrange: createArrangeStore(join(dir, '.arrange-cv')), watches,
-      messages: createMessages(new URL('../locale', import.meta.url).pathname), version: 'test',
+      messages: words, streams: createEventStreams(), version: 'test',
     })
     const route = list.find(r => r.path === '/api/card-board/events')
     const controller = new AbortController()

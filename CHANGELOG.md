@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.18.1
+
+A broken language file is skipped with a warning instead of failing the page's words in every language. The people mapping, the words, the live stream and the client build come from the shared `@soffits/dsh-host-kit` instead of copies kept here.
+
 ## 0.18.0
 
 A press names its row by the row's `key` (`source.row` in the event is now that key), so it lands on the row the person tapped even when the card was rewritten in between. Before, it named the row by its place: after a handled row dropped out, or a quick second tick, a press could answer or tick the row below it, since rows often share button ids. A row without a key still goes by its place; an index that points at a keyed row is refused. Rows ticked this visit are kept apart by key too, so ticking a second one no longer hides the first.

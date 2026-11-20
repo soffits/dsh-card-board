@@ -3,7 +3,7 @@ import { readFileSync, readdirSync } from 'node:fs'
 import vm from 'node:vm'
 import { describe, it } from 'node:test'
 import { parse } from 'acorn'
-import { readLanguages } from '../src/messages.js'
+import { readLocales } from '@soffits/dsh-host-kit'
 
 const read = file => readFileSync(new URL(`../${file}`, import.meta.url), 'utf8')
 const pkg = JSON.parse(read('package.json'))
@@ -77,7 +77,7 @@ describe('the page', () => {
   })
 
   it('only asks for words the language files have, and every word is used', async () => {
-    const english = (await readLanguages(LOCALE)).get('en')
+    const english = (await readLocales(LOCALE)).en
     for (const key of SOURCES.flatMap(({ code }) => [...translatedKeys(code)])) assert.ok(key in english, `the page asks for ${key}`)
     for (const key of [...ALL_SOURCE.matchAll(/'((?:error|dayPart)\.\w+)'/g)].map(match => match[1])) assert.ok(key in english, key)
     for (const key of Object.keys(english)) assert.ok(ALL_SOURCE.includes(`'${key}'`), `${key} is not used anywhere`)
@@ -85,7 +85,7 @@ describe('the page', () => {
 
   it('names no language and no assistant', () => {
     const named = /\b(?:English|French|Chinese|Japanese|Spanish|German|zh-CN|zh-TW|en-US|fr-FR)\b/
-    for (const { name, code } of [...SOURCES, { name: 'messages.js', code: read('src/messages.js') }]) {
+    for (const { name, code } of SOURCES) {
       const lines = code.split('\n').filter(line => !line.trim().startsWith('//') && !line.trim().startsWith('*') && !line.trim().startsWith('/*'))
       assert.deepEqual(lines.filter(line => named.test(line)), [], `${name} names a language`)
     }
