@@ -1,6 +1,6 @@
 # dsh-card-board
 
-A card board for the [DeepSeek Harness](https://github.com/deepseek-ai/dsh) Web UI. Your own scripts write small JSON files, one per card; the plugin shows them as a page of numbers, charts and lists, and each signed-in person sees only the boards they're allowed to.
+A card board for the [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) Web UI. Your own scripts write small JSON files, one per card; the plugin shows them as a page of numbers, charts and lists, and each signed-in person sees only the boards they're allowed to.
 
 The plugin only displays. It makes no outbound requests, holds no credentials and never runs anything, so keeping data fresh is up to whatever writes the files: a cron job, a watcher, a script on another machine that syncs the folder. There's no model in the loop and no cost per refresh.
 
