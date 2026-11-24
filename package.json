@@ -77,10 +77,10 @@
   },
   "devDependencies": {
     "@deepseek-ai/cordis": "^4.1.0",
-    "@deepseek-ai/dsh-client-connection": "0.2.2-rc.3",
-    "@deepseek-ai/dsh-client-ui-primitives": "0.2.2-rc.3",
-    "@deepseek-ai/dsh-credentials": "0.2.2-rc.3",
-    "@deepseek-ai/dsh-host-webserver": "0.2.2-rc.3",
+    "@deepseek-ai/dsh-client-connection": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-client-ui-primitives": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-credentials": "0.2.2-rc.5",
+    "@deepseek-ai/dsh-host-webserver": "0.2.2-rc.5",
     "@deepseek-ai/schemastery": "3.19.0",
     "acorn": "^8.19.0",
     "esbuild": "^0.28.2"
