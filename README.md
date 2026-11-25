@@ -12,10 +12,10 @@ The plugin only displays. It makes no outbound requests and holds no credentials
 npx @deepseek-ai/dsh plugin --profile web add @soffits/dsh-card-board@latest
 ```
 
-It needs [@soffits/dsh-plugin-sdk](https://github.com/soffits/dsh-ui-kit), the small shared pieces the page is drawn with (icons, ticking times, rings, the live dot), and uses [@soffits/dsh-plugin-sdk](https://github.com/soffits/dsh-ui-actions) for buttons when it's there:
+It needs [@soffits/dsh-plugin-sdk](https://github.com/soffits/dsh-plugin-sdk), the shared pieces the page is drawn with (icons, ticking times, rings, the live dot) and the buttons' parts:
 
 ```sh
-npx @deepseek-ai/dsh plugin --profile web add @soffits/dsh-plugin-sdk@latest @soffits/dsh-plugin-sdk@latest
+npx @deepseek-ai/dsh plugin --profile web add @soffits/dsh-plugin-sdk@latest
 ```
 
 Restart `dsh web` afterwards. It adds one Host row, `card-board`, and a **Boards** entry in the sidebar. Boards live in `card-board` under the DSH home unless you set `dataDir`.
@@ -68,6 +68,19 @@ When the data already has an owner with a command line, let the board ask it ins
 ```
 
 The board's fields are the same as `board.json`'s ([Data layout](#data-layout)); a card is the same as a card file, and `updatedAt` may be left out. A card that cannot be built is `{ "error": "text" }`, which the page shows as the small error card with that text.
+
+A whole command can be this small (any language works; it only has to print that JSON). Save it as `~/bin/my-board`, make it executable, and set `command: [~/bin/my-board]`:
+
+```sh
+#!/bin/sh
+case "$1" in
+  boards) echo '{"boards":{"today":{"title":"Today","order":["weather"]}}}' ;;
+  board)  echo '{"cards":{"weather":{"type":"stat","title":"Outside","data":{"items":[{"label":"Now","value":4.5,"unit":"°C"}]}}}}' ;;
+  press)  cat >/dev/null ;;   # a button press arrives on stdin; exit 0 says it was handled
+esac
+```
+
+`dsh-card-board check-command ~/bin/my-board` runs it the way the page will and reports any answer that doesn't fit the schema. Run that first when a board doesn't show up: a command that is missing, fails or prints something that isn't JSON is skipped quietly (its boards are just absent, the folder boards still show) and the reason goes only to the plugin's log line `board command: <last line of stderr>`.
 
 - **`watch`** lists the files and folders (everything under a folder) the answer was built from. The plugin keeps the answer until one of them changes, and while a page has the board open it watches them, so the change shows at once. Names a writer leaves around while it works (`-wal`, `-shm`, editor temporaries, dotfiles) don't count. A relative path is relative to `commandCwd`. Without `watch`, the answer is reused for a few seconds.
 - **`refreshAt`** is the time the answer changes by itself, such as midnight for a card that says "today". The plugin asks again then.
@@ -141,7 +154,7 @@ A card:
 | --- | --- |
 | `type` | `summary`, `countdown`, `stat`, `line`, `bar`, `donut`, `list`, `timeline` or `status` |
 | `title` | Shown on the card. |
-| `icon`, `tone` | An icon on a tile tinted with the tone, before the title. Icons are [Lucide](https://lucide.dev/icons) names; the bundled set is in dsh-ui-kit's `icons.json`, and a name it doesn't have draws nothing. |
+| `icon`, `tone` | An icon on a tile tinted with the tone, before the title. Icons are [Lucide](https://lucide.dev/icons) names; the bundled set is the SDK's [`ui/icons.json`](https://github.com/soffits/dsh-plugin-sdk/blob/main/ui/icons.json), and a name it doesn't have draws nothing. |
 | `updatedAt` | ISO date-time with a zone. The CLI fills it in when you leave it out. |
 | `staleAfter` | Seconds. Past this the card is dimmed and says how old it is. |
 | `link` | An `http(s)` URL or a `/path` the title row links to. |
@@ -381,11 +394,13 @@ The press log is never a second source of the item's state: a press only marks t
 
 The button shows the press as pending until the card file is written again (for a command board, until the command has handled it and the board was read afresh), then done (a step is done once recorded, since sending it is the whole job). If nothing rewrites the card within `actionTimeoutSeconds`, it says nothing picked the press up. So a handler should rewrite the card when it has acted, even if only `updatedAt` changes.
 
-The buttons come from [`@soffits/dsh-plugin-sdk`](https://github.com/soffits/dsh-ui-actions), a separate plugin the board uses when it is installed (`dsh plugin --profile web add @soffits/dsh-plugin-sdk`; DSH 0.2.2-rc.1 or later). Without it cards show no buttons. A chat button opens a new conversation with the card or row attached to the message box as a small card, and the person writes beside it; a chat button's words ("Ask", "Chat about this") and the done and snooze buttons' words come from that plugin, in the person's language. On a phone the buttons are at least 40 px, and a snooze picker opens as a sheet at the bottom of the screen.
+The buttons come from [`@soffits/dsh-plugin-sdk`](https://github.com/soffits/dsh-plugin-sdk) (DSH 0.2.2-rc.1 or later); without it the board has no buttons. A chat button opens a new conversation with the card or row attached to the message box as a small card, and the person writes beside it; a chat button's words ("Ask", "Chat about this") and the done and snooze buttons' words come from that plugin, in the person's language. On a phone the buttons are at least 40 px, and a snooze picker opens as a sheet at the bottom of the screen.
 
 ## Writing cards: the CLI
 
 `dsh-card-board` validates a card and writes it atomically (a temporary file, then a rename), so the page never reads half a file and bad data fails at write time:
+
+The command comes with the plugin: run it with `npx @soffits/dsh-card-board <args>`, or as `node_modules/.bin/dsh-card-board` in the profile folder (`~/.dsh/profiles/<profile>`), or install it on its own with `npm i -g @soffits/dsh-card-board`.
 
 ```sh
 export CARD_BOARD_DIR=~/boards
