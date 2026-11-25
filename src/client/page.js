@@ -62,6 +62,7 @@ export function BoardsPage() {
   const kit = useKit()
   const { active, intl: locale, ready, t } = useActiveLocale()
   const [boards, setBoards] = useState(null)
+  const [commandProblem, setCommandProblem] = useState(null)
   const [listError, setListError] = useState(null)
   // The card (or row) open in the sheet, kept in the URL so a link opens it and Back closes it.
   const [opened, setOpened] = useState(() => (typeof location === 'undefined' ? {} : readNav(location.search)))
@@ -106,6 +107,7 @@ export function BoardsPage() {
     try {
       const { body } = await getJson('boards')
       setBoards(body.boards)
+      setCommandProblem(body.commandProblem ?? null)
       setPollSeconds(body.pollSeconds ?? 30)
       setListError(null)
     } catch (error) {
@@ -236,6 +238,15 @@ export function BoardsPage() {
     return () => { clearInterval(timer); document.removeEventListener('visibilitychange', onVisible) }
   }, [current, status, waiting, pollSeconds, loadBoard, loadList])
 
+  // With no boards, or a board command that isn't answering, nothing else asks again: look every so often, so the
+  // page recovers on its own once the command works or a board appears.
+  const listWaits = commandProblem !== null || boards?.length === 0
+  useEffect(() => {
+    if (!listWaits) return undefined
+    const timer = setInterval(() => { if (visible()) loadList() }, Math.max(5, pollSeconds) * 1000)
+    return () => clearInterval(timer)
+  }, [listWaits, pollSeconds, loadList])
+
   // What the person has looked at for a moment counts as seen, on the server.
   const reported = useRef('')
   useEffect(() => {
@@ -300,6 +311,9 @@ export function BoardsPage() {
   const titleOf = entry => pickText(entry.title, active)
   if (!ready) return h('div', { className: 'cb-page' })
 
+  const commandNotice = commandProblem && h('div', { className: 'cb-notice', role: 'alert' },
+    t(commandProblem.error === undefined ? 'commandFailedQuiet' : 'commandFailed', { command: commandProblem.command }),
+    commandProblem.error !== undefined && h('ul', { className: 'cb-problems' }, h('li', null, commandProblem.error)))
   let content
   if (listError) content = h('p', { className: 'cb-notice' }, errorText(listError, t))
   else if (boards === null) content = h('p', { className: 'cb-muted' }, t('loading'))
@@ -335,6 +349,7 @@ export function BoardsPage() {
         board && h('div', { className: 'cb-sub' }, h(kit.LiveStatus, { status, updatedAt: newest || undefined }),
           board.readOnly && h('span', { className: 'cb-readOnly', title: t('readOnly.hint') }, t('readOnly')),
           board.arrangement && h(Button, { variant: 'ghost', size: 'sm', className: 'cb-reset', title: t('arrange.resetHint'), onClick: () => { keepArrangement(null, board.id); setSaid(t('arrange.resetDone')) } }, t('arrange.reset')))),
+      commandNotice,
       boards && boards.length > 1 && h('div', { className: 'cb-tabs', role: 'tablist' }, boards.map(b =>
         h(Pill, { key: b.id, active: b.id === current, role: 'tab', 'aria-selected': b.id === current, title: titleOf(b), onClick: () => choose(b.id) }, titleOf(b)))),
       content),

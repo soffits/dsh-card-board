@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.20.0
+
+A board command that is missing or failing no longer makes its boards vanish quietly: the page shows a notice naming the command and, for the owner, its error (`command not found: <name>` when it isn't installed). The page keeps asking and recovers once the command works, and a failed answer is retried after a few seconds instead of waiting for a file change. The empty-state text now says boards come from the board command or from a `board.json` in the data folder, and a board's problem notice no longer says `board.json` when the board came from a command. Needs `@soffits/dsh-plugin-sdk` 0.2.0 (the dependency range was `^0.1.0`, which pulled a second copy of the old version into a profile).
+
 ## 0.19.1
 
 - Shared parts now come from `@soffits/dsh-plugin-sdk`, which replaced `@soffits/dsh-host-kit`, `@soffits/dsh-ui-kit` and `@soffits/dsh-ui-actions`; the page loads after it. Install `@soffits/dsh-plugin-sdk` in the profile alongside this plugin.

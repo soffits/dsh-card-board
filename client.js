@@ -1,4 +1,4 @@
-/* @soffits/dsh-card-board 0.19.1: built from src/client/. Do not edit. */
+/* @soffits/dsh-card-board 0.20.0: built from src/client/. Do not edit. */
 window.__ModuleLoader__.load({
   id: "@soffits/dsh-card-board",
   factory: (require) => {
@@ -1926,6 +1926,7 @@ function BoardsPage() {
   const kit = useKit();
   const { active, intl: locale, ready, t } = useActiveLocale();
   const [boards, setBoards] = (0, import_react15.useState)(null);
+  const [commandProblem, setCommandProblem] = (0, import_react15.useState)(null);
   const [listError, setListError] = (0, import_react15.useState)(null);
   const [opened, setOpened] = (0, import_react15.useState)(() => typeof location === "undefined" ? {} : readNav(location.search));
   const pushed = (0, import_react15.useRef)(false);
@@ -1970,6 +1971,7 @@ function BoardsPage() {
     try {
       const { body } = await getJson("boards");
       setBoards(body.boards);
+      setCommandProblem(body.commandProblem ?? null);
       setPollSeconds(body.pollSeconds ?? 30);
       setListError(null);
     } catch (error) {
@@ -2097,6 +2099,14 @@ function BoardsPage() {
       document.removeEventListener("visibilitychange", onVisible);
     };
   }, [current, status, waiting, pollSeconds, loadBoard, loadList]);
+  const listWaits = commandProblem !== null || boards?.length === 0;
+  (0, import_react15.useEffect)(() => {
+    if (!listWaits) return void 0;
+    const timer = setInterval(() => {
+      if (visible()) loadList();
+    }, Math.max(5, pollSeconds) * 1e3);
+    return () => clearInterval(timer);
+  }, [listWaits, pollSeconds, loadList]);
   const reported = (0, import_react15.useRef)("");
   (0, import_react15.useEffect)(() => {
     if (!board) return void 0;
@@ -2166,6 +2176,12 @@ function BoardsPage() {
   }, 0);
   const titleOf = (entry) => pickText(entry.title, active);
   if (!ready) return (0, import_react15.createElement)("div", { className: "cb-page" });
+  const commandNotice = commandProblem && (0, import_react15.createElement)(
+    "div",
+    { className: "cb-notice", role: "alert" },
+    t(commandProblem.error === void 0 ? "commandFailedQuiet" : "commandFailed", { command: commandProblem.command }),
+    commandProblem.error !== void 0 && (0, import_react15.createElement)("ul", { className: "cb-problems" }, (0, import_react15.createElement)("li", null, commandProblem.error))
+  );
   let content;
   if (listError) content = (0, import_react15.createElement)("p", { className: "cb-notice" }, errorText(listError, t));
   else if (boards === null) content = (0, import_react15.createElement)("p", { className: "cb-muted" }, t("loading"));
@@ -2231,6 +2247,7 @@ function BoardsPage() {
           } }, t("arrange.reset"))
         )
       ),
+      commandNotice,
       boards && boards.length > 1 && (0, import_react15.createElement)("div", { className: "cb-tabs", role: "tablist" }, boards.map((b) => (0, import_react15.createElement)(import_dsh_client_ui_primitives5.Pill, { key: b.id, active: b.id === current, role: "tab", "aria-selected": b.id === current, title: titleOf(b), onClick: () => choose(b.id) }, titleOf(b)))),
       content
     ),

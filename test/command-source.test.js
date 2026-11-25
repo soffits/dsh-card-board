@@ -178,6 +178,29 @@ describe('a board command', () => {
     source.close()
   })
 
+  it('says which command failed and why, and recovers when it answers again', async () => {
+    await save({ boards: BOARDS, specWatch: [join(dir, 'state.json')], down: true })
+    let time = 1_000_000
+    const source = make({ warn: () => {}, now: () => time })
+    assert.deepEqual(await source.list(), [])
+    const status = await source.status()
+    assert.equal(status.command, `${process.execPath} ${join(dir, 'fake.mjs')}`)
+    assert.equal(status.error, 'the store is locked')
+    await save({ down: false })
+    time += 6000
+    assert.deepEqual((await source.list()).map(entry => entry.id), ['home', 'other'])
+    assert.deepEqual(await source.status(), { command: status.command })
+    source.close()
+    await save({ specWatch: [] })
+  })
+
+  it('names a command that is missing', async () => {
+    const source = createCommandSource({ command: ['no-such-board-command-xyz', 'cards'], warn: () => {} })
+    assert.deepEqual(await source.list(), [])
+    assert.equal((await source.status()).error, 'command not found: no-such-board-command-xyz')
+    source.close()
+  })
+
   it('hands a press to the command on stdin and asks for a fresh answer', async () => {
     await save({ cards: { home: { a: stat('A') } }, afterPress: { a: stat('A done') }, failPress: false })
     const source = make()
@@ -198,17 +221,17 @@ describe('boards from a command in the routes', () => {
   const watches = createWatches({ pollMs: 100, settleMs: 20 })
   after(() => watches.close())
   let n = 0
-  async function setup({ time = Date.now } = {}) {
+  async function setup({ time = Date.now, sourceOptions = {}, people = { 'sub-robin': 'robin', 'sub-alex': 'alex' } } = {}) {
     n += 1
     const folder = join(dir, `folder-${n}`)
     await mkdir(join(folder, 'garden', 'cards'), { recursive: true })
     await writeFile(join(folder, 'garden', 'board.json'), JSON.stringify({ title: 'Garden', viewers: ['robin'] }))
     await mkdir(join(folder, 'home', 'cards'), { recursive: true })
     await writeFile(join(folder, 'home', 'board.json'), JSON.stringify({ title: 'Shadowed by the command' }))
-    const source = make()
+    const source = make(sourceOptions)
     const presses = createPresses({ logPath: join(folder, '.actions.jsonl'), publisher: () => ({ emit: () => ({ matched: [] }) }), timeoutSeconds: 300, now: time })
     const list = createRoutes({
-      dataDir: folder, source, people: createPeople({ people: { 'sub-robin': 'robin', 'sub-alex': 'alex' } }),
+      dataDir: folder, source, people: createPeople({ people }),
       identity: () => ({ current: () => (callState.id ? { provider: 't', issuer: 'i', id: callState.id } : null) }),
       pollSeconds: 30, presses, seen: createSeenStore(join(folder, '.seen')), arrange: createArrangeStore(join(folder, '.arrange')),
       watches, messages: async tag => tableFor(await readLocales(new URL('../locale', import.meta.url).pathname), tag), version: 't', streams: createEventStreams({}),
@@ -247,6 +270,23 @@ describe('boards from a command in the routes', () => {
     await save({ cards: { home: { a: stat('A2') } } })
     assert.notEqual(await source.boardTag('home', 's'), first)
     source.close()
+  })
+
+  it('tells the page when the board command isn’t working, with its words only for the owner', async () => {
+    await save({ boards: BOARDS, specWatch: [], down: true })
+    const named = `${process.execPath} ${join(dir, 'fake.mjs')}`
+    const person = await setup({ sourceOptions: { warn: () => {} } })
+    const hidden = (await person.call('/api/card-board/boards')).body
+    assert.deepEqual(hidden.boards.map(b => b.id), ['garden'])
+    assert.deepEqual(hidden.commandProblem, { command: named })
+    person.source.close()
+    const owner = await setup({ people: {}, sourceOptions: { warn: () => {} } })
+    assert.deepEqual((await owner.call('/api/card-board/boards')).body.commandProblem, { command: named, error: 'the store is locked' })
+    await save({ down: false })
+    await pause(5100)
+    const well = (await owner.call('/api/card-board/boards')).body
+    assert.equal(well.commandProblem, undefined)
+    owner.source.close()
   })
 
   it('hands a press to the command: pending, then done once the board was read after it', async () => {

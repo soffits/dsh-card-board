@@ -80,7 +80,7 @@ case "$1" in
 esac
 ```
 
-`dsh-card-board check-command ~/bin/my-board` runs it the way the page will and reports any answer that doesn't fit the schema. Run that first when a board doesn't show up: a command that is missing, fails or prints something that isn't JSON is skipped quietly (its boards are just absent, the folder boards still show) and the reason goes only to the plugin's log line `board command: <last line of stderr>`.
+`dsh-card-board check-command ~/bin/my-board` runs it the way the page will and reports any answer that doesn't fit the schema. Run that first when a board doesn't show up. A command that is missing, fails or prints something that isn't JSON makes its boards absent (the folder boards still show), and the page says so: a notice at the top names the command and, in single-owner mode, the last line of its stderr (in per-person mode only the command is named, since the error text may not be for every viewer). The same reason goes to the plugin's log line `board command: <last line of stderr>`. The page asks again every few seconds and recovers by itself.
 
 - **`watch`** lists the files and folders (everything under a folder) the answer was built from. The plugin keeps the answer until one of them changes, and while a page has the board open it watches them, so the change shows at once. Names a writer leaves around while it works (`-wal`, `-shm`, editor temporaries, dotfiles) don't count. A relative path is relative to `commandCwd`. Without `watch`, the answer is reused for a few seconds.
 - **`refreshAt`** is the time the answer changes by itself, such as midnight for a card that says "today". The plugin asks again then.
