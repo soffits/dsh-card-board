@@ -131,3 +131,17 @@ describe('how the page registers with DSH', () => {
     assert.deepEqual(Object.keys(context).filter(key => !['window', 'document'].includes(key)), [])
   })
 })
+
+describe('a failing board command', () => {
+  it('is shown by the page, named and in every language', async () => {
+    const page = read('src/client/page.js')
+    assert.match(page, /body\.commandProblem/)
+    assert.match(page, /'commandFailed'/)
+    const locales = await readLocales(LOCALE)
+    for (const [tag, file] of Object.entries(locales)) {
+      assert.match(file.commandFailed, /\{command\}/, tag)
+      assert.match(file.commandFailedQuiet, /\{command\}/, tag)
+      assert.doesNotMatch(file.emptyHint, /^A script writes/, tag)
+    }
+  })
+})

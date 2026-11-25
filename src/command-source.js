@@ -28,7 +28,9 @@ const MAX_CARDS = 100
 export function runCommand(argv, { cwd, env, input, timeoutMs = 60_000 } = {}) {
   return new Promise((resolveRun, reject) => {
     const child = execFile(argv[0], argv.slice(1), { cwd: cwd || undefined, env, timeout: timeoutMs, maxBuffer: MAX_OUTPUT, encoding: 'utf8' }, (error, stdout, stderr) => {
-      if (error) {
+      if (error?.code === 'ENOENT') {
+        reject(Object.assign(new Error(`command not found: ${argv[0]}`), { code: error.code }))
+      } else if (error) {
         const said = String(stderr || error.message).trim().split('\n').filter(Boolean).pop() ?? 'failed'
         reject(Object.assign(new Error(said), { code: error.code }))
       } else {
@@ -90,7 +92,8 @@ export function createCommandSource({ command, cwd = '', env, timeoutMs = 60_000
 
   async function specsFresh() {
     if (specs === null || closed) return false
-    if (specs.watch.length === 0) return now() < specs.validUntil
+    // A failed answer is asked for again soon, whatever its paths say: they belong to the last good one.
+    if (specs.error !== undefined || specs.watch.length === 0) return now() < specs.validUntil
     return (await signature(specs.watch)) === specs.sig
   }
 
@@ -306,6 +309,12 @@ export function createCommandSource({ command, cwd = '', env, timeoutMs = 60_000
     /** When the board's answer was last made (the time that run started), 0 if never: a press is handled once it is later. */
     async writtenAt(id) {
       return boards.get(id)?.startedAt ?? 0
+    },
+
+    /** The command as it is run and, when asking it for the boards failed, why; the page names both. */
+    async status() {
+      await currentSpecs()
+      return { command: command.join(' '), ...(specs?.error === undefined ? {} : { error: specs.error }) }
     },
 
     /** The problems of the last run, if it failed. */

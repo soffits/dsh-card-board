@@ -4,7 +4,7 @@
  * every answer is decided here, per request, from the server's own view of who
  * is asking.
  *
- *   GET  /api/card-board/boards                 the boards this viewer may see
+ *   GET  /api/card-board/boards                 the boards this viewer may see, and `commandProblem` when the board command fails
  *   GET  /api/card-board/board?id=<id>          one board with its cards (ETag, 304)
  *   GET  /api/card-board/card?board=<id>&id=<card>   one card (ETag, 304)
  *   GET  /api/card-board/events?board=<id>      Server-Sent Events: which card or board.json changed
@@ -95,10 +95,15 @@ export function createRoutes({ dataDir, source, people, identity, pollSeconds, p
     const viewer = await viewerOf(people, identity())
     if (viewer.unavailable) return json(503, { error: NO_PROVIDER })
     const visible = (await sources.list()).filter(entry => viewer.mode === 'owner' || maySee(viewer, entry.board))
+    // A board command that can't be asked would otherwise make its boards vanish; name it. The command's own words
+    // (stderr) go to the owner only: in per-person mode they may reach someone who doesn't run it.
+    const status = await sources.status()
+    const commandProblem = status?.error === undefined ? {} : { commandProblem: { command: status.command, ...(viewer.mode === 'owner' ? { error: status.error } : {}) } }
     return json(200, {
       mode: viewer.mode,
       pollSeconds,
       boards: visible.map(entry => ({ id: entry.id, title: entry.board?.title ?? entry.id })),
+      ...commandProblem,
     })
   }
 

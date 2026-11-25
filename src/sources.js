@@ -5,7 +5,7 @@
  *
  * Every source answers the same way: `list()`, `board(id)`, `cards(id, board, only)`, `card(id, card)`,
  * `boardTag(id, salt)`, `cardTag(id, card, salt)`, `writtenAt(id, card)` (when a press on it counts as handled),
- * `watch(id, listener)`, and, for a command, `press(id, event)`.
+ * `watch(id, listener)`, `status()` (the board command and why it failed, if it did) and, for a command, `press(id, event)`.
  */
 import { join } from 'node:path'
 import { boardTag, cardPath, cardTag, listBoards, readBoard, readCard, readCards, resolveDataDir } from './store.js'
@@ -41,6 +41,9 @@ export function createFolderSource({ dataDir, watches }) {
     async problems() {
       return []
     },
+    async status() {
+      return undefined
+    },
     async watch(id, listener) {
       return watches.watch(join(await root(), id), listener)
     },
@@ -70,6 +73,8 @@ export function createSources({ folder, command }) {
     cardTag: async (id, card, salt) => (await pick(id)).cardTag(id, card, salt),
     writtenAt: async (id, card) => (await pick(id)).writtenAt(id, card),
     problems: async id => (await pick(id)).problems(id),
+    /** `{ command, error? }` of the board command, if one is configured. */
+    status: () => command.status(),
     watch: async (id, listener) => (await pick(id)).watch(id, listener),
     /** Whether presses on this board go to a command (otherwise they are only published). */
     async handles(id) {
