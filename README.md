@@ -35,7 +35,7 @@ Override the row in your profile's `cordis.patch.yml`:
 | Option | Default | What it does |
 | --- | --- | --- |
 | `dataDir` | `<DSH home>/card-board` | The folder with the boards (and the plugin's own state: what each person has seen, their arrangements, the press log). `~/` means the home folder. |
-| `command` | `[]` | A [board command](#boards-from-a-command) as an argument list, e.g. `[companion, cards]`. A leading `~/` in its first part means the home folder; a bare name is looked up on PATH. |
+| `command` | `[]` | A [board command](#boards-from-a-command) as an argument list, e.g. `[kith, cards]`. A leading `~/` in its first part means the home folder; a bare name is looked up on PATH. |
 | `commandCwd` | | Where the command runs (a home it finds from there). |
 | `commandTimeoutSeconds` | `60` | How long one run may take. |
 | `people` | `{}` | Verified user id → person id, for a DSH several people sign in to. |

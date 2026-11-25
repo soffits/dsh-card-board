@@ -10,7 +10,7 @@ A board made of files means a producer for every card: a job that rebuilds each 
 
 - **Grafana** panels query their data source when the dashboard is opened or refreshed and keep no copy of it; the data source plugin is the one place that knows the store.
 - **Home Assistant** dashboards render from the state the integrations hold and subscribe to its changes, so a card never has its own file.
-- **dsh-work** (this plugin family) runs `companion board` with an argument list, caches the answer until the board's folder changes, and has no timer behind the page.
+- **dsh-work** (this plugin family) runs `kith board` with an argument list, caches the answer until the board's folder changes, and has no timer behind the page.
 
 ## Decisions
 

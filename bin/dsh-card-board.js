@@ -163,7 +163,7 @@ export async function main(argv, { env = process.env, stdin = process.stdin, out
   try {
     if (argv[0] === 'check-command') {
       const command = argv.slice(argv[1] === '--' ? 2 : 1)
-      if (command.length === 0) throw new UsageError('say the board command, e.g. check-command companion cards')
+      if (command.length === 0) throw new UsageError('say the board command, e.g. check-command kith cards')
       return await checkCommand(command, out, env)
     }
     const { positional, flags } = parseArgs(argv)
