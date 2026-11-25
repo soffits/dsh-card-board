@@ -2,7 +2,7 @@
 
 A card board for the [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) Web UI. Your own scripts write small JSON files, one per card; the plugin shows them as a page of numbers, charts and lists, and each signed-in person sees only the boards they're allowed to.
 
-The plugin only displays. It makes no outbound requests, holds no credentials and never runs anything, so keeping data fresh is up to whatever writes the files: a cron job, a watcher, a script on another machine that syncs the folder. There's no model in the loop and no cost per refresh.
+The plugin only displays. It makes no outbound requests and holds no credentials. Boards come from files that your scripts keep current (a cron job, a watcher, a script on another machine that syncs the folder), or from a [board command](#boards-from-a-command): a program that owns the data and answers when the page asks, so there is no copy to keep fresh. There's no model in the loop and no cost per refresh.
 
 ![The example board](docs/screenshot.png)
 
@@ -34,13 +34,47 @@ Override the row in your profile's `cordis.patch.yml`:
 
 | Option | Default | What it does |
 | --- | --- | --- |
-| `dataDir` | `<DSH home>/card-board` | The folder with the boards. `~/` means the home folder. |
+| `dataDir` | `<DSH home>/card-board` | The folder with the boards (and the plugin's own state: what each person has seen, their arrangements, the press log). `~/` means the home folder. |
+| `command` | `[]` | A [board command](#boards-from-a-command) as an argument list, e.g. `[companion, cards]`. A leading `~/` in its first part means the home folder; a bare name is looked up on PATH. |
+| `commandCwd` | | Where the command runs (a home it finds from there). |
+| `commandTimeoutSeconds` | `60` | How long one run may take. |
 | `people` | `{}` | Verified user id → person id, for a DSH several people sign in to. |
 | `peopleFile` | | A JSON file with more of that mapping, re-read when it changes. `people` wins on a clash. |
 | `peopleKey` | | The key in `peopleFile` that holds the mapping; empty means the whole file. |
 | `pollSeconds` | `30` | How often an open, visible page checks for changes while its live connection is down. A hidden tab doesn't poll. |
 | `actionLog` | `<dataDir>/.actions.jsonl` | Where action presses are appended. |
 | `actionTimeoutSeconds` | `300` | A press nobody handles within this time shows as not handled. |
+
+## Boards from a command
+
+When the data already has an owner with a command line, let the board ask it instead of keeping files in step. Set `command` to an argument list; the plugin appends a subcommand and reads JSON from stdout:
+
+```
+<command> boards         every board's own fields, and the files they depend on
+<command> board <id>     one board's cards, the files they were built from, and when they next change by themselves
+<command> press <id>     a press event on stdin: change the data, exit 0 when it is done
+```
+
+```json
+{ "boards": { "home": { "title": "Home", "viewers": ["alex"], "order": ["weather", "chores"], "layout": { "weather": { "size": "small" } } } },
+  "watch": ["/home/alex/config/boards.json"] }
+```
+
+```json
+{ "cards": { "weather": { "type": "stat", "title": "Outside", "data": { "items": [{ "label": "Now", "value": 4.5, "unit": "°C" }] } },
+             "chores": { "error": "the chore store is locked" } },
+  "watch": ["/home/alex/chores/store.sqlite3"],
+  "refreshAt": "2026-03-03T00:00:00-05:00" }
+```
+
+The board's fields are the same as `board.json`'s ([Data layout](#data-layout)); a card is the same as a card file, and `updatedAt` may be left out. A card that cannot be built is `{ "error": "text" }`, which the page shows as the small error card with that text.
+
+- **`watch`** lists the files and folders (everything under a folder) the answer was built from. The plugin keeps the answer until one of them changes, and while a page has the board open it watches them, so the change shows at once. Names a writer leaves around while it works (`-wal`, `-shm`, editor temporaries, dotfiles) don't count. A relative path is relative to `commandCwd`. Without `watch`, the answer is reused for a few seconds.
+- **`refreshAt`** is the time the answer changes by itself, such as midnight for a card that says "today". The plugin asks again then.
+- **`updatedAt`** is stamped by the plugin when the command leaves it out: the time of the run that made the card's current content, and again once a card with `staleAfter` is half that old.
+- **Presses** keep their record and their `ui.action.<kind>` event, and the plugin then runs `press <id>` with the event on stdin. Exit 0 marks the press handled and asks for a fresh answer; any other exit shows it as not handled, with the last line of stderr in the log.
+
+Folder boards and command boards can be used together (a command's board wins over a folder of the same name). The command runs with an argument list, never a shell, with a timeout. `dsh-card-board check-command <command...>` runs `boards` and every board and checks the answers against the schema. Why it is shaped this way: [docs/decisions/board-command.md](docs/decisions/board-command.md).
 
 ## Who sees what
 
@@ -318,7 +352,7 @@ A card, a list row or a status row can carry up to six buttons (a list or status
 
 `inverse` (on `done`, `snooze` and `event`) says the action can be taken back: `kind` is the name its owner knows the way back by (`reopen`, `unsnooze`), `payload` what that needs (a snooze's previous date). A press of such an action shows an Undo in a toast for about 8 seconds, and a ticked row stays in view, struck through, until the board is refreshed or left; unticking it is the same undo. A step has no inverse.
 
-The plugin doesn't act on a press itself. It checks that the person may see the board and that the action is in the card as written, then records an event:
+The plugin doesn't change data on a press itself. It checks that the person may see the board and that the action is in the card as written, then records an event (and, for a board that comes from a [command](#boards-from-a-command), hands it to that command):
 
 ```json
 {
@@ -345,7 +379,7 @@ Taking a press back is another press, appended to the same log, so every record 
 
 The press log is never a second source of the item's state: a press only marks the gap until the owner of the item writes the card again, and after that a row's box follows the card's `checked`.
 
-The button shows the press as pending until the card file is written again, then done (a step is done once recorded, since sending it is the whole job). If nothing rewrites the card within `actionTimeoutSeconds`, it says nothing picked the press up. So a handler should rewrite the card when it has acted, even if only `updatedAt` changes.
+The button shows the press as pending until the card file is written again (for a command board, until the command has handled it and the board was read afresh), then done (a step is done once recorded, since sending it is the whole job). If nothing rewrites the card within `actionTimeoutSeconds`, it says nothing picked the press up. So a handler should rewrite the card when it has acted, even if only `updatedAt` changes.
 
 The buttons come from [`@soffits/dsh-ui-actions`](https://github.com/soffits/dsh-ui-actions), a separate plugin the board uses when it is installed (`dsh plugin --profile web add @soffits/dsh-ui-actions`; DSH 0.2.2-rc.1 or later). Without it cards show no buttons. A chat button opens a new conversation with the card or row attached to the message box as a small card, and the person writes beside it; a chat button's words ("Ask", "Chat about this") and the done and snooze buttons' words come from that plugin, in the person's language. On a phone the buttons are at least 40 px, and a snooze picker opens as a sheet at the bottom of the screen.
 

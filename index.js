@@ -1,18 +1,21 @@
 /**
  * DeepSeek Harness Host plugin: a read-only card board.
  *
- * Scripts write small JSON card files into a data folder; this plugin checks
- * who is asking and serves the boards they may see to the Web UI page in
- * client.js. It makes no outbound requests, holds no credentials and never
- * runs anything.
+ * Boards come from small JSON card files that scripts write into a data folder,
+ * or from a board command (`command`) that the plugin asks when a page needs
+ * them. It checks who is asking and serves the boards they may see to the Web
+ * UI page in client.js. It makes no outbound requests and holds no credentials;
+ * the only program it runs is the board command the owner configured.
  */
 import { readFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { isAbsolute, join, resolve } from 'node:path'
+import { delimiter } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import z from '@deepseek-ai/schemastery'
 import { createEventStreams, createPeople, expandHome, readLocales, tableFor } from '@soffits/dsh-host-kit'
 import { createArrangeStore } from './src/arrange-store.js'
+import { createCommandSource } from './src/command-source.js'
 import { createPresses } from './src/presses.js'
 import { createRoutes } from './src/routes.js'
 import { createSeenStore } from './src/seen.js'
@@ -28,7 +31,13 @@ const { version } = JSON.parse(readFileSync(new URL('./package.json', import.met
 
 export const Config = z.object({
   dataDir: z.string().default(DEFAULT_DATA_DIR)
-    .description('The folder holding the boards: <dataDir>/<board>/board.json and <dataDir>/<board>/cards/<card>.json. A leading ~/ means the home folder. Default: card-board in the DSH home.'),
+    .description('The folder holding the boards: <dataDir>/<board>/board.json and <dataDir>/<board>/cards/<card>.json, and the plugin\'s own state (what each person has seen, how they arranged a board, the press log). A leading ~/ means the home folder. Default: card-board in the DSH home.'),
+  command: z.array(z.string()).default([])
+    .description('A board command, as an argument list (the companion practice\'s is `companion cards`): the plugin runs `<command> boards`, `<command> board <id>` and `<command> press <id>` for boards read on demand instead of from files. A leading ~/ in the first part means the home folder. Empty: folder boards only.'),
+  commandCwd: z.string().default('')
+    .description('Where the board command runs (a home it finds from there). Default: the DSH process\'s own folder.'),
+  commandTimeoutSeconds: z.natural().min(5).max(600).default(60)
+    .description('How long one run of the board command may take.'),
   people: z.dict(z.string()).default({})
     .description('Verified user id (from the sign-in plugin, such as an OIDC sub) → person id used in a board\'s viewers. With any mapping configured, each person sees only the boards that list them.'),
   peopleFile: z.string().default('')
@@ -43,9 +52,14 @@ export const Config = z.object({
     .description('A press whose card nobody rewrites within this time shows as not handled.'),
 })
 
+/** `~/bin/tool` is the home folder's; a bare name is looked up on PATH. */
+function absoluteCommand(part, absolute) {
+  return part.startsWith('~/') ? absolute(part) : part
+}
+
 /**
  * @param {import('@deepseek-ai/cordis').Context} ctx
- * @param {{ dataDir: string, people: Record<string, string>, peopleFile: string, peopleKey: string, pollSeconds: number, actionLog: string, actionTimeoutSeconds: number }} config
+ * @param {{ dataDir: string, command: string[], commandCwd: string, commandTimeoutSeconds: number, people: Record<string, string>, peopleFile: string, peopleKey: string, pollSeconds: number, actionLog: string, actionTimeoutSeconds: number }} config
  */
 export function apply(ctx, config) {
   const logger = ctx.logger('card-board')
@@ -69,11 +83,22 @@ export function apply(ctx, config) {
   })
   const watches = createWatches({ warn: message => logger.warn(message) })
   ctx.effect(() => () => watches.close())
+  const command = (config.command ?? []).map((part, i) => (i === 0 ? absoluteCommand(part, absolute) : part))
+  // A command named without a path is looked up on PATH, with the home's own bin folder added.
+  const source = command.length === 0 ? undefined : createCommandSource({
+    command,
+    cwd: config.commandCwd ? absolute(config.commandCwd) : '',
+    env: { ...process.env, PATH: [process.env.PATH, join(home, '.local', 'bin')].filter(Boolean).join(delimiter) },
+    timeoutMs: (config.commandTimeoutSeconds ?? 60) * 1000,
+    warn: message => logger.warn(message),
+  })
+  ctx.effect(() => () => source?.close())
   const streams = createEventStreams()
   ctx.effect(() => () => streams.close())
   const localeDir = fileURLToPath(new URL('./locale', import.meta.url))
   const routes = createRoutes({
     dataDir,
+    source,
     people,
     identity: () => ctx.get('requestIdentity'),
     pollSeconds: config.pollSeconds ?? 30,
@@ -87,5 +112,5 @@ export function apply(ctx, config) {
     version,
   })
   for (const route of routes) ctx.connection.fetch.register(route)
-  logger.info(`serving boards from ${dataDir} (${people.enabled ? 'per person' : 'single owner'})`)
+  logger.info(`serving boards from ${dataDir}${source ? ` and from \`${command.join(' ')}\`` : ''} (${people.enabled ? 'per person' : 'single owner'})`)
 }

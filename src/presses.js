@@ -7,7 +7,9 @@
  * `ui.action.<kind>`), so the owner of the item reacts and rewrites the card.
  *
  * A press is pending until its card file is written again after it (done),
- * or until the timeout passes with no write (unhandled). Recent presses are
+ * or until the timeout passes with no write (unhandled). On a board read from a
+ * command, the press is handed to that command: pending while it runs, unhandled
+ * if it failed, done once the board's answer was made after it finished. Recent presses are
  * kept in memory and reloaded from the log's tail after a restart.
  *
  * An action that declares an `inverse` can be taken back: the press keeps the
@@ -16,7 +18,7 @@
  * log is append-only, so "undone" is the later record that points at the press.
  */
 import { randomUUID } from 'node:crypto'
-import { appendFile, mkdir, open, stat } from 'node:fs/promises'
+import { appendFile, mkdir, open } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import { UNDO_KIND } from './schema.js'
 
@@ -64,6 +66,7 @@ async function readTail(path) {
  */
 export function createPresses({ logPath, publisher, notify = () => {}, timeoutSeconds, warn = () => {}, now = Date.now }) {
   let recent
+  const outcomes = new Map() // press id -> { running } | { handledAt } | { failed }
   const loaded = readTail(logPath).then(events => { recent = events }, error => {
     warn(`action log ${logPath} unreadable, starting without recent presses: ${error.message}`)
     recent = []
@@ -143,24 +146,48 @@ export function createPresses({ logPath, publisher, notify = () => {}, timeoutSe
     return { event: await record(event) }
   }
 
+  /** Start handing a press to a command: false when it already was (a double tap returns the first press). */
+  function begin(event) {
+    if (outcomes.has(event.press)) return false
+    outcomes.set(event.press, { running: true })
+    return true
+  }
+
+  /** The board has no command: the press is only published, and its card tells when it was handled. */
+  function skip(event) {
+    outcomes.delete(event.press)
+  }
+
+  /** The command is done with a press; `failure` is why it refused. */
+  function finish(event, failure, handledAt = now()) {
+    outcomes.set(event.press, failure === undefined ? { handledAt } : { failed: failure })
+  }
+
   /**
-   * The presses on one card with their state: done once the card file was
-   * written after the press, unhandled after the timeout, else pending.
+   * The presses on one card with their state: done once the card was
+   * written after the press (after its command finished it, when it has
+   * one), unhandled after the timeout or when its command failed, else pending.
+   * `written` is when the card was last written, in ms.
    */
-  async function statesFor(board, card, cardPath) {
+  async function statesFor(board, card, written) {
     const events = (await list()).filter(event => event.source.board === board && event.source.card === card)
     if (events.length === 0) return []
     const undone = new Set(events.filter(event => event.action === UNDO_KIND).map(event => event.undoes))
-    const written = await stat(cardPath).then(info => info.mtimeMs, () => 0)
     const at = now()
     return events.filter(event => event.action !== UNDO_KIND).map(event => {
       const time = Date.parse(event.at)
       // A step is carried out by sending it to the assistant (dsh-ui-actions does that right after the press), so it
       // is done once recorded; the others wait for their owner to write the card again.
-      const state = undone.has(event.press) ? 'undone' : event.action === 'step' || written > time ? 'done' : at - time > timeoutSeconds * 1000 ? 'unhandled' : 'pending'
+      const outcome = outcomes.get(event.press)
+      const timedOut = at - time > timeoutSeconds * 1000
+      const state = undone.has(event.press) ? 'undone'
+        : event.action === 'step' ? 'done'
+          : outcome?.failed !== undefined ? 'unhandled'
+            : outcome?.running ? (timedOut ? 'unhandled' : 'pending')
+              : (outcome?.handledAt === undefined ? written > time : written >= outcome.handledAt) ? 'done' : timedOut ? 'unhandled' : 'pending'
       return { press: event.press, id: event.id, ...(event.source.row === undefined ? {} : { row: event.source.row }), at: event.at, state, ...(event.inverse && state !== 'undone' ? { undoable: true } : {}) }
     })
   }
 
-  return { press, undo, statesFor, list }
+  return { press, undo, statesFor, list, begin, skip, finish }
 }
