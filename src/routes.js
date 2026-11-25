@@ -16,13 +16,12 @@
  * Every card entry carries its content `version` (and `rows`, the versions of its keyed rows) and, when something
  * in it is new since the viewer last looked, `fresh: { card: true, rows: [keys] }`.
  */
-import { join } from 'node:path'
 import { TAG, viewerOf } from '@soffits/dsh-host-kit'
 import { mayAct, maySee, maySeeCard, withoutActions } from './access.js'
 import { parseArrangement } from './arrange.js'
 import { ID_PATTERN, KEY_PATTERN, PRESS_KINDS, findAction } from './schema.js'
 import { cardVersions, freshness, parseSeen } from './seen.js'
-import { boardTag, cardPath, cardTag, listBoards, readBoard, readCard, readCards, resolveDataDir } from './store.js'
+import { createFolderSource, createSources } from './sources.js'
 
 export const BOARDS_PATH = '/api/card-board/boards'
 export const BOARD_PATH = '/api/card-board/board'
@@ -49,6 +48,7 @@ const NO_PROVIDER = 'This board needs a sign-in plugin that provides requestIden
 /**
  * @param {object} options
  * @param {string} options.dataDir - the data folder (absolute)
+ * @param {ReturnType<import('./command-source.js').createCommandSource>} [options.source] - boards read from a command, next to the folder's
  * @param {ReturnType<import('@soffits/dsh-host-kit').createPeople>} options.people
  * @param {() => object | undefined} options.identity - the requestIdentity service right now, if any
  * @param {number} options.pollSeconds
@@ -60,18 +60,18 @@ const NO_PROVIDER = 'This board needs a sign-in plugin that provides requestIden
  * @param {string} [options.version] - mixed into ETags, so a plugin update refreshes open pages
  * @param {ReturnType<import('@soffits/dsh-host-kit').createEventStreams>} options.streams - the open event streams, ended when the plugin unloads
  */
-export function createRoutes({ dataDir, people, identity, pollSeconds, presses, seen, arrange, watches, messages, streams, version = '' }) {
+export function createRoutes({ dataDir, source, people, identity, pollSeconds, presses, seen, arrange, watches, messages, streams, version = '' }) {
+  const sources = createSources({ folder: createFolderSource({ dataDir, watches }), command: source })
 
   /** The viewer and their board, or the Response that refuses them. */
   async function access(board) {
     const viewer = await viewerOf(people, identity())
     if (viewer.unavailable) return { refused: json(503, { error: NO_PROVIDER }) }
-    const root = await resolveDataDir(dataDir)
-    const entry = root === undefined ? undefined : await readBoard(root, board)
+    const entry = await sources.board(board)
     // In people mode a missing board and a forbidden one answer the same, so ids don't leak.
     if (viewer.mode === 'people' && !maySee(viewer, entry?.board)) return { refused: json(403, { error: 'You can’t see this board.' }) }
     if (entry === undefined) return { refused: json(404, { error: 'No such board.' }) }
-    return { viewer, root, entry, person: viewer.mode === 'owner' ? 'owner' : viewer.person, canAct: mayAct(viewer, entry.board) }
+    return { viewer, entry, person: viewer.mode === 'owner' ? 'owner' : viewer.person, canAct: mayAct(viewer, entry.board) }
   }
 
   /** A card entry with its versions, its press states and what is new in it for this viewer. */
@@ -94,8 +94,7 @@ export function createRoutes({ dataDir, people, identity, pollSeconds, presses, 
   async function boards() {
     const viewer = await viewerOf(people, identity())
     if (viewer.unavailable) return json(503, { error: NO_PROVIDER })
-    const root = await resolveDataDir(dataDir)
-    const visible = root === undefined ? [] : (await listBoards(root)).filter(entry => viewer.mode === 'owner' || maySee(viewer, entry.board))
+    const visible = (await sources.list()).filter(entry => viewer.mode === 'owner' || maySee(viewer, entry.board))
     return json(200, {
       mode: viewer.mode,
       pollSeconds,
@@ -108,16 +107,16 @@ export function createRoutes({ dataDir, people, identity, pollSeconds, presses, 
     if (!ID_PATTERN.test(id)) return json(400, { error: 'Not a board id.' })
     const found = await access(id)
     if (found.refused) return found.refused
-    const { viewer, root, entry, person, canAct } = found
-    const states = canAct ? await pressStates(root, id) : {}
-    const tag = await boardTag(root, id, `${version}\0${viewer.mode}\0${person ?? ''}\0${canAct}\0${await seen.tag(person)}\0${await arrange.tag(person)}\0${JSON.stringify(states)}`)
+    const { viewer, entry, person, canAct } = found
+    const states = canAct ? await pressStates(id) : {}
+    const tag = await sources.boardTag(id, `${version}\0${viewer.mode}\0${person ?? ''}\0${canAct}\0${await seen.tag(person)}\0${await arrange.tag(person)}\0${JSON.stringify(states)}`)
     if (request.headers.get('if-none-match') === tag) return new Response(null, { status: 304, headers: { ...HEADERS, etag: tag } })
     const seenBoard = await seen.board(person, id)
-    const cards = (await readCards(root, id, entry.board))
+    const cards = (await sources.cards(id, entry.board))
       .filter(card => maySeeCard(viewer, entry.board, card.id))
       .map(card => decorate(card, states, seenBoard, canAct))
     const arrangement = await arrange.get(person, id)
-    return json(200, { id, title: entry.board?.title ?? id, ...(entry.board?.assistant ? { assistant: entry.board.assistant } : {}), ...(canAct ? {} : { readOnly: true }), ...(arrangement ? { arrangement } : {}), problems: entry.problems, cards }, { etag: tag })
+    return json(200, { id, title: entry.board?.title ?? id, ...(entry.board?.assistant ? { assistant: entry.board.assistant } : {}), ...(canAct ? {} : { readOnly: true }), ...(arrangement ? { arrangement } : {}), problems: [...entry.problems, ...(await sources.problems(id))], cards }, { etag: tag })
   }
 
   async function card(request) {
@@ -127,13 +126,13 @@ export function createRoutes({ dataDir, people, identity, pollSeconds, presses, 
     if (!ID_PATTERN.test(boardId) || !ID_PATTERN.test(id)) return json(400, { error: 'Say which board and card.' })
     const found = await access(boardId)
     if (found.refused) return found.refused
-    const { viewer, root, entry, person, canAct } = found
+    const { viewer, entry, person, canAct } = found
     // A card someone may not see answers like one that isn't there.
     if (!maySeeCard(viewer, entry.board, id)) return json(404, { error: 'No such card.' })
-    const states = canAct ? await pressStates(root, boardId) : {}
-    const tag = await cardTag(root, boardId, id, `${version}\0${viewer.mode}\0${person ?? ''}\0${canAct}\0${await seen.tag(person)}\0${JSON.stringify(states[id] ?? null)}`)
+    const states = canAct ? await pressStates(boardId) : {}
+    const tag = await sources.cardTag(boardId, id, `${version}\0${viewer.mode}\0${person ?? ''}\0${canAct}\0${await seen.tag(person)}\0${JSON.stringify(states[id] ?? null)}`)
     if (request.headers.get('if-none-match') === tag) return new Response(null, { status: 304, headers: { ...HEADERS, etag: tag } })
-    const one = (await readCards(root, boardId, entry.board, id))[0]
+    const one = (await sources.cards(boardId, entry.board, id))[0]
     if (one === undefined) return json(404, { error: 'No such card.' })
     return json(200, decorate(one, states, await seen.board(person, boardId), canAct), { etag: tag })
   }
@@ -148,7 +147,7 @@ export function createRoutes({ dataDir, people, identity, pollSeconds, presses, 
       const unarrange = arrange.subscribe((who, board) => { if (who === found.person && board === id) send({ type: 'arrange' }) })
       let unwatch
       try {
-        unwatch = await watches.watch(join(found.root, id), async change => {
+        unwatch = await sources.watch(id, async change => {
           if (change.type === 'board') {
             // Viewers may have changed: someone who may no longer see the board hears that and nothing else.
             const again = await access(id)
@@ -159,7 +158,7 @@ export function createRoutes({ dataDir, people, identity, pollSeconds, presses, 
             }
           }
           if (change.type === 'card') {
-            const now = await readBoard(found.root, id)
+            const now = await sources.board(id)
             if (!maySeeCard(found.viewer, now?.board, change.id)) return
           }
           send(change)
@@ -186,19 +185,19 @@ export function createRoutes({ dataDir, people, identity, pollSeconds, presses, 
     if (body === undefined) return json(400, { error: 'The body must be { board, cards: { <id>: { v, rows? } } }.' })
     const found = await access(body.board)
     if (found.refused) return found.refused
-    const present = new Set((await readCards(found.root, body.board, found.entry.board))
+    const present = new Set((await sources.cards(body.board, found.entry.board))
       .filter(entry => maySeeCard(found.viewer, found.entry.board, entry.id)).map(entry => entry.id))
     await seen.record(found.person, body.board, body.cards, present)
     return json(200, { ok: true })
   }
 
   /** Press states of every card on a board that has recent presses, by card id. */
-  async function pressStates(root, board) {
+  async function pressStates(board) {
     const cards = new Set((await presses.list()).filter(event => event.source.board === board).map(event => event.source.card))
     const states = {}
     for (const card of [...cards].sort()) {
       if (!ID_PATTERN.test(card)) continue
-      states[card] = await presses.statesFor(board, card, cardPath(root, board, card))
+      states[card] = await presses.statesFor(board, card, await sources.writtenAt(board, card))
     }
     return states
   }
@@ -237,10 +236,9 @@ export function createRoutes({ dataDir, people, identity, pollSeconds, presses, 
       return json(400, { error: 'until must be an ISO date-time with a zone.' })
     const viewer = await viewerOf(people, identity())
     if (viewer.unavailable) return json(503, { error: NO_PROVIDER })
-    const root = await resolveDataDir(dataDir)
-    const entry = root === undefined ? undefined : await readBoard(root, board)
+    const entry = await sources.board(board)
     if (!mayAct(viewer, entry?.board) || entry === undefined || !maySeeCard(viewer, entry.board, card)) return json(403, { error: 'You can’t act on this board.' })
-    const found = findAction(await readCard(root, board, card), id, row)
+    const found = findAction(await sources.card(board, card), id, row)
     if (found === undefined || !PRESS_KINDS.includes(found.kind)) return json(409, { error: 'This action isn’t on the card any more.' })
     const payload = { ...(found.payload ?? {}), ...(found.kind === 'snooze' && until !== undefined && found.payload?.until === undefined ? { until } : {}) }
     const event = await presses.press({
@@ -252,6 +250,7 @@ export function createRoutes({ dataDir, people, identity, pollSeconds, presses, 
       row,
       payload,
     })
+    handOver(event)
     return json(200, { press: event.press, state: 'pending', at: event.at, ...(event.inverse ? { undoable: true } : {}) })
   }
 
@@ -261,13 +260,31 @@ export function createRoutes({ dataDir, people, identity, pollSeconds, presses, 
       return json(400, { error: 'Say which board, card and press.' })
     const viewer = await viewerOf(people, identity())
     if (viewer.unavailable) return json(503, { error: NO_PROVIDER })
-    const root = await resolveDataDir(dataDir)
-    const entry = root === undefined ? undefined : await readBoard(root, board)
+    const entry = await sources.board(board)
     if (!mayAct(viewer, entry?.board) || entry === undefined || !maySeeCard(viewer, entry.board, card)) return json(403, { error: 'You can’t act on this board.' })
     const result = await presses.undo({ press: undo, person: viewer.mode === 'owner' ? 'owner' : viewer.person, user: identity()?.current?.()?.id, board, card })
     if (result.problem === 'forbidden') return json(403, { error: 'You can’t act on this board.' })
     if (result.problem) return json(409, { error: 'This action can’t be undone.' })
+    handOver(result.event)
     return json(200, { press: result.event.press, state: 'pending', at: result.event.at, undoes: result.event.undoes })
+  }
+
+  /**
+   * A press on a command board goes to the command, which changes the data and answers when it has. The page hears
+   * about it through the board's own change events (the next answer), or from `touch` when the command refused.
+   */
+  function handOver(event) {
+    const { board, card } = event.source
+    if (!presses.begin(event)) return
+    sources.handles(board).then(async handled => {
+      if (!handled) return presses.skip(event)
+      try {
+        presses.finish(event, undefined, await sources.press(board, event))
+      } catch (error) {
+        presses.finish(event, error.message)
+        sources.touch(board, card)
+      }
+    }).catch(error => presses.finish(event, error.message))
   }
 
   const routes = [

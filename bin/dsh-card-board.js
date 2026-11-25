@@ -7,6 +7,7 @@
  *   dsh-card-board rm <board> <card>             remove a card
  *   dsh-card-board check [--board] <file|->      validate only
  *   dsh-card-board check --dir <dir>             validate every board and card under a data folder
+ *   dsh-card-board check-command <command...>    run a board command's boards and each board, validate every answer
  *
  * The data folder comes from --dir or CARD_BOARD_DIR. Input is JSON from the
  * file, or stdin when it is "-" or left out. `put` fills a missing updatedAt
@@ -18,6 +19,7 @@ import { mkdir, open, readFile, readdir, rename, rm, unlink } from 'node:fs/prom
 import { realpathSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { runCommand } from '../src/command-source.js'
 import { ID_PATTERN, MAX_CARD_BYTES, checkBoard, checkCard, parseJson } from '../src/schema.js'
 
 const USAGE = `usage:
@@ -26,6 +28,7 @@ const USAGE = `usage:
   dsh-card-board rm <board> <card>
   dsh-card-board check [--board] <file|->
   dsh-card-board check --dir <dir>
+  dsh-card-board check-command <command...>
 options:
   --dir <dir>   the data folder (default: $CARD_BOARD_DIR)`
 
@@ -127,9 +130,42 @@ async function checkDir(dir, out) {
   return bad === 0 ? 0 : 1
 }
 
+/** Ask a board command for its boards and each board's cards, and check every answer against the schema. */
+async function checkCommand(command, out, env) {
+  const ask = async args => {
+    const parsed = parseJson(await runCommand([...command, ...args], { env, timeoutMs: 120_000 }))
+    if (parsed.problems.length > 0) throw new InvalidError(parsed.problems.map(problem => `${args.join(' ')}: ${problem}`))
+    return parsed.value
+  }
+  let bad = 0
+  let count = 0
+  const report = (what, problems) => {
+    count += 1
+    if (problems.length === 0) return
+    bad += 1
+    out.error(`${what}:\n  ${problems.join('\n  ')}`)
+  }
+  const { boards } = await ask(['boards'])
+  for (const [boardId, spec] of Object.entries(boards ?? {})) {
+    report(`${boardId} (board)`, ID_PATTERN.test(boardId) ? checkBoard(spec) : ['not a valid board id'])
+    const { cards } = await ask(['board', boardId])
+    for (const [cardId, card] of Object.entries(cards ?? {})) {
+      if (card !== null && typeof card === 'object' && typeof card.error === 'string' && Object.keys(card).length === 1) report(`${boardId}/${cardId}`, [`the command reported: ${card.error}`])
+      else report(`${boardId}/${cardId}`, [...(ID_PATTERN.test(cardId) ? [] : ['not a valid card id']), ...checkCard({ updatedAt: new Date().toISOString(), ...card })])
+    }
+  }
+  out.log(`${count} answer${count === 1 ? '' : 's'} checked, ${bad} with problems`)
+  return bad === 0 ? 0 : 1
+}
+
 /** Run the CLI; returns the exit code. `io` is injectable for tests. */
 export async function main(argv, { env = process.env, stdin = process.stdin, out = console, now = () => new Date() } = {}) {
   try {
+    if (argv[0] === 'check-command') {
+      const command = argv.slice(argv[1] === '--' ? 2 : 1)
+      if (command.length === 0) throw new UsageError('say the board command, e.g. check-command companion cards')
+      return await checkCommand(command, out, env)
+    }
     const { positional, flags } = parseArgs(argv)
     const [command, ...rest] = positional
     if (flags.help || command === undefined) {

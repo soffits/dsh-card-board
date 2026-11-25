@@ -86,4 +86,21 @@ describe('dsh-card-board', () => {
     assert.equal(result.code, 1)
     assert.match(result.errors[0], /not valid JSON/)
   })
+
+  it('checks a board command’s answers', async () => {
+    const script = join(dir, 'board-command.mjs')
+    await writeFile(script, `
+const [what, id] = process.argv.slice(2)
+if (what === 'boards') console.log(JSON.stringify({ boards: { home: { title: 'Home' }, bad: { title: 5 } } }))
+else console.log(JSON.stringify({ cards: id === 'home' ? { ok: ${JSON.stringify(list)}, wrong: { type: 'pie' }, failed: { error: 'locked' } } : {} }))
+`)
+    const result = await run(['check-command', process.execPath, script])
+    assert.equal(result.code, 1)
+    const said = result.errors.join('\n')
+    assert.match(said, /bad \(board\)/)
+    assert.match(said, /home\/wrong/)
+    assert.match(said, /the command reported: locked/)
+    assert.doesNotMatch(said, /home\/ok/)
+    assert.match(result.lines.join('\n'), /5 answers checked, 3 with problems/)
+  })
 })
