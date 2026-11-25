@@ -1,6 +1,6 @@
 /**
  * Boards read from a command instead of a folder: the plugin keeps no copy of the data, it asks the command that
- * owns it (the companion practice's `companion cards`, or anything that answers the same JSON).
+ * owns it (Kith's `kith cards`, or anything that answers the same JSON).
  *
  *   <command> boards        { "boards": { "<id>": <board.json fields> }, "watch": [path] }
  *   <command> board <id>    { "cards": { "<id>": <card> | { "error": text } }, "watch": [path], "refreshAt": time }

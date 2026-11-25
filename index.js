@@ -33,7 +33,7 @@ export const Config = z.object({
   dataDir: z.string().default(DEFAULT_DATA_DIR)
     .description('The folder holding the boards: <dataDir>/<board>/board.json and <dataDir>/<board>/cards/<card>.json, and the plugin\'s own state (what each person has seen, how they arranged a board, the press log). A leading ~/ means the home folder. Default: card-board in the DSH home.'),
   command: z.array(z.string()).default([])
-    .description('A board command, as an argument list (the companion practice\'s is `companion cards`): the plugin runs `<command> boards`, `<command> board <id>` and `<command> press <id>` for boards read on demand instead of from files. A leading ~/ in the first part means the home folder. Empty: folder boards only.'),
+    .description('A board command, as an argument list (Kith\'s is `kith cards`): the plugin runs `<command> boards`, `<command> board <id>` and `<command> press <id>` for boards read on demand instead of from files. A leading ~/ in the first part means the home folder. Empty: folder boards only.'),
   commandCwd: z.string().default('')
     .description('Where the board command runs (a home it finds from there). Default: the DSH process\'s own folder.'),
   commandTimeoutSeconds: z.natural().min(5).max(600).default(60)
