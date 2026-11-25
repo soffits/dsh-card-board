@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.19.1
+
+- Shared parts now come from `@soffits/dsh-plugin-sdk`, which replaced `@soffits/dsh-host-kit`, `@soffits/dsh-ui-kit` and `@soffits/dsh-ui-actions`; the page loads after it. Install `@soffits/dsh-plugin-sdk` in the profile alongside this plugin.
+
 ## 0.19.0
 
 Boards can come from a command. Set `command` (an argument list, for the companion practice `[companion, cards]`) and the plugin asks it for the boards' own fields (`boards`), a board's cards (`board <id>`) and hands it presses (`press <id>`), instead of reading files that something has to keep in step with the data. An answer is reused until the files it names (`watch`) change or the time it names (`refreshAt`) comes, open pages are told which cards changed, `updatedAt` may be left out of a card (stamped as a producer's writes used to be: when the content changed, and again at half of `staleAfter`), and a card that couldn't be built is `{ "error": … }`. Press states follow the command: pending while it runs, not handled if it fails, done once the board was read after it. `dsh-card-board check-command <command...>` checks a command's answers against the schema. Folder boards work as before, next to command boards; the plugin's own state (seen marks, arrangements, press log) stays in `dataDir` and is keyed the same, so a board that moves to a command keeps it. The plugin now runs one program, the configured command, with an argument list and a timeout, never a shell ([docs/decisions/board-command.md](docs/decisions/board-command.md)).

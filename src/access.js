@@ -2,7 +2,7 @@
  * Who may see which board.
  *
  * Who is asking comes from the shared people mapping (`viewerOf` in
- * `@soffits/dsh-host-kit`), and a board lists the person ids that may see it
+ * `@soffits/dsh-plugin-sdk/host`), and a board lists the person ids that may see it
  * in `viewers`. A board can also say who may act on it (use the buttons it declares) in `actors`;
  * without `actors` the viewers may, so a board that never heard of the field behaves as before.
  * Acting needs seeing: a name in `actors` that isn't in `viewers` gets nothing extra.
@@ -14,7 +14,7 @@
  * - owner: no mapping. Everyone DSH lets in is its owner and sees every board,
  *   which is what a single-person DSH wants.
  */
-import { personKey } from '@soffits/dsh-host-kit'
+import { personKey } from '@soffits/dsh-plugin-sdk/host'
 
 /**
  * Whether a viewer who may see `board` may also see its card `card`: a card listed in the board's `cardViewers`

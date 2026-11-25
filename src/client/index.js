@@ -1,7 +1,7 @@
 /**
  * Browser half of dsh-card-board: the Boards entry in the sidebar and its page in the main column. Built into
  * client.js by scripts/build.mjs; React and DSH's own components come from the page's shared module table, the shared
- * pieces from @soffits/dsh-ui-kit (`ctx.uiKit`) and the buttons from @soffits/dsh-ui-actions (`ctx.uiActions`).
+ * pieces from @soffits/dsh-plugin-sdk (`ctx.uiKit`) and the buttons from @soffits/dsh-plugin-sdk (`ctx.uiActions`).
  */
 import { createElement as h } from 'react'
 import { CSS, STYLE_ID } from './look.js'

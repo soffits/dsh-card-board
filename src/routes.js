@@ -16,7 +16,7 @@
  * Every card entry carries its content `version` (and `rows`, the versions of its keyed rows) and, when something
  * in it is new since the viewer last looked, `fresh: { card: true, rows: [keys] }`.
  */
-import { TAG, viewerOf } from '@soffits/dsh-host-kit'
+import { TAG, viewerOf } from '@soffits/dsh-plugin-sdk/host'
 import { mayAct, maySee, maySeeCard, withoutActions } from './access.js'
 import { parseArrangement } from './arrange.js'
 import { ID_PATTERN, KEY_PATTERN, PRESS_KINDS, findAction } from './schema.js'
@@ -49,7 +49,7 @@ const NO_PROVIDER = 'This board needs a sign-in plugin that provides requestIden
  * @param {object} options
  * @param {string} options.dataDir - the data folder (absolute)
  * @param {ReturnType<import('./command-source.js').createCommandSource>} [options.source] - boards read from a command, next to the folder's
- * @param {ReturnType<import('@soffits/dsh-host-kit').createPeople>} options.people
+ * @param {ReturnType<import('@soffits/dsh-plugin-sdk/host').createPeople>} options.people
  * @param {() => object | undefined} options.identity - the requestIdentity service right now, if any
  * @param {number} options.pollSeconds
  * @param {ReturnType<import('./presses.js').createPresses>} options.presses
@@ -58,7 +58,7 @@ const NO_PROVIDER = 'This board needs a sign-in plugin that provides requestIden
  * @param {ReturnType<import('./watch.js').createWatches>} options.watches
  * @param {(tag: string) => Promise<object>} options.messages - the page's words for a language
  * @param {string} [options.version] - mixed into ETags, so a plugin update refreshes open pages
- * @param {ReturnType<import('@soffits/dsh-host-kit').createEventStreams>} options.streams - the open event streams, ended when the plugin unloads
+ * @param {ReturnType<import('@soffits/dsh-plugin-sdk/host').createEventStreams>} options.streams - the open event streams, ended when the plugin unloads
  */
 export function createRoutes({ dataDir, source, people, identity, pollSeconds, presses, seen, arrange, watches, messages, streams, version = '' }) {
   const sources = createSources({ folder: createFolderSource({ dataDir, watches }), command: source })
