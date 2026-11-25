@@ -3,7 +3,7 @@ import { appendFile, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/pro
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { after, before, describe, it } from 'node:test'
-import { createEventStreams, createPeople, readLocales, tableFor } from '@soffits/dsh-host-kit'
+import { createEventStreams, createPeople, readLocales, tableFor } from '@soffits/dsh-plugin-sdk/host'
 import { createCommandSource } from '../src/command-source.js'
 import { createArrangeStore } from '../src/arrange-store.js'
 import { createPresses } from '../src/presses.js'

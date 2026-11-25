@@ -3,7 +3,7 @@ import { readFileSync, readdirSync } from 'node:fs'
 import vm from 'node:vm'
 import { describe, it } from 'node:test'
 import { parse } from 'acorn'
-import { readLocales } from '@soffits/dsh-host-kit'
+import { readLocales } from '@soffits/dsh-plugin-sdk/host'
 
 const read = file => readFileSync(new URL(`../${file}`, import.meta.url), 'utf8')
 const pkg = JSON.parse(read('package.json'))
@@ -99,9 +99,9 @@ describe('the page', () => {
 })
 
 describe('the shared buttons and pieces', () => {
-  it('come from @soffits/dsh-ui-actions and @soffits/dsh-ui-kit: this package loads after them and carries no copy', () => {
-    assert.ok(pkg.dsh.client.inject.includes('@soffits/dsh-ui-actions'))
-    assert.ok(pkg.dsh.client.inject.includes('@soffits/dsh-ui-kit'))
+  it('come from @soffits/dsh-plugin-sdk and @soffits/dsh-plugin-sdk: this package loads after them and carries no copy', () => {
+    assert.ok(pkg.dsh.client.inject.includes('@soffits/dsh-plugin-sdk'))
+    assert.ok(pkg.dsh.client.inject.includes('@soffits/dsh-plugin-sdk'))
     assert.doesNotMatch(ALL_SOURCE, /require\.async|createActions|startChat|chatText|lucide/)
     assert.match(ALL_SOURCE, /ctx\.inject\(\['uiActions'\]/)
     assert.match(ALL_SOURCE, /ctx\.inject\(\['uiKit'\]/)

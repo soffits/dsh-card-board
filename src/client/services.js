@@ -1,7 +1,7 @@
 /**
  * What the page takes from other plugins, as small stores React can follow: the shared pieces
- * (`ctx.uiKit` from @soffits/dsh-ui-kit, which the page needs) and the shared buttons (`ctx.uiActions` from
- * @soffits/dsh-ui-actions, used when present).
+ * (`ctx.uiKit` from @soffits/dsh-plugin-sdk, which the page needs) and the shared buttons (`ctx.uiActions` from
+ * @soffits/dsh-plugin-sdk, used when present).
  */
 import { useSyncExternalStore } from 'react'
 

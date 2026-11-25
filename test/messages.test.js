@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { readdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { describe, it } from 'node:test'
-import { readLocales } from '@soffits/dsh-host-kit'
+import { readLocales } from '@soffits/dsh-plugin-sdk/host'
 
 const LOCALE = new URL('../locale/', import.meta.url).pathname
 const placeholders = text => [...String(text).matchAll(/\{(\w+)\}/g)].map(match => match[1]).sort()

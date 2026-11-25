@@ -12,10 +12,10 @@ The plugin only displays. It makes no outbound requests and holds no credentials
 npx @deepseek-ai/dsh plugin --profile web add @soffits/dsh-card-board@latest
 ```
 
-It needs [@soffits/dsh-ui-kit](https://github.com/soffits/dsh-ui-kit), the small shared pieces the page is drawn with (icons, ticking times, rings, the live dot), and uses [@soffits/dsh-ui-actions](https://github.com/soffits/dsh-ui-actions) for buttons when it's there:
+It needs [@soffits/dsh-plugin-sdk](https://github.com/soffits/dsh-ui-kit), the small shared pieces the page is drawn with (icons, ticking times, rings, the live dot), and uses [@soffits/dsh-plugin-sdk](https://github.com/soffits/dsh-ui-actions) for buttons when it's there:
 
 ```sh
-npx @deepseek-ai/dsh plugin --profile web add @soffits/dsh-ui-kit@latest @soffits/dsh-ui-actions@latest
+npx @deepseek-ai/dsh plugin --profile web add @soffits/dsh-plugin-sdk@latest @soffits/dsh-plugin-sdk@latest
 ```
 
 Restart `dsh web` afterwards. It adds one Host row, `card-board`, and a **Boards** entry in the sidebar. Boards live in `card-board` under the DSH home unless you set `dataDir`.
@@ -381,7 +381,7 @@ The press log is never a second source of the item's state: a press only marks t
 
 The button shows the press as pending until the card file is written again (for a command board, until the command has handled it and the board was read afresh), then done (a step is done once recorded, since sending it is the whole job). If nothing rewrites the card within `actionTimeoutSeconds`, it says nothing picked the press up. So a handler should rewrite the card when it has acted, even if only `updatedAt` changes.
 
-The buttons come from [`@soffits/dsh-ui-actions`](https://github.com/soffits/dsh-ui-actions), a separate plugin the board uses when it is installed (`dsh plugin --profile web add @soffits/dsh-ui-actions`; DSH 0.2.2-rc.1 or later). Without it cards show no buttons. A chat button opens a new conversation with the card or row attached to the message box as a small card, and the person writes beside it; a chat button's words ("Ask", "Chat about this") and the done and snooze buttons' words come from that plugin, in the person's language. On a phone the buttons are at least 40 px, and a snooze picker opens as a sheet at the bottom of the screen.
+The buttons come from [`@soffits/dsh-plugin-sdk`](https://github.com/soffits/dsh-ui-actions), a separate plugin the board uses when it is installed (`dsh plugin --profile web add @soffits/dsh-plugin-sdk`; DSH 0.2.2-rc.1 or later). Without it cards show no buttons. A chat button opens a new conversation with the card or row attached to the message box as a small card, and the person writes beside it; a chat button's words ("Ask", "Chat about this") and the done and snooze buttons' words come from that plugin, in the person's language. On a phone the buttons are at least 40 px, and a snooze picker opens as a sheet at the bottom of the screen.
 
 ## Writing cards: the CLI
 
