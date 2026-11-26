@@ -202,7 +202,7 @@ export function createRoutes({ dataDir, source, people, identity, pollSeconds, p
     const states = {}
     for (const card of [...cards].sort()) {
       if (!ID_PATTERN.test(card)) continue
-      states[card] = await presses.statesFor(board, card, await sources.writtenAt(board, card))
+      states[card] = await presses.statesFor(board, card, (await sources.card(board, card))?.handled)
     }
     return states
   }
@@ -275,21 +275,23 @@ export function createRoutes({ dataDir, source, people, identity, pollSeconds, p
   }
 
   /**
-   * A press on a command board goes to the command, which changes the data and answers when it has. The page hears
-   * about it through the board's own change events (the next answer), or from `touch` when the command refused.
+   * A press on a command board goes to the command, which changes the data and answers: its answer is the press's
+   * acknowledgement, and `touch` tells open pages to look at the card again.
    */
   function handOver(event) {
     const { board, card } = event.source
     if (!presses.begin(event)) return
     sources.handles(board).then(async handled => {
       if (!handled) return presses.skip(event)
+      let failure
       try {
-        presses.finish(event, undefined, await sources.press(board, event))
+        await sources.press(board, event)
       } catch (error) {
-        presses.finish(event, error.message)
-        sources.touch(board, card)
+        failure = error.message
       }
-    }).catch(error => presses.finish(event, error.message))
+      await presses.acknowledge(event, failure)
+      sources.touch(board, card)
+    }).catch(error => presses.acknowledge(event, error.message))
   }
 
   const routes = [

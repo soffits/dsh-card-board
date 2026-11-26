@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.21.0
+
+A press is done when whoever handles it says so, never because its card was written again. Before, any rewrite of a card after a press marked it done, so a producer that refreshed a card on a timer settled presses nobody had handled. A board command's answer to `press` is the acknowledgement, as before, but the plugin no longer waits to see the board read again. On a board of files the handler now lists the press in the card it writes, `"handled": ["<press>"]` (a new optional card field, left out of the content version); a card rewritten without it leaves the press pending until the timeout. Every answer is appended to the action log as `{ "ack": "<press>", "state", "reason"? }`, so press states survive a restart instead of being guessed again from file times. Breaking for folder-board handlers: add the press id to `handled` when you write the card.
+
 ## 0.20.0
 
 A board command that is missing or failing no longer makes its boards vanish quietly: the page shows a notice naming the command and, for the owner, its error (`command not found: <name>` when it isn't installed). The page keeps asking and recovers once the command works, and a failed answer is retried after a few seconds instead of waiting for a file change. The empty-state text now says boards come from the board command or from a `board.json` in the data folder, and a board's problem notice no longer says `board.json` when the board came from a command. Needs `@soffits/dsh-plugin-sdk` 0.2.0 (the dependency range was `^0.1.0`, which pulled a second copy of the old version into a profile).

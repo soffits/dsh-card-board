@@ -425,22 +425,38 @@ describe('actions', () => {
     assert.equal(published.length, 0)
   })
 
-  it('shows a press pending, done once the card is rewritten, and unhandled after the timeout', async () => {
+  it('keeps a press pending through rewrites until the card says it handled it, and unhandled after the timeout', async () => {
     let clock = Date.now()
     const { call, state } = routes({ now: () => clock })
     state.id = 'sub-alex'
-    await call(...press({ board: 'home', card: 'house', row: 'house-3', id: 'front-door:lock' }))
+    const pressed = (await call(...press({ board: 'home', card: 'house', row: 'house-3', id: 'front-door:lock' }))).body
     const stateOf = async () => (await call('/api/card-board/board?id=home')).body.cards.find(c => c.id === 'house').presses[0].state
     assert.equal(await stateOf(), 'pending')
-    clock += 301_000
-    assert.equal(await stateOf(), 'unhandled')
-    clock -= 301_000
-    await new Promise(resolve => setTimeout(resolve, 20))
     const file = join(dir, 'home', 'cards', 'house.json')
     const { readFile } = await import('node:fs/promises')
-    await writeFile(file, await readFile(file, 'utf8'))
-    clock = Date.now()
-    assert.equal(await stateOf(), 'done')
+    const original = await readFile(file, 'utf8')
+    await writeFile(file, JSON.stringify({ ...JSON.parse(original), updatedAt: new Date().toISOString() }))
+    assert.equal(await stateOf(), 'pending', 'a rewrite that doesn’t name the press is not an answer')
+    clock += 301_000
+    assert.equal(await stateOf(), 'unhandled')
+    await writeFile(file, JSON.stringify({ ...JSON.parse(original), handled: [pressed.press] }))
+    assert.equal(await stateOf(), 'done', 'a late answer still counts')
+    await writeFile(file, original)
+    assert.equal(await stateOf(), 'done', 'the answer is kept once seen')
+  })
+
+  it('reloads acknowledgements with the presses after a restart', async () => {
+    const logPath = join(dir, 'acks.jsonl')
+    const first = createPresses({ logPath, publisher: () => undefined, timeoutSeconds: 300 })
+    const done = await first.press({ action: { kind: 'done', id: 'x' }, person: 'alex', board: 'home', card: 'chores', payload: {} })
+    const refused = await first.press({ action: { kind: 'done', id: 'y' }, person: 'alex', board: 'home', card: 'chores', payload: {} })
+    await first.acknowledge(done)
+    await first.acknowledge(refused, 'no such item')
+    await first.acknowledge(refused)
+    const second = createPresses({ logPath, publisher: () => undefined, timeoutSeconds: 300 })
+    assert.equal((await second.list()).length, 2)
+    assert.deepEqual((await second.statesFor('home', 'chores')).map(p => [p.id, p.state]), [['x', 'done'], ['y', 'unhandled']])
+    assert.equal(second.begin(done), false, 'an answered press is not handed over again')
   })
 
   it('takes a press back with the inverse the card offered, once, and keeps both records', async () => {

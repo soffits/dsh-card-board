@@ -19,7 +19,7 @@ const MAX_ROWS = 100
 
 /** The content version of a card, and of each of its keyed rows. */
 export function cardVersions(card) {
-  const { updatedAt, ...content } = card
+  const { updatedAt, handled, ...content } = card
   const rows = {}
   if (card.type === 'list' || card.type === 'status') for (const row of card.data?.rows ?? []) if (typeof row.key === 'string') rows[row.key] = hash(row)
   return Object.keys(rows).length > 0 ? { version: hash(content), rows } : { version: hash(content) }

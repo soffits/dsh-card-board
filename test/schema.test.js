@@ -3,6 +3,7 @@ import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, it } from 'node:test'
 import { checkBoard, checkCard, findAction, isSafeLink } from '../src/schema.js'
+import { cardVersions } from '../src/seen.js'
 
 const EXAMPLES = new URL('../examples/boards/home/', import.meta.url).pathname
 const card = name => JSON.parse(readFileSync(join(EXAMPLES, 'cards', `${name}.json`), 'utf8'))
@@ -71,6 +72,14 @@ describe('checkCard', () => {
   it('wants updatedAt with a zone', () => {
     const problems = checkCard({ ...base, updatedAt: '2026-03-02 09:30', type: 'list', data: { rows: [] } })
     assert.match(problems[0], /^updatedAt:/)
+  })
+
+  it('takes the presses a card handled as a list of press ids', () => {
+    const list = { ...base, type: 'list', data: { rows: [] } }
+    assert.deepEqual(checkCard({ ...list, handled: ['fcb114dd-3890-42e6-af4b-b23173edf8e0'] }), [])
+    assert.deepEqual(checkCard({ ...list, handled: 'p1' }), ['handled: must be an array'])
+    assert.deepEqual(checkCard({ ...list, handled: [''] }), ['handled[0]: must not be empty'])
+    assert.deepEqual(cardVersions({ ...list, handled: ['p1'] }), cardVersions(list), 'acknowledging a press is not new content')
   })
 
   it('takes a headline stat above a chart or rows, not on stat, summary or countdown cards', () => {

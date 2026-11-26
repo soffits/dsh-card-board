@@ -180,7 +180,6 @@ export function createCommandSource({ command, cwd = '', env, timeoutMs = 60_000
       warn(`board command (${id}): ${error.message}`)
       entry.error = error.message
       entry.completedAt = now()
-      entry.startedAt = startedAt
       entry.refreshAt = undefined
       entry.sig = before ?? ''
       return
@@ -199,7 +198,6 @@ export function createCommandSource({ command, cwd = '', env, timeoutMs = 60_000
     entry.watched = watch
     const refreshAt = typeof answer.refreshAt === 'string' ? Date.parse(answer.refreshAt) : NaN
     entry.refreshAt = Number.isNaN(refreshAt) ? undefined : refreshAt
-    entry.startedAt = startedAt
     entry.completedAt = now()
     if (events.length > 0) entry.version += 1
     rearm(id, entry)
@@ -306,11 +304,6 @@ export function createCommandSource({ command, cwd = '', env, timeoutMs = 60_000
       return tag(`${salt}\0${id}\0${card}\0${entry.cards.get(card)?.json ?? '-'}\0${specVersion}`)
     },
 
-    /** When the board's answer was last made (the time that run started), 0 if never: a press is handled once it is later. */
-    async writtenAt(id) {
-      return boards.get(id)?.startedAt ?? 0
-    },
-
     /** The command as it is run and, when asking it for the boards failed, why; the page names both. */
     async status() {
       await currentSpecs()
@@ -324,12 +317,10 @@ export function createCommandSource({ command, cwd = '', env, timeoutMs = 60_000
       return [specError, run].filter(Boolean)
     },
 
-    /** Hand a press to the command; when it exits 0, ask for a fresh answer and resolve with the time it finished. */
+    /** Hand a press to the command: it resolves once the command handled it (exit 0) and a fresh answer was asked for. */
     async press(id, event) {
       await call(['press', id], JSON.stringify(event))
-      const handledAt = now()
       await rerun(id).catch(() => {})
-      return handledAt
     },
 
     /** Ask for a fresh answer now, and tell open pages what changed. */

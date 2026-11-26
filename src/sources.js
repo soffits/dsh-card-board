@@ -4,12 +4,11 @@
  * both. A board id offered by the command wins over a folder of the same name.
  *
  * Every source answers the same way: `list()`, `board(id)`, `cards(id, board, only)`, `card(id, card)`,
- * `boardTag(id, salt)`, `cardTag(id, card, salt)`, `writtenAt(id, card)` (when a press on it counts as handled),
+ * `boardTag(id, salt)`, `cardTag(id, card, salt)`,
  * `watch(id, listener)`, `status()` (the board command and why it failed, if it did) and, for a command, `press(id, event)`.
  */
 import { join } from 'node:path'
-import { boardTag, cardPath, cardTag, listBoards, readBoard, readCard, readCards, resolveDataDir } from './store.js'
-import { stat } from 'node:fs/promises'
+import { boardTag, cardTag, listBoards, readBoard, readCard, readCards, resolveDataDir } from './store.js'
 
 /** The boards of a data folder. */
 export function createFolderSource({ dataDir, watches }) {
@@ -34,9 +33,6 @@ export function createFolderSource({ dataDir, watches }) {
     },
     async cardTag(id, card, salt) {
       return cardTag(await root(), id, card, salt)
-    },
-    async writtenAt(id, card) {
-      return stat(cardPath(await root(), id, card)).then(info => info.mtimeMs, () => 0)
     },
     async problems() {
       return []
@@ -71,7 +67,6 @@ export function createSources({ folder, command }) {
     card: async (id, card) => (await pick(id)).card(id, card),
     boardTag: async (id, salt) => (await pick(id)).boardTag(id, salt),
     cardTag: async (id, card, salt) => (await pick(id)).cardTag(id, card, salt),
-    writtenAt: async (id, card) => (await pick(id)).writtenAt(id, card),
     problems: async id => (await pick(id)).problems(id),
     /** `{ command, error? }` of the board command, if one is configured. */
     status: () => command.status(),
