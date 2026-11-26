@@ -6,11 +6,11 @@
  * events (dsh-cron-jobs' `cronJobs` service when it runs, as channel
  * `ui.action.<kind>`), so the owner of the item reacts and rewrites the card.
  *
- * A press is pending until its card file is written again after it (done),
- * or until the timeout passes with no write (unhandled). On a board read from a
- * command, the press is handed to that command: pending while it runs, unhandled
- * if it failed, done once the board's answer was made after it finished. Recent presses are
- * kept in memory and reloaded from the log's tail after a restart.
+ * A press is pending until whoever handles it says so: on a board read from a command, the command's answer to it
+ * (exit 0 handled, anything else not); on a board of files, the card listing the press in its `handled`. That answer
+ * is appended to the same log as an acknowledgement (`{ ack: <press>, state, reason? }`), so it survives a restart.
+ * A press nobody answers within the timeout is unhandled. Recent presses and acknowledgements are kept in memory and
+ * reloaded from the log's tail after a restart.
  *
  * An action that declares an `inverse` can be taken back: the press keeps the
  * inverse as the card offered it, and an undo press (`action: 'undo'`, naming
@@ -26,7 +26,7 @@ const KEEP_MS = 24 * 3600 * 1000
 const TAIL_BYTES = 1024 * 1024
 const DOUBLE_TAP_MS = 3000
 
-/** Read the presses of the last day from the end of the log. */
+/** Read the records (presses and acknowledgements) of the last day from the end of the log. */
 async function readTail(path) {
   let handle
   try {
@@ -66,8 +66,12 @@ async function readTail(path) {
  */
 export function createPresses({ logPath, publisher, notify = () => {}, timeoutSeconds, warn = () => {}, now = Date.now }) {
   let recent
-  const outcomes = new Map() // press id -> { running } | { handledAt } | { failed }
-  const loaded = readTail(logPath).then(events => { recent = events }, error => {
+  const acks = new Map() // press id -> its acknowledgement
+  const running = new Set() // presses a command has now
+  const loaded = readTail(logPath).then(records => {
+    recent = records.filter(record => record.ack === undefined)
+    for (const record of records) if (record.ack !== undefined) acks.set(record.ack, record)
+  }, error => {
     warn(`action log ${logPath} unreadable, starting without recent presses: ${error.message}`)
     recent = []
   })
@@ -76,7 +80,13 @@ export function createPresses({ logPath, publisher, notify = () => {}, timeoutSe
     await loaded
     const since = now() - KEEP_MS
     recent = recent.filter(event => Date.parse(event.at) >= since)
+    for (const [id, ack] of acks) if (Date.parse(ack.at) < since) acks.delete(id)
     return recent
+  }
+
+  async function append(record) {
+    await mkdir(dirname(logPath), { recursive: true })
+    await appendFile(logPath, `${JSON.stringify(record)}\n`, { mode: 0o600 })
   }
 
   /** Record one press; a second identical tap within a few seconds returns the first. */
@@ -102,8 +112,7 @@ export function createPresses({ logPath, publisher, notify = () => {}, timeoutSe
 
   /** Append one event to the log and the recent list, tell in-process listeners and publish it. */
   async function record(event) {
-    await mkdir(dirname(logPath), { recursive: true })
-    await appendFile(logPath, `${JSON.stringify(event)}\n`, { mode: 0o600 })
+    await append(event)
     recent.push(event)
     notify(event)
     try {
@@ -148,46 +157,51 @@ export function createPresses({ logPath, publisher, notify = () => {}, timeoutSe
 
   /** Start handing a press to a command: false when it already was (a double tap returns the first press). */
   function begin(event) {
-    if (outcomes.has(event.press)) return false
-    outcomes.set(event.press, { running: true })
+    if (running.has(event.press) || acks.has(event.press)) return false
+    running.add(event.press)
     return true
   }
 
-  /** The board has no command: the press is only published, and its card tells when it was handled. */
+  /** The board has no command: the press is only published, and its card will say when it was handled. */
   function skip(event) {
-    outcomes.delete(event.press)
-  }
-
-  /** The command is done with a press; `failure` is why it refused. */
-  function finish(event, failure, handledAt = now()) {
-    outcomes.set(event.press, failure === undefined ? { handledAt } : { failed: failure })
+    running.delete(event.press)
   }
 
   /**
-   * The presses on one card with their state: done once the card was
-   * written after the press (after its command finished it, when it has
-   * one), unhandled after the timeout or when its command failed, else pending.
-   * `written` is when the card was last written, in ms.
+   * Whoever handles the press answered it: handled, or not with `failure` saying why. The first answer stands and is
+   * logged.
    */
-  async function statesFor(board, card, written) {
+  async function acknowledge(event, failure) {
+    running.delete(event.press)
+    if (acks.has(event.press)) return acks.get(event.press)
+    const ack = { ack: event.press, state: failure === undefined ? 'done' : 'unhandled', ...(failure === undefined ? {} : { reason: String(failure).slice(0, 500) }), at: new Date(now()).toISOString(), source: event.source }
+    acks.set(event.press, ack)
+    await append(ack).catch(error => warn(`acknowledgement of press ${event.press} not logged: ${error.message}`))
+    return ack
+  }
+
+  /**
+   * The presses on one card with their state: done once its handler acknowledged it, unhandled when the handler
+   * refused it or nobody answered within the timeout, else pending. `handled` is the card's own list of the presses it
+   * took in (a board of files); a press found there is acknowledged now.
+   */
+  async function statesFor(board, card, handled = []) {
     const events = (await list()).filter(event => event.source.board === board && event.source.card === card)
     if (events.length === 0) return []
+    const taken = new Set(handled)
     const undone = new Set(events.filter(event => event.action === UNDO_KIND).map(event => event.undoes))
+    for (const event of events) if (taken.has(event.press) && !acks.has(event.press)) await acknowledge(event)
     const at = now()
     return events.filter(event => event.action !== UNDO_KIND).map(event => {
-      const time = Date.parse(event.at)
       // A step is carried out by sending it to the assistant (dsh-ui-actions does that right after the press), so it
-      // is done once recorded; the others wait for their owner to write the card again.
-      const outcome = outcomes.get(event.press)
-      const timedOut = at - time > timeoutSeconds * 1000
+      // is done once recorded.
+      const answered = acks.get(event.press)?.state
       const state = undone.has(event.press) ? 'undone'
         : event.action === 'step' ? 'done'
-          : outcome?.failed !== undefined ? 'unhandled'
-            : outcome?.running ? (timedOut ? 'unhandled' : 'pending')
-              : (outcome?.handledAt === undefined ? written > time : written >= outcome.handledAt) ? 'done' : timedOut ? 'unhandled' : 'pending'
+          : answered ?? (at - Date.parse(event.at) > timeoutSeconds * 1000 ? 'unhandled' : 'pending')
       return { press: event.press, id: event.id, ...(event.source.row === undefined ? {} : { row: event.source.row }), at: event.at, state, ...(event.inverse && state !== 'undone' ? { undoable: true } : {}) }
     })
   }
 
-  return { press, undo, statesFor, list, begin, skip, finish }
+  return { press, undo, statesFor, list, begin, skip, acknowledge }
 }

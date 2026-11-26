@@ -30,6 +30,7 @@ export const ACTION_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,99}$/
 /** Row keys: stable ids, so the page can tell which row changed. The same shape as action ids. */
 export const KEY_PATTERN = ACTION_ID_PATTERN
 const MAX_ACTIONS = 6
+const MAX_HANDLED = 100
 const MAX_PAYLOAD_BYTES = 4096
 /** Which way a stat's change goes, for its arrow. */
 export const DIRECTIONS = Object.freeze(['up', 'down', 'flat'])
@@ -583,7 +584,7 @@ export function isSafeLink(value) {
 /** Problems with one card file's parsed content. */
 export function checkCard(card) {
   const c = new Check()
-  if (!c.object(card, '', ['type', 'title', 'updatedAt', 'data'], ['staleAfter', 'link', 'stat', 'actions', 'icon', 'tone', 'detail', 'raise', 'ask'])) return c.problems
+  if (!c.object(card, '', ['type', 'title', 'updatedAt', 'data'], ['staleAfter', 'link', 'stat', 'actions', 'icon', 'tone', 'detail', 'raise', 'ask', 'handled'])) return c.problems
   c.optional(card, 'ask', v => c.boolean(v, 'ask'))
   c.optional(card, 'raise', v => raiseWindow(c, v, 'raise'))
   c.optional(card, 'detail', v => checkDetail(c, v, 'detail', card.actions))
@@ -599,6 +600,7 @@ export function checkCard(card) {
     statData(c, v, 'stat')
   })
   c.optional(card, 'actions', v => actions(c, v, 'actions'))
+  c.optional(card, 'handled', v => c.array(v, 'handled', { max: MAX_HANDLED }) && v.forEach((press, i) => c.text(press, `handled[${i}]`, { max: 100 })))
   DATA[card.type](c, card.data, 'data')
   return c.problems
 }

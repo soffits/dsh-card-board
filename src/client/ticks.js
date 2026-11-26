@@ -41,7 +41,7 @@ export function keepTicked(rows, kept = []) {
 /**
  * Whether a row's box is ticked, and which press ticking it again would take back. `latest` is the newest press of the
  * done action on this row as the server reports it (`{ press, state, undoable }`). The item's owner is the one source:
- * a press only bridges the gap until the owner writes the card again (`pending`), after which the card's own
+ * a press only bridges the gap until its handler answers it (`pending`), after which the card's own
  * `checked` decides, so an item reopened elsewhere shows unticked.
  */
 export function doneState(row, latest) {

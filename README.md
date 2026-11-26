@@ -85,7 +85,7 @@ esac
 - **`watch`** lists the files and folders (everything under a folder) the answer was built from. The plugin keeps the answer until one of them changes, and while a page has the board open it watches them, so the change shows at once. Names a writer leaves around while it works (`-wal`, `-shm`, editor temporaries, dotfiles) don't count. A relative path is relative to `commandCwd`. Without `watch`, the answer is reused for a few seconds.
 - **`refreshAt`** is the time the answer changes by itself, such as midnight for a card that says "today". The plugin asks again then.
 - **`updatedAt`** is stamped by the plugin when the command leaves it out: the time of the run that made the card's current content, and again once a card with `staleAfter` is half that old.
-- **Presses** keep their record and their `ui.action.<kind>` event, and the plugin then runs `press <id>` with the event on stdin. Exit 0 marks the press handled and asks for a fresh answer; any other exit shows it as not handled, with the last line of stderr in the log.
+- **Presses** keep their record and their `ui.action.<kind>` event, and the plugin then runs `press <id>` with the event on stdin. Its answer is the press's acknowledgement: exit 0 marks the press handled and asks for a fresh answer; any other exit shows it as not handled, with the last line of stderr as the reason in the log.
 
 Folder boards and command boards can be used together (a command's board wins over a folder of the same name). The command runs with an argument list, never a shell, with a timeout. `dsh-card-board check-command <command...>` runs `boards` and every board and checks the answers against the schema. Why it is shaped this way: [docs/decisions/board-command.md](docs/decisions/board-command.md).
 
@@ -161,6 +161,7 @@ A card:
 | `stat` | Headline numbers above a chart or rows (beside a chart when the card is wide): the same shape as a `stat` card's `data`. |
 | `raise` | `{ from?, until?, label? }`: during this window the card floats to the top; see [Order, pins and raised cards](#order-pins-and-raised-cards). |
 | `actions` | Buttons on the card; see [Actions](#actions). |
+| `handled` | Ids of presses on this card that its handler has acted on (up to 100); see [Actions](#actions). |
 | `detail` | More to show when the card is opened; see [Opening a card](#opening-a-card). |
 | `data` | Depends on the type, below. |
 
@@ -392,7 +393,9 @@ Taking a press back is another press, appended to the same log, so every record 
 
 The press log is never a second source of the item's state: a press only marks the gap until the owner of the item writes the card again, and after that a row's box follows the card's `checked`.
 
-The button shows the press as pending until the card file is written again (for a command board, until the command has handled it and the board was read afresh), then done (a step is done once recorded, since sending it is the whole job). If nothing rewrites the card within `actionTimeoutSeconds`, it says nothing picked the press up. So a handler should rewrite the card when it has acted, even if only `updatedAt` changes.
+The button shows the press as pending until whoever handles it acknowledges it, then done (a step is done once recorded, since sending it is the whole job). On a board from a [command](#boards-from-a-command) the command's answer to `press` is the acknowledgement. On a board of files, the handler lists the press in the card it writes when it has acted: `"handled": ["<press>"]`. The plugin reads that list only to settle presses, a card's content version leaves it out, and once it has seen a press there the press stays done even after the card is written without it, so the handler only needs it on its next write. Rewriting a card without naming the press is not an answer: a producer that refreshes the card on a timer doesn't settle presses it never saw. If nothing answers within `actionTimeoutSeconds`, the button says nothing picked the press up; an answer that comes later still settles it.
+
+Each answer is appended to the action log after the press, `{ "ack": "<press>", "state": "done" | "unhandled", "reason"?, "at", "source" }`, so a restart keeps it.
 
 The buttons come from [`@soffits/dsh-plugin-sdk`](https://github.com/soffits/dsh-plugin-sdk) (DSH 0.2.2-rc.1 or later); without it the board has no buttons. A chat button opens a new conversation with the card or row attached to the message box as a small card, and the person writes beside it; a chat button's words ("Ask", "Chat about this") and the done and snooze buttons' words come from that plugin, in the person's language. On a phone the buttons are at least 40 px, and a snooze picker opens as a sheet at the bottom of the screen.
 

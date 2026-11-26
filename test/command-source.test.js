@@ -205,10 +205,8 @@ describe('a board command', () => {
     await save({ cards: { home: { a: stat('A') } }, afterPress: { a: stat('A done') }, failPress: false })
     const source = make()
     await source.card('home', 'a')
-    const handledAt = await source.press('home', { action: 'done', id: 'a:done', source: { board: 'home', card: 'a' } })
-    assert.equal(typeof handledAt, 'number')
+    await source.press('home', { action: 'done', id: 'a:done', source: { board: 'home', card: 'a' } })
     assert.equal((await source.card('home', 'a')).title, 'A done')
-    assert.ok((await source.writtenAt('home')) >= handledAt)
     assert.match((await readFile(join(dir, 'presses.log'), 'utf8')).trim().split('\n').pop(), /"id":"a:done"/)
     await save({ failPress: true })
     await assert.rejects(source.press('home', { action: 'done', id: 'x' }), /cannot do that/)
@@ -244,7 +242,7 @@ describe('boards from a command in the routes', () => {
       const text = await response.text()
       return { status: response.status, body: text ? JSON.parse(text) : null }
     }
-    return { call, callState, source }
+    return { call, callState, source, folder }
   }
 
   it('shows a person the boards they may see, from both kinds, the command’s first', async () => {
@@ -289,9 +287,9 @@ describe('boards from a command in the routes', () => {
     owner.source.close()
   })
 
-  it('hands a press to the command: pending, then done once the board was read after it', async () => {
+  it('hands a press to the command: pending, then done once the command answered, and logs that answer', async () => {
     await save({ cards: { home: { a: stat('A', { actions: [{ kind: 'done', id: 'a:done' }] }) } }, afterPress: { a: stat('A', { actions: [{ kind: 'done', id: 'a:done' }], title2: undefined }) } })
-    const { call, source } = await setup()
+    const { call, source, folder } = await setup()
     await call('/api/card-board/board?id=home')
     const pressed = await call('/api/card-board/action', { board: 'home', card: 'a', id: 'a:done' })
     assert.equal(pressed.status, 200)
@@ -304,12 +302,15 @@ describe('boards from a command in the routes', () => {
     assert.equal(state, 'done')
     const logged = (await readFile(join(dir, 'presses.log'), 'utf8')).trim().split('\n').pop()
     assert.equal(JSON.parse(logged).person, 'robin')
+    const records = (await readFile(join(folder, '.actions.jsonl'), 'utf8')).trim().split('\n').map(line => JSON.parse(line))
+    assert.deepEqual(records.map(r => r.ack === undefined ? 'press' : r.state), ['press', 'done'])
+    assert.equal(records[1].ack, pressed.body.press)
     source.close()
   })
 
   it('shows a press its command refused as not handled, and tells the page', async () => {
     await save({ cards: { home: { a: stat('A', { actions: [{ kind: 'done', id: 'a:done' }] }) } }, failPress: true })
-    const { call, source } = await setup()
+    const { call, source, folder } = await setup()
     await call('/api/card-board/board?id=home')
     await call('/api/card-board/action', { board: 'home', card: 'a', id: 'a:done' })
     let state
@@ -319,6 +320,9 @@ describe('boards from a command in the routes', () => {
       if (state === 'unhandled') break
     }
     assert.equal(state, 'unhandled')
+    const ack = JSON.parse((await readFile(join(folder, '.actions.jsonl'), 'utf8')).trim().split('\n').pop())
+    assert.equal(ack.state, 'unhandled')
+    assert.match(ack.reason, /cannot do that/)
     await save({ failPress: false })
     source.close()
   })
